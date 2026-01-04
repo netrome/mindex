@@ -2,7 +2,6 @@
 
 ## Now (only one item should be worked on)
 
-- [ ] Render relative .md links as /doc/ links
 
 ## Next
 
@@ -56,3 +55,5 @@
   - List all `.md` files recursively
   - Display paths as links
   - Prevent path traversal
+
+- [x] Render relative .md links as /doc/ links

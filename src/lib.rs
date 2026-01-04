@@ -5,7 +5,7 @@ use axum::{
     response::Html,
     routing::get,
 };
-use pulldown_cmark::{Parser, html};
+use pulldown_cmark::{Event, Parser, Tag, html};
 use std::{
     io::ErrorKind,
     net::SocketAddr,
@@ -179,7 +179,7 @@ fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
 
 fn render_markdown_document(doc_id: &str, contents: &str) -> String {
     let mut body = String::new();
-    let parser = Parser::new(contents);
+    let parser = Parser::new(contents).map(|event| rewrite_relative_md_links(event, doc_id));
     html::push_html(&mut body, parser);
 
     let title = escape_html(doc_id);
@@ -194,6 +194,100 @@ fn render_markdown_document(doc_id: &str, contents: &str) -> String {
     html.push_str(&body);
     html.push_str("\n</body>\n</html>\n");
     html
+}
+
+fn rewrite_relative_md_links<'a>(event: Event<'a>, doc_id: &str) -> Event<'a> {
+    match event {
+        Event::Start(Tag::Link {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) => {
+            if let Some(new_dest) = rewrite_relative_md_link(doc_id, dest_url.as_ref()) {
+                Event::Start(Tag::Link {
+                    link_type,
+                    dest_url: new_dest.into(),
+                    title,
+                    id,
+                })
+            } else {
+                Event::Start(Tag::Link {
+                    link_type,
+                    dest_url,
+                    title,
+                    id,
+                })
+            }
+        }
+        _ => event,
+    }
+}
+
+fn rewrite_relative_md_link(doc_id: &str, dest_url: &str) -> Option<String> {
+    let (path_part, fragment) = split_link_fragment(dest_url);
+    if path_part.is_empty() || is_absolute_or_scheme(path_part) || !path_part.ends_with(".md") {
+        return None;
+    }
+
+    let resolved = resolve_relative_doc_id(doc_id, path_part)?;
+    if doc_id_to_path(&resolved).is_none() {
+        return None;
+    }
+
+    let mut new_dest = String::from("/doc/");
+    new_dest.push_str(&resolved);
+    if let Some(fragment) = fragment {
+        new_dest.push('#');
+        new_dest.push_str(fragment);
+    }
+    Some(new_dest)
+}
+
+fn split_link_fragment(dest_url: &str) -> (&str, Option<&str>) {
+    match dest_url.split_once('#') {
+        Some((path, fragment)) => (path, Some(fragment)),
+        None => (dest_url, None),
+    }
+}
+
+fn is_absolute_or_scheme(path: &str) -> bool {
+    if path.starts_with('/') || path.contains("://") {
+        return true;
+    }
+    if let Some(colon) = path.find(':') {
+        let slash = path.find('/');
+        if slash.map_or(true, |slash| colon < slash) {
+            return true;
+        }
+    }
+    false
+}
+
+fn resolve_relative_doc_id(doc_id: &str, dest_path: &str) -> Option<String> {
+    let mut parts: Vec<&str> = doc_id.split('/').collect();
+    if parts.is_empty() {
+        return None;
+    }
+    parts.pop();
+
+    for part in dest_path.split('/') {
+        match part {
+            "" => return None,
+            "." => {}
+            ".." => {
+                if parts.pop().is_none() {
+                    return None;
+                }
+            }
+            _ => parts.push(part),
+        }
+    }
+
+    if parts.is_empty() {
+        return None;
+    }
+    Some(parts.join("/"))
 }
 
 fn escape_html(input: &str) -> String {
@@ -254,6 +348,27 @@ mod tests {
         let html = render_document_list(&doc_ids);
         assert!(html.contains(r#"<a href="/doc/notes/a.md">notes/a.md</a>"#));
         assert!(html.contains(r#"<a href="/doc/b.md">b.md</a>"#));
+    }
+
+    #[test]
+    fn render_markdown_document__should_rewrite_relative_md_links() {
+        let markdown = "\
+[B](b.md)
+[Up](../c.md)
+[Dot](./d.md)
+[Frag](b.md#section)
+[Abs](https://example.com/a.md)
+[Root](/notes/e.md)
+[Other](f.txt)
+";
+        let html = render_markdown_document("notes/a.md", markdown);
+        assert!(html.contains(r#"href="/doc/notes/b.md""#));
+        assert!(html.contains(r#"href="/doc/c.md""#));
+        assert!(html.contains(r#"href="/doc/notes/d.md""#));
+        assert!(html.contains(r#"href="/doc/notes/b.md#section""#));
+        assert!(html.contains(r#"href="https://example.com/a.md""#));
+        assert!(html.contains(r#"href="/notes/e.md""#));
+        assert!(html.contains(r#"href="f.txt""#));
     }
 
     #[tokio::test]
