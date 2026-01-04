@@ -2,7 +2,12 @@
 
 ## Now (only one item should be worked on)
 
+- [ ] Render relative .md links as /doc/ links
+
 ## Next
+
+- [ ] Enhance sample markdown content
+  - Add lists, tables, links and other markdown examples
 
 - [ ] Edit document
   - GET shows textarea with current contents
