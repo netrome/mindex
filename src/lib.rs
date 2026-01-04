@@ -1,5 +1,13 @@
-use axum::{Router, extract::State, http::StatusCode, response::Html, routing::get};
+use axum::{
+    Router,
+    extract::{Path as AxumPath, State},
+    http::StatusCode,
+    response::Html,
+    routing::get,
+};
+use pulldown_cmark::{Parser, html};
 use std::{
+    io::ErrorKind,
     net::SocketAddr,
     path::{Component, Path, PathBuf},
 };
@@ -13,6 +21,7 @@ pub fn app(root: PathBuf) -> Router {
     let state = AppState { root };
     Router::new()
         .route("/", get(list_documents))
+        .route("/doc/{*path}", get(view_document))
         .route("/health", get(health))
         .with_state(state)
 }
@@ -45,6 +54,21 @@ async fn list_documents(
     doc_ids.sort();
 
     Ok(Html(render_document_list(&doc_ids)))
+}
+
+async fn view_document(
+    State(state): State<AppState>,
+    AxumPath(doc_id): AxumPath<String>,
+) -> Result<Html<String>, (StatusCode, &'static str)> {
+    let contents = load_document(&state.root, &doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    Ok(Html(render_markdown_document(&doc_id, &contents)))
 }
 
 fn collect_markdown_paths(root: &Path) -> std::io::Result<Vec<PathBuf>> {
@@ -114,6 +138,86 @@ fn render_document_list(doc_ids: &[String]) -> String {
     html
 }
 
+fn load_document(root: &Path, doc_id: &str) -> Result<String, DocError> {
+    let path = resolve_doc_path(root, doc_id)?;
+    std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => DocError::NotFound,
+        _ => DocError::Io(err),
+    })
+}
+
+fn resolve_doc_path(root: &Path, doc_id: &str) -> Result<PathBuf, DocError> {
+    let doc_path = doc_id_to_path(doc_id).ok_or(DocError::BadPath)?;
+    let joined = root.join(doc_path);
+    let resolved = match std::fs::canonicalize(&joined) {
+        Ok(path) => path,
+        Err(err) if err.kind() == ErrorKind::NotFound => return Err(DocError::NotFound),
+        Err(err) => return Err(DocError::Io(err)),
+    };
+    if !resolved.starts_with(root) {
+        return Err(DocError::NotFound);
+    }
+    Ok(resolved)
+}
+
+fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
+    if doc_id.is_empty() {
+        return None;
+    }
+    let path = Path::new(doc_id);
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => {}
+            _ => return None,
+        }
+    }
+    if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+        return None;
+    }
+    Some(path.to_path_buf())
+}
+
+fn render_markdown_document(doc_id: &str, contents: &str) -> String {
+    let mut body = String::new();
+    let parser = Parser::new(contents);
+    html::push_html(&mut body, parser);
+
+    let title = escape_html(doc_id);
+    let mut html =
+        String::from("<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>");
+    html.push_str(&title);
+    html.push_str(" - Mindex</title>\n</head>\n<body>\n");
+    html.push_str("<p><a href=\"/\">Back</a></p>\n");
+    html.push_str("<h1>");
+    html.push_str(&title);
+    html.push_str("</h1>\n");
+    html.push_str(&body);
+    html.push_str("\n</body>\n</html>\n");
+    html
+}
+
+fn escape_html(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len());
+    for ch in input.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+#[derive(Debug)]
+enum DocError {
+    BadPath,
+    NotFound,
+    Io(std::io::Error),
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -150,6 +254,24 @@ mod tests {
         let html = render_document_list(&doc_ids);
         assert!(html.contains(r#"<a href="/doc/notes/a.md">notes/a.md</a>"#));
         assert!(html.contains(r#"<a href="/doc/b.md">b.md</a>"#));
+    }
+
+    #[tokio::test]
+    async fn view_document__should_return_not_found_for_missing_doc() {
+        let root = create_temp_root("missing-doc");
+        let response = app(root.clone())
+            .oneshot(
+                Request::builder()
+                    .uri("/doc/missing.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[test]

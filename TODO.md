@@ -4,10 +4,6 @@
 
 ## Next
 
-- [ ] Render markdown document
-  - Convert markdown → HTML
-  - Safe handling of missing files
-
 - [ ] Edit document
   - GET shows textarea with current contents
   - POST saves atomically
@@ -37,6 +33,10 @@
 - AI-assisted editing
 
 ## Done
+
+- [x] Render markdown document
+  - Convert markdown → HTML
+  - Safe handling of missing files
 
 - [x] Project skeleton
   - Goal: minimal runnable server
