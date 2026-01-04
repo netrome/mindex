@@ -2,21 +2,7 @@
 
 ## Now (only one item should be worked on)
 
-- [x] Project skeleton
-  - Goal: minimal runnable server
-  - Acceptance criteria:
-    - `cargo run` starts a server
-    - `GET /health` returns HTTP 200 and plain text `ok`
-  - Out of scope:
-    - no markdown rendering
-    - no filesystem access
-
 ## Next
-
-- [ ] Configure root directory and list documents
-  - List all `.md` files recursively
-  - Display paths as links
-  - Prevent path traversal
 
 - [ ] Render markdown document
   - Convert markdown → HTML
@@ -49,3 +35,19 @@
 - Wiki-style links
 - Git integration
 - AI-assisted editing
+
+## Done
+
+- [x] Project skeleton
+  - Goal: minimal runnable server
+  - Acceptance criteria:
+    - `cargo run` starts a server
+    - `GET /health` returns HTTP 200 and plain text `ok`
+  - Out of scope:
+    - no markdown rendering
+    - no filesystem access
+
+- [x] Configure root directory and list documents
+  - List all `.md` files recursively
+  - Display paths as links
+  - Prevent path traversal
