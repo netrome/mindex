@@ -2,7 +2,6 @@
 
 ## Now (only one item should be worked on)
 
-
 ## Next
 
 - [ ] Edit document
@@ -57,3 +56,5 @@
 
 - [x] Enhance sample markdown content
   - Add lists, tables, links and other markdown examples
+
+- [x] Render markdown tables

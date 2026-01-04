@@ -5,7 +5,7 @@ use axum::{
     response::Html,
     routing::get,
 };
-use pulldown_cmark::{Event, Parser, Tag, html};
+use pulldown_cmark::{Event, Options, Parser, Tag, html};
 use std::{
     io::ErrorKind,
     net::SocketAddr,
@@ -179,7 +179,10 @@ fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
 
 fn render_markdown_document(doc_id: &str, contents: &str) -> String {
     let mut body = String::new();
-    let parser = Parser::new(contents).map(|event| rewrite_relative_md_links(event, doc_id));
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    let parser =
+        Parser::new_ext(contents, options).map(|event| rewrite_relative_md_links(event, doc_id));
     html::push_html(&mut body, parser);
 
     let title = escape_html(doc_id);
@@ -369,6 +372,21 @@ mod tests {
         assert!(html.contains(r#"href="https://example.com/a.md""#));
         assert!(html.contains(r#"href="/notes/e.md""#));
         assert!(html.contains(r#"href="f.txt""#));
+    }
+
+    #[test]
+    fn render_markdown_document__should_render_tables() {
+        let markdown = "\
+| A | B |
+| --- | --- |
+| 1 | 2 |
+";
+        let html = render_markdown_document("table.md", markdown);
+        assert!(html.contains("<table>"));
+        assert!(html.contains("<thead>"));
+        assert!(html.contains("<tbody>"));
+        assert!(html.contains("<td>1</td>"));
+        assert!(html.contains("<td>2</td>"));
     }
 
     #[tokio::test]
