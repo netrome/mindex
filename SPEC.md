@@ -37,8 +37,10 @@ The MVP must support:
 
 - A single configured root directory (e.g. `/srv/kb`)
 - All documents are `.md` files
-- The **document ID** is the normalized relative path from the root directory
+- The **document ID** is the relative path from the root directory
 - Directories may be nested arbitrarily
+- For MVP: document names are assumed to be plain ASCII without special characters
+- For MVP: no special normalization of document IDs beyond rejecting traversal
 
 Example document IDs:
 - `inbox.md`
@@ -69,10 +71,17 @@ Exact shapes may evolve slightly, but scope must remain minimal.
 ## Editing Semantics
 
 - Edits overwrite the full file contents
-- Writes must be atomic:
-  - write to temp file
-  - fsync
-  - rename
+- For MVP, favor the simplest correct write flow; atomic writes are optional
+  - If using atomic writes, temp file + rename is sufficient (no directory fsync required)
+
+## Rendering Semantics (MVP)
+
+- Raw HTML in markdown is allowed (no sanitization)
+
+## Filesystem Safety (MVP)
+
+- Prevent path traversal (never read or write outside the root directory)
+- Symlinks are ignored for simplicity; if followed, they must resolve within the root
 
 ## Deployment Assumptions
 
