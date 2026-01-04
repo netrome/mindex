@@ -5,9 +5,6 @@
 
 ## Next
 
-- [ ] Enhance sample markdown content
-  - Add lists, tables, links and other markdown examples
-
 - [ ] Edit document
   - GET shows textarea with current contents
   - POST saves atomically
@@ -57,3 +54,6 @@
   - Prevent path traversal
 
 - [x] Render relative .md links as /doc/ links
+
+- [x] Enhance sample markdown content
+  - Add lists, tables, links and other markdown examples
