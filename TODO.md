@@ -2,7 +2,7 @@
 
 ## Now (only one item should be worked on)
 
-- [ ] Project skeleton
+- [x] Project skeleton
   - Goal: minimal runnable server
   - Acceptance criteria:
     - `cargo run` starts a server
