@@ -55,6 +55,8 @@ struct SearchTemplate {
 
 const CSS_CONTENT: &str = include_str!("../static/style.css");
 const THEME_JS_CONTENT: &str = include_str!("../static/theme.js");
+const MANIFEST_CONTENT: &str = include_str!("../static/manifest.json");
+const SW_CONTENT: &str = include_str!("../static/sw.js");
 
 pub fn app(root: PathBuf) -> Router {
     let state = AppState { root };
@@ -65,6 +67,10 @@ pub fn app(root: PathBuf) -> Router {
         .route("/doc/{*path}", get(document_view))
         .route("/static/style.css", get(stylesheet))
         .route("/static/theme.js", get(theme_script))
+        .route("/static/manifest.json", get(manifest))
+        .route("/static/sw.js", get(service_worker))
+        .route("/static/icons/icon-192.png", get(icon_192))
+        .route("/static/icons/icon-512.png", get(icon_512))
         .route("/health", get(health))
         .with_state(state)
 }
@@ -97,6 +103,50 @@ async fn theme_script() -> axum::response::Response {
         .header("content-type", "application/javascript")
         .header("cache-control", "public, max-age=3600")
         .body(THEME_JS_CONTENT.into())
+        .unwrap()
+}
+
+async fn manifest() -> axum::response::Response {
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/manifest+json")
+        .header("cache-control", "public, max-age=3600")
+        .body(MANIFEST_CONTENT.into())
+        .unwrap()
+}
+
+async fn service_worker() -> axum::response::Response {
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "no-cache")
+        .body(SW_CONTENT.into())
+        .unwrap()
+}
+
+async fn icon_192() -> axum::response::Response {
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "image/png")
+        .header("cache-control", "public, max-age=86400")
+        .body(
+            include_bytes!("../static/icons/icon-192.png")
+                .as_slice()
+                .into(),
+        )
+        .unwrap()
+}
+
+async fn icon_512() -> axum::response::Response {
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "image/png")
+        .header("cache-control", "public, max-age=86400")
+        .body(
+            include_bytes!("../static/icons/icon-512.png")
+                .as_slice()
+                .into(),
+        )
         .unwrap()
 }
 

@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#1e40af"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+
+  <!-- Document icon -->
+  <g transform="translate(128, 80)">
+    <!-- Main document body -->
+    <rect x="0" y="40" width="200" height="280" rx="8" fill="white" opacity="0.95"/>
+
+    <!-- Folded corner -->
+    <polygon points="200,40 200,80 240,80" fill="white" opacity="0.7"/>
+    <polygon points="200,40 240,40 240,80" fill="white" opacity="0.85"/>
+
+    <!-- Text lines -->
+    <rect x="24" y="80" width="152" height="8" rx="4" fill="#2563eb" opacity="0.3"/>
+    <rect x="24" y="104" width="120" height="8" rx="4" fill="#2563eb" opacity="0.3"/>
+    <rect x="24" y="128" width="136" height="8" rx="4" fill="#2563eb" opacity="0.3"/>
+    <rect x="24" y="152" width="104" height="8" rx="4" fill="#2563eb" opacity="0.3"/>
+
+    <!-- Markdown symbol (hash) -->
+    <text x="24" y="200" font-family="monospace" font-size="32" font-weight="bold" fill="#2563eb" opacity="0.6">#</text>
+
+    <!-- More text lines -->
+    <rect x="56" y="184" width="120" height="8" rx="4" fill="#2563eb" opacity="0.3"/>
+    <rect x="24" y="224" width="152" height="8" rx="4" fill="#2563eb" opacity="0.3"/>
+    <rect x="24" y="248" width="88" height="8" rx="4" fill="#2563eb" opacity="0.3"/>
+  </g>
+
+  <!-- Subtle index/search symbol in corner -->
+  <circle cx="400" cy="400" r="32" fill="white" opacity="0.2"/>
+  <circle cx="400" cy="400" r="20" fill="none" stroke="white" stroke-width="4" opacity="0.6"/>
+  <line x1="416" y1="416" x2="432" y2="432" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+</svg>

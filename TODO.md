@@ -22,6 +22,9 @@
 
 ## Done
 
+- [x] PWA support
+  - Add the minimal necessary things to support turn this into an PWA.
+
 - [x] Dark mode
   - Use dark/light mode from system preferences.
   - Add button to toggle dark/light mode.
