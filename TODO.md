@@ -4,6 +4,10 @@
 
 ## Next
 
+- [ ] Dark mode
+  - Use dark/light mode from system preferences.
+  - Add button to toggle dark/light mode.
+
 ## Later
 
 - [ ] Recently opened documents
