@@ -113,16 +113,13 @@ async fn save_document(
         return Err((StatusCode::NOT_FOUND, "not found"));
     }
 
-    atomic_write(&path, &form.contents).map_err(|err| {
+    let normalized = normalize_newlines(&form.contents);
+    atomic_write(&path, &normalized).map_err(|err| {
         eprintln!("failed to save document {doc_id}: {err}");
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
     })?;
 
-    Ok(Html(render_edit_form(
-        &doc_id,
-        &form.contents,
-        Some("Saved."),
-    )))
+    Ok(Html(render_edit_form(&doc_id, &normalized, Some("Saved."))))
 }
 
 fn collect_markdown_paths(root: &Path) -> std::io::Result<Vec<PathBuf>> {
@@ -436,6 +433,14 @@ fn atomic_write(path: &Path, contents: &str) -> std::io::Result<()> {
     ))
 }
 
+fn normalize_newlines(contents: &str) -> String {
+    if !contents.contains('\r') {
+        return contents.to_string();
+    }
+    let normalized = contents.replace("\r\n", "\n");
+    normalized.replace('\r', "\n")
+}
+
 #[derive(Debug)]
 enum DocError {
     BadPath,
@@ -515,6 +520,26 @@ mod tests {
         assert!(html.contains("<tbody>"));
         assert!(html.contains("<td>1</td>"));
         assert!(html.contains("<td>2</td>"));
+    }
+
+    #[test]
+    fn render_edit_form__should_include_action_and_contents() {
+        let html = render_edit_form("notes/food.md", "Line 1\nLine 2", None);
+        assert!(html.contains(r#"action="/edit/notes/food.md""#));
+        assert!(html.contains(r#"name="contents""#));
+        assert!(html.contains("Line 1\nLine 2"));
+    }
+
+    #[test]
+    fn render_edit_form__should_include_notice_when_present() {
+        let html = render_edit_form("notes/food.md", "Body", Some("Saved."));
+        assert!(html.contains("Saved."));
+    }
+
+    #[test]
+    fn normalize_newlines__should_convert_crlf_to_lf() {
+        let normalized = normalize_newlines("a\r\nb\rc");
+        assert_eq!(normalized, "a\nb\nc");
     }
 
     #[tokio::test]
