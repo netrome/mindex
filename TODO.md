@@ -4,10 +4,6 @@
 
 ## Next
 
-- [ ] Dark mode
-  - Use dark/light mode from system preferences.
-  - Add button to toggle dark/light mode.
-
 ## Later
 
 - [ ] Recently opened documents
@@ -25,6 +21,10 @@
 - AI-assisted editing
 
 ## Done
+
+- [x] Dark mode
+  - Use dark/light mode from system preferences.
+  - Add button to toggle dark/light mode.
 
 - [x] Full-text search
   - Simple implementation acceptable (e.g. ripgrep)

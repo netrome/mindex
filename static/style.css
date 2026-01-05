@@ -1,28 +1,130 @@
+:root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --text: #333333;
+    --heading: #2c3e50;
+    --heading-muted: #34495e;
+    --link: #3498db;
+    --link-hover: #2980b9;
+    --nav-border: #eeeeee;
+    --border: #dddddd;
+    --input-bg: #ffffff;
+    --snippet: #555555;
+    --notice-bg: #d4edda;
+    --notice-border: #c3e6cb;
+    --notice-text: #155724;
+    --table-header: #f8f9fa;
+    --table-row: #f8f9fa;
+    --code-bg: #f8f9fa;
+    --blockquote-bg: #f8f9fa;
+    --blockquote-border: #3498db;
+    --button-bg: #3498db;
+    --button-hover: #2980b9;
+    --button-text: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+        --bg: #0f1115;
+        --text: #e3e6ea;
+        --heading: #e6edf3;
+        --heading-muted: #c7d0d9;
+        --link: #7fb9ff;
+        --link-hover: #a7cfff;
+        --nav-border: #2a2f36;
+        --border: #2a2f36;
+        --input-bg: #151a1f;
+        --snippet: #a9b1ba;
+        --notice-bg: #1e2a21;
+        --notice-border: #2f5038;
+        --notice-text: #b8f2c2;
+        --table-header: #1a1f24;
+        --table-row: #151a1f;
+        --code-bg: #1a1f24;
+        --blockquote-bg: #1a1f24;
+        --blockquote-border: #7fb9ff;
+        --button-bg: #2d6cdf;
+        --button-hover: #2559b8;
+        --button-text: #f5f8ff;
+    }
+}
+
+[data-theme="light"] {
+    color-scheme: light;
+    --bg: #ffffff;
+    --text: #333333;
+    --heading: #2c3e50;
+    --heading-muted: #34495e;
+    --link: #3498db;
+    --link-hover: #2980b9;
+    --nav-border: #eeeeee;
+    --border: #dddddd;
+    --input-bg: #ffffff;
+    --snippet: #555555;
+    --notice-bg: #d4edda;
+    --notice-border: #c3e6cb;
+    --notice-text: #155724;
+    --table-header: #f8f9fa;
+    --table-row: #f8f9fa;
+    --code-bg: #f8f9fa;
+    --blockquote-bg: #f8f9fa;
+    --blockquote-border: #3498db;
+    --button-bg: #3498db;
+    --button-hover: #2980b9;
+    --button-text: #ffffff;
+}
+
+[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1115;
+    --text: #e3e6ea;
+    --heading: #e6edf3;
+    --heading-muted: #c7d0d9;
+    --link: #7fb9ff;
+    --link-hover: #a7cfff;
+    --nav-border: #2a2f36;
+    --border: #2a2f36;
+    --input-bg: #151a1f;
+    --snippet: #a9b1ba;
+    --notice-bg: #1e2a21;
+    --notice-border: #2f5038;
+    --notice-text: #b8f2c2;
+    --table-header: #1a1f24;
+    --table-row: #151a1f;
+    --code-bg: #1a1f24;
+    --blockquote-bg: #1a1f24;
+    --blockquote-border: #7fb9ff;
+    --button-bg: #2d6cdf;
+    --button-hover: #2559b8;
+    --button-text: #f5f8ff;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.6;
-    color: #333;
+    color: var(--text);
     max-width: 800px;
     margin: 0 auto;
     padding: 1rem;
-    background-color: #fff;
+    background-color: var(--bg);
 }
 
 h1 {
-    color: #2c3e50;
-    border-bottom: 2px solid #3498db;
+    color: var(--heading);
+    border-bottom: 2px solid var(--link);
     padding-bottom: 0.5rem;
     margin-bottom: 1.5rem;
 }
 
 h2, h3, h4, h5, h6 {
-    color: #34495e;
+    color: var(--heading-muted);
     margin-top: 1.5rem;
     margin-bottom: 0.5rem;
 }
 
 a {
-    color: #3498db;
+    color: var(--link);
     text-decoration: none;
 }
 
@@ -33,12 +135,27 @@ a:hover {
 .nav {
     margin-bottom: 1.5rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--nav-border);
 }
 
-.nav a {
+.nav a,
+.nav button {
     margin-right: 1rem;
     font-weight: 500;
+}
+
+.theme-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 0;
+    color: var(--link);
+    font: inherit;
+    cursor: pointer;
+}
+
+.theme-toggle:hover {
+    text-decoration: underline;
 }
 
 ul {
@@ -57,14 +174,16 @@ textarea {
     font-size: 14px;
     line-height: 1.4;
     padding: 1rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     border-radius: 4px;
     resize: vertical;
+    background-color: var(--input-bg);
+    color: var(--text);
 }
 
 button {
-    background-color: #3498db;
-    color: white;
+    background-color: var(--button-bg);
+    color: var(--button-text);
     padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 4px;
@@ -74,7 +193,7 @@ button {
 }
 
 button:hover {
-    background-color: #2980b9;
+    background-color: var(--button-hover);
 }
 
 .search-form {
@@ -88,21 +207,23 @@ button:hover {
     flex: 1;
     min-width: 200px;
     padding: 0.6rem 0.75rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     border-radius: 4px;
     font-size: 16px;
+    background-color: var(--input-bg);
+    color: var(--text);
 }
 
 .snippet {
-    color: #555;
+    color: var(--snippet);
     font-size: 0.95em;
     margin-top: 0.25rem;
 }
 
 .notice {
-    background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
+    background-color: var(--notice-bg);
+    border: 1px solid var(--notice-border);
+    color: var(--notice-text);
     padding: 0.75rem;
     border-radius: 4px;
     margin-bottom: 1rem;
@@ -115,22 +236,22 @@ table {
 }
 
 th, td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     padding: 0.75rem;
     text-align: left;
 }
 
 th {
-    background-color: #f8f9fa;
+    background-color: var(--table-header);
     font-weight: 600;
 }
 
 tr:nth-child(even) {
-    background-color: #f8f9fa;
+    background-color: var(--table-row);
 }
 
 code {
-    background-color: #f8f9fa;
+    background-color: var(--code-bg);
     padding: 0.2rem 0.4rem;
     border-radius: 3px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
@@ -138,7 +259,7 @@ code {
 }
 
 pre {
-    background-color: #f8f9fa;
+    background-color: var(--code-bg);
     padding: 1rem;
     border-radius: 4px;
     overflow-x: auto;
@@ -152,8 +273,8 @@ pre code {
 blockquote {
     margin: 1rem 0;
     padding: 0.5rem 1rem;
-    border-left: 4px solid #3498db;
-    background-color: #f8f9fa;
+    border-left: 4px solid var(--blockquote-border);
+    background-color: var(--blockquote-bg);
 }
 
 /* Mobile responsiveness */

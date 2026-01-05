@@ -54,6 +54,7 @@ struct SearchTemplate {
 }
 
 const CSS_CONTENT: &str = include_str!("../static/style.css");
+const THEME_JS_CONTENT: &str = include_str!("../static/theme.js");
 
 pub fn app(root: PathBuf) -> Router {
     let state = AppState { root };
@@ -63,6 +64,7 @@ pub fn app(root: PathBuf) -> Router {
         .route("/edit/{*path}", get(document_edit).post(document_save))
         .route("/doc/{*path}", get(document_view))
         .route("/static/style.css", get(stylesheet))
+        .route("/static/theme.js", get(theme_script))
         .route("/health", get(health))
         .with_state(state)
 }
@@ -86,6 +88,15 @@ async fn stylesheet() -> axum::response::Response {
         .header("content-type", "text/css")
         .header("cache-control", "public, max-age=3600")
         .body(CSS_CONTENT.into())
+        .unwrap()
+}
+
+async fn theme_script() -> axum::response::Response {
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(THEME_JS_CONTENT.into())
         .unwrap()
 }
 
