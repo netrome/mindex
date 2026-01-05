@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Mindex{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Documents</a>
+</div>
+
+<h1>Documents</h1>
+
+{% if documents.is_empty() %}
+    <p>No documents found.</p>
+{% else %}
+    <ul>
+    {% for doc_id in documents %}
+        <li><a href="/doc/{{ doc_id }}">{{ doc_id }}</a></li>
+    {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}

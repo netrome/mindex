@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}{{ doc_id }} - Mindex{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Back</a>
+    <a href="/edit/{{ doc_id }}">Edit</a>
+</div>
+
+<h1>{{ doc_id }}</h1>
+
+{{ content|safe }}
+{% endblock %}

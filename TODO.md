@@ -8,10 +8,6 @@
   - Simple implementation acceptable (e.g. ripgrep)
   - Return matching paths + snippets
 
-- [ ] Basic mobile-friendly layout
-  - Responsive CSS
-  - No JS frameworks
-
 ## Later
 
 - [ ] Recently opened documents
@@ -58,3 +54,8 @@
 - [x] Edit document
   - GET shows textarea with current contents
   - POST saves atomically
+
+- [x] Basic mobile-friendly layout
+  - Responsive CSS
+  - No JS frameworks
+  - Askama templating for maintainable HTML

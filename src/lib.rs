@@ -1,8 +1,9 @@
+use askama::Template;
+use askama_web::WebTemplate;
 use axum::{
     Router,
     extract::{Form, Path as AxumPath, State},
     http::StatusCode,
-    response::Html,
     routing::get,
 };
 use pulldown_cmark::{Event, Options, Parser, Tag, html};
@@ -19,12 +20,36 @@ struct AppState {
     root: PathBuf,
 }
 
+#[derive(Template, WebTemplate)]
+#[template(path = "document_list.html")]
+struct DocumentListTemplate {
+    documents: Vec<String>,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "document.html")]
+struct DocumentTemplate {
+    doc_id: String,
+    content: String,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "edit.html")]
+struct EditTemplate {
+    doc_id: String,
+    contents: String,
+    notice: String,
+}
+
+const CSS_CONTENT: &str = include_str!("../static/style.css");
+
 pub fn app(root: PathBuf) -> Router {
     let state = AppState { root };
     Router::new()
         .route("/", get(list_documents))
         .route("/edit/{*path}", get(edit_document_form).post(save_document))
         .route("/doc/{*path}", get(view_document))
+        .route("/static/style.css", get(serve_css))
         .route("/health", get(health))
         .with_state(state)
 }
@@ -42,9 +67,18 @@ async fn health() -> &'static str {
     "ok"
 }
 
+async fn serve_css() -> axum::response::Response {
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "text/css")
+        .header("cache-control", "public, max-age=3600")
+        .body(CSS_CONTENT.into())
+        .unwrap()
+}
+
 async fn list_documents(
     State(state): State<AppState>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<DocumentListTemplate, (StatusCode, &'static str)> {
     let paths = collect_markdown_paths(&state.root).map_err(|err| {
         eprintln!("failed to list markdown files: {err}");
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -56,28 +90,38 @@ async fn list_documents(
         .collect();
     doc_ids.sort();
 
-    Ok(Html(render_document_list(&doc_ids)))
+    Ok(DocumentListTemplate { documents: doc_ids })
 }
 
 async fn view_document(
     State(state): State<AppState>,
     AxumPath(doc_id): AxumPath<String>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<DocumentTemplate, (StatusCode, &'static str)> {
     let contents = load_document(&state.root, &doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
-        DocError::Io(err) => {
-            eprintln!("failed to load document {doc_id}: {err}");
+        DocError::NotFound => (StatusCode::NOT_FOUND, "document not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err:?}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
         }
     })?;
 
-    Ok(Html(render_markdown_document(&doc_id, &contents)))
+    let mut body = String::new();
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    let parser =
+        Parser::new_ext(&contents, options).map(|event| rewrite_relative_md_links(event, &doc_id));
+    html::push_html(&mut body, parser);
+
+    Ok(DocumentTemplate {
+        doc_id,
+        content: body,
+    })
 }
 
 async fn edit_document_form(
     State(state): State<AppState>,
     AxumPath(doc_id): AxumPath<String>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<EditTemplate, (StatusCode, &'static str)> {
     let contents = load_document(&state.root, &doc_id).map_err(|err| match err {
         DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
         DocError::Io(err) => {
@@ -86,14 +130,18 @@ async fn edit_document_form(
         }
     })?;
 
-    Ok(Html(render_edit_form(&doc_id, &contents, None)))
+    Ok(EditTemplate {
+        doc_id,
+        contents,
+        notice: String::new(),
+    })
 }
 
 async fn save_document(
     State(state): State<AppState>,
     AxumPath(doc_id): AxumPath<String>,
     Form(form): Form<EditForm>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<EditTemplate, (StatusCode, &'static str)> {
     let path = resolve_doc_path(&state.root, &doc_id).map_err(|err| match err {
         DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
         DocError::Io(err) => {
@@ -119,7 +167,11 @@ async fn save_document(
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
     })?;
 
-    Ok(Html(render_edit_form(&doc_id, &normalized, Some("Saved."))))
+    Ok(EditTemplate {
+        doc_id,
+        contents: normalized,
+        notice: "Saved.".to_string(),
+    })
 }
 
 fn collect_markdown_paths(root: &Path) -> std::io::Result<Vec<PathBuf>> {
@@ -168,27 +220,6 @@ fn doc_id_from_path(root: &Path, path: &Path) -> Option<String> {
     Some(parts.join("/"))
 }
 
-fn render_document_list(doc_ids: &[String]) -> String {
-    let mut html = String::from(
-        "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Mindex</title>\n</head>\n<body>\n<h1>Documents</h1>\n",
-    );
-    if doc_ids.is_empty() {
-        html.push_str("<p>No documents found.</p>\n");
-    } else {
-        html.push_str("<ul>\n");
-        for doc_id in doc_ids {
-            html.push_str("  <li><a href=\"/doc/");
-            html.push_str(doc_id);
-            html.push_str("\">");
-            html.push_str(doc_id);
-            html.push_str("</a></li>\n");
-        }
-        html.push_str("</ul>\n");
-    }
-    html.push_str("</body>\n</html>\n");
-    html
-}
-
 fn load_document(root: &Path, doc_id: &str) -> Result<String, DocError> {
     let path = resolve_doc_path(root, doc_id)?;
     std::fs::read_to_string(&path).map_err(|err| match err.kind() {
@@ -228,58 +259,6 @@ fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
     Some(path.to_path_buf())
 }
 
-fn render_markdown_document(doc_id: &str, contents: &str) -> String {
-    let mut body = String::new();
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    let parser =
-        Parser::new_ext(contents, options).map(|event| rewrite_relative_md_links(event, doc_id));
-    html::push_html(&mut body, parser);
-
-    let title = escape_html(doc_id);
-    let mut html =
-        String::from("<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>");
-    html.push_str(&title);
-    html.push_str(" - Mindex</title>\n</head>\n<body>\n");
-    html.push_str("<p><a href=\"/\">Back</a></p>\n");
-    html.push_str("<h1>");
-    html.push_str(&title);
-    html.push_str("</h1>\n");
-    html.push_str(&body);
-    html.push_str("\n</body>\n</html>\n");
-    html
-}
-
-fn render_edit_form(doc_id: &str, contents: &str, notice: Option<&str>) -> String {
-    let title = escape_html(doc_id);
-    let escaped_contents = escape_html(contents);
-
-    let mut html =
-        String::from("<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>");
-    html.push_str(&title);
-    html.push_str(" - Edit</title>\n</head>\n<body>\n");
-    html.push_str("<p><a href=\"/\">Back</a> | <a href=\"/doc/");
-    html.push_str(&title);
-    html.push_str("\">View</a></p>\n");
-    html.push_str("<h1>Edit ");
-    html.push_str(&title);
-    html.push_str("</h1>\n");
-    if let Some(notice) = notice {
-        html.push_str("<p>");
-        html.push_str(&escape_html(notice));
-        html.push_str("</p>\n");
-    }
-    html.push_str("<form method=\"post\" action=\"/edit/");
-    html.push_str(&title);
-    html.push_str("\">\n");
-    html.push_str("<textarea name=\"contents\" rows=\"24\" cols=\"80\">");
-    html.push_str(&escaped_contents);
-    html.push_str("</textarea>\n");
-    html.push_str("<p><button type=\"submit\">Save</button></p>\n");
-    html.push_str("</form>\n</body>\n</html>\n");
-    html
-}
-
 fn rewrite_relative_md_links<'a>(event: Event<'a>, doc_id: &str) -> Event<'a> {
     match event {
         Event::Start(Tag::Link {
@@ -315,9 +294,7 @@ fn rewrite_relative_md_link(doc_id: &str, dest_url: &str) -> Option<String> {
     }
 
     let resolved = resolve_relative_doc_id(doc_id, path_part)?;
-    if doc_id_to_path(&resolved).is_none() {
-        return None;
-    }
+    doc_id_to_path(&resolved)?;
 
     let mut new_dest = String::from("/doc/");
     new_dest.push_str(&resolved);
@@ -341,7 +318,7 @@ fn is_absolute_or_scheme(path: &str) -> bool {
     }
     if let Some(colon) = path.find(':') {
         let slash = path.find('/');
-        if slash.map_or(true, |slash| colon < slash) {
+        if slash.is_none_or(|slash| colon < slash) {
             return true;
         }
     }
@@ -360,9 +337,7 @@ fn resolve_relative_doc_id(doc_id: &str, dest_path: &str) -> Option<String> {
             "" => return None,
             "." => {}
             ".." => {
-                if parts.pop().is_none() {
-                    return None;
-                }
+                parts.pop()?;
             }
             _ => parts.push(part),
         }
@@ -374,21 +349,6 @@ fn resolve_relative_doc_id(doc_id: &str, dest_path: &str) -> Option<String> {
     Some(parts.join("/"))
 }
 
-fn escape_html(input: &str) -> String {
-    let mut escaped = String::with_capacity(input.len());
-    for ch in input.chars() {
-        match ch {
-            '&' => escaped.push_str("&amp;"),
-            '<' => escaped.push_str("&lt;"),
-            '>' => escaped.push_str("&gt;"),
-            '"' => escaped.push_str("&quot;"),
-            '\'' => escaped.push_str("&#39;"),
-            _ => escaped.push(ch),
-        }
-    }
-    escaped
-}
-
 #[derive(Debug, Deserialize)]
 struct EditForm {
     contents: String,
@@ -397,7 +357,7 @@ struct EditForm {
 fn atomic_write(path: &Path, contents: &str) -> std::io::Result<()> {
     let parent = path
         .parent()
-        .ok_or_else(|| std::io::Error::new(ErrorKind::Other, "missing parent directory"))?;
+        .ok_or_else(|| std::io::Error::other("missing parent directory"))?;
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -481,7 +441,8 @@ mod tests {
     #[test]
     fn render_document_list__should_include_links() {
         let doc_ids = vec!["notes/a.md".to_string(), "b.md".to_string()];
-        let html = render_document_list(&doc_ids);
+        let template = DocumentListTemplate { documents: doc_ids };
+        let html = template.render().unwrap();
         assert!(html.contains(r#"<a href="/doc/notes/a.md">notes/a.md</a>"#));
         assert!(html.contains(r#"<a href="/doc/b.md">b.md</a>"#));
     }
@@ -497,7 +458,18 @@ mod tests {
 [Root](/notes/e.md)
 [Other](f.txt)
 ";
-        let html = render_markdown_document("notes/a.md", markdown);
+        let mut body = String::new();
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_TABLES);
+        let parser = Parser::new_ext(markdown, options)
+            .map(|event| rewrite_relative_md_links(event, "notes/a.md"));
+        html::push_html(&mut body, parser);
+
+        let template = DocumentTemplate {
+            doc_id: "notes/a.md".to_string(),
+            content: body,
+        };
+        let html = template.render().unwrap();
         assert!(html.contains(r#"href="/doc/notes/b.md""#));
         assert!(html.contains(r#"href="/doc/c.md""#));
         assert!(html.contains(r#"href="/doc/notes/d.md""#));
@@ -514,7 +486,18 @@ mod tests {
 | --- | --- |
 | 1 | 2 |
 ";
-        let html = render_markdown_document("table.md", markdown);
+        let mut body = String::new();
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_TABLES);
+        let parser = Parser::new_ext(markdown, options)
+            .map(|event| rewrite_relative_md_links(event, "table.md"));
+        html::push_html(&mut body, parser);
+
+        let template = DocumentTemplate {
+            doc_id: "table.md".to_string(),
+            content: body,
+        };
+        let html = template.render().unwrap();
         assert!(html.contains("<table>"));
         assert!(html.contains("<thead>"));
         assert!(html.contains("<tbody>"));
@@ -524,7 +507,12 @@ mod tests {
 
     #[test]
     fn render_edit_form__should_include_action_and_contents() {
-        let html = render_edit_form("notes/food.md", "Line 1\nLine 2", None);
+        let template = EditTemplate {
+            doc_id: "notes/food.md".to_string(),
+            contents: "Line 1\nLine 2".to_string(),
+            notice: String::new(),
+        };
+        let html = template.render().unwrap();
         assert!(html.contains(r#"action="/edit/notes/food.md""#));
         assert!(html.contains(r#"name="contents""#));
         assert!(html.contains("Line 1\nLine 2"));
@@ -532,7 +520,12 @@ mod tests {
 
     #[test]
     fn render_edit_form__should_include_notice_when_present() {
-        let html = render_edit_form("notes/food.md", "Body", Some("Saved."));
+        let template = EditTemplate {
+            doc_id: "notes/food.md".to_string(),
+            contents: "Body".to_string(),
+            notice: "Saved.".to_string(),
+        };
+        let html = template.render().unwrap();
         assert!(html.contains("Saved."));
     }
 

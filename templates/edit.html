@@ -1,0 +1,18 @@
+{% extends "base.html" %} {% block title %}Edit {{ doc_id }} - Mindex{% endblock
+%} {% block content %}
+<div class="nav">
+    <a href="/">Back</a>
+    <a href="/doc/{{ doc_id }}">View</a>
+</div>
+
+<h1>Edit {{ doc_id }}</h1>
+
+{% if !notice.is_empty() %}
+<div class="notice">{{ notice }}</div>
+{% endif %}
+
+<form method="post" action="/edit/{{ doc_id }}">
+    <textarea name="contents" rows="24" cols="80">{{ contents }}</textarea>
+    <p><button type="submit">Save</button></p>
+</form>
+{% endblock %}
