@@ -4,10 +4,6 @@
 
 ## Next
 
-- [ ] Full-text search
-  - Simple implementation acceptable (e.g. ripgrep)
-  - Return matching paths + snippets
-
 ## Later
 
 - [ ] Recently opened documents
@@ -25,6 +21,10 @@
 - AI-assisted editing
 
 ## Done
+
+- [x] Full-text search
+  - Simple implementation acceptable (e.g. ripgrep)
+  - Return matching paths + snippets
 
 - [x] Render markdown document
   - Convert markdown → HTML

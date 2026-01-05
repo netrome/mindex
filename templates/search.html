@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Search - Mindex{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Documents</a>
+</div>
+
+<h1>Search</h1>
+
+<form class="search-form" method="get" action="/search">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search..." />
+    <button type="submit">Search</button>
+</form>
+
+{% if query.is_empty() %}
+    <p>Enter a query to search your documents.</p>
+{% else %}
+    {% if results.is_empty() %}
+        <p>No matches found.</p>
+    {% else %}
+        <ul class="search-results">
+        {% for result in results %}
+            <li>
+                <a href="/doc/{{ result.doc_id }}">{{ result.doc_id }}</a>
+                <div class="snippet">{{ result.snippet }}</div>
+            </li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+{% endif %}
+{% endblock %}

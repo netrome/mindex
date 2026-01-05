@@ -77,6 +77,28 @@ button:hover {
     background-color: #2980b9;
 }
 
+.search-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.search-form input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.snippet {
+    color: #555;
+    font-size: 0.95em;
+    margin-top: 0.25rem;
+}
+
 .notice {
     background-color: #d4edda;
     border: 1px solid #c3e6cb;

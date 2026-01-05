@@ -2,7 +2,7 @@ use askama::Template;
 use askama_web::WebTemplate;
 use axum::{
     Router,
-    extract::{Form, Path as AxumPath, State},
+    extract::{Form, Path as AxumPath, Query, State},
     http::StatusCode,
     routing::get,
 };
@@ -41,12 +41,25 @@ struct EditTemplate {
     notice: String,
 }
 
+struct SearchResult {
+    doc_id: String,
+    snippet: String,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "search.html")]
+struct SearchTemplate {
+    query: String,
+    results: Vec<SearchResult>,
+}
+
 const CSS_CONTENT: &str = include_str!("../static/style.css");
 
 pub fn app(root: PathBuf) -> Router {
     let state = AppState { root };
     Router::new()
         .route("/", get(document_list))
+        .route("/search", get(document_search))
         .route("/edit/{*path}", get(document_edit).post(document_save))
         .route("/doc/{*path}", get(document_view))
         .route("/static/style.css", get(stylesheet))
@@ -91,6 +104,32 @@ async fn document_list(
     doc_ids.sort();
 
     Ok(DocumentListTemplate { documents: doc_ids })
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchQuery {
+    q: Option<String>,
+}
+
+async fn document_search(
+    State(state): State<AppState>,
+    Query(query): Query<SearchQuery>,
+) -> Result<SearchTemplate, (StatusCode, &'static str)> {
+    let query = query.q.unwrap_or_default();
+    let trimmed = query.trim();
+    let results = if trimmed.is_empty() {
+        Vec::new()
+    } else {
+        search_documents(&state.root, trimmed).map_err(|err| {
+            eprintln!("failed to search documents: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        })?
+    };
+
+    Ok(SearchTemplate {
+        query: trimmed.to_string(),
+        results,
+    })
 }
 
 async fn document_view(
@@ -178,6 +217,32 @@ fn collect_markdown_paths(root: &Path) -> std::io::Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     collect_markdown_paths_recursive(root, &mut paths)?;
     Ok(paths)
+}
+
+fn search_documents(root: &Path, query: &str) -> std::io::Result<Vec<SearchResult>> {
+    let mut results = Vec::new();
+    let needle = query.to_lowercase();
+    for path in collect_markdown_paths(root)? {
+        let doc_id = match doc_id_from_path(root, &path) {
+            Some(doc_id) => doc_id,
+            None => continue,
+        };
+        let contents = std::fs::read_to_string(&path)?;
+        if let Some(snippet) = find_match_snippet(&contents, &needle) {
+            results.push(SearchResult { doc_id, snippet });
+        }
+    }
+    results.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
+    Ok(results)
+}
+
+fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
+    for line in contents.lines() {
+        if line.to_lowercase().contains(needle) {
+            return Some(line.trim().to_string());
+        }
+    }
+    None
 }
 
 fn collect_markdown_paths_recursive(dir: &Path, paths: &mut Vec<PathBuf>) -> std::io::Result<()> {
