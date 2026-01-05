@@ -1,13 +1,15 @@
 use axum::{
     Router,
-    extract::{Path as AxumPath, State},
+    extract::{Form, Path as AxumPath, State},
     http::StatusCode,
     response::Html,
     routing::get,
 };
 use pulldown_cmark::{Event, Options, Parser, Tag, html};
+use serde::Deserialize;
 use std::{
-    io::ErrorKind,
+    fs::OpenOptions,
+    io::{ErrorKind, Write},
     net::SocketAddr,
     path::{Component, Path, PathBuf},
 };
@@ -21,6 +23,7 @@ pub fn app(root: PathBuf) -> Router {
     let state = AppState { root };
     Router::new()
         .route("/", get(list_documents))
+        .route("/edit/{*path}", get(edit_document_form).post(save_document))
         .route("/doc/{*path}", get(view_document))
         .route("/health", get(health))
         .with_state(state)
@@ -69,6 +72,57 @@ async fn view_document(
     })?;
 
     Ok(Html(render_markdown_document(&doc_id, &contents)))
+}
+
+async fn edit_document_form(
+    State(state): State<AppState>,
+    AxumPath(doc_id): AxumPath<String>,
+) -> Result<Html<String>, (StatusCode, &'static str)> {
+    let contents = load_document(&state.root, &doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    Ok(Html(render_edit_form(&doc_id, &contents, None)))
+}
+
+async fn save_document(
+    State(state): State<AppState>,
+    AxumPath(doc_id): AxumPath<String>,
+    Form(form): Form<EditForm>,
+) -> Result<Html<String>, (StatusCode, &'static str)> {
+    let path = resolve_doc_path(&state.root, &doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let metadata = std::fs::metadata(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to stat document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+    if !metadata.is_file() {
+        return Err((StatusCode::NOT_FOUND, "not found"));
+    }
+
+    atomic_write(&path, &form.contents).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    Ok(Html(render_edit_form(
+        &doc_id,
+        &form.contents,
+        Some("Saved."),
+    )))
 }
 
 fn collect_markdown_paths(root: &Path) -> std::io::Result<Vec<PathBuf>> {
@@ -199,6 +253,36 @@ fn render_markdown_document(doc_id: &str, contents: &str) -> String {
     html
 }
 
+fn render_edit_form(doc_id: &str, contents: &str, notice: Option<&str>) -> String {
+    let title = escape_html(doc_id);
+    let escaped_contents = escape_html(contents);
+
+    let mut html =
+        String::from("<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>");
+    html.push_str(&title);
+    html.push_str(" - Edit</title>\n</head>\n<body>\n");
+    html.push_str("<p><a href=\"/\">Back</a> | <a href=\"/doc/");
+    html.push_str(&title);
+    html.push_str("\">View</a></p>\n");
+    html.push_str("<h1>Edit ");
+    html.push_str(&title);
+    html.push_str("</h1>\n");
+    if let Some(notice) = notice {
+        html.push_str("<p>");
+        html.push_str(&escape_html(notice));
+        html.push_str("</p>\n");
+    }
+    html.push_str("<form method=\"post\" action=\"/edit/");
+    html.push_str(&title);
+    html.push_str("\">\n");
+    html.push_str("<textarea name=\"contents\" rows=\"24\" cols=\"80\">");
+    html.push_str(&escaped_contents);
+    html.push_str("</textarea>\n");
+    html.push_str("<p><button type=\"submit\">Save</button></p>\n");
+    html.push_str("</form>\n</body>\n</html>\n");
+    html
+}
+
 fn rewrite_relative_md_links<'a>(event: Event<'a>, doc_id: &str) -> Event<'a> {
     match event {
         Event::Start(Tag::Link {
@@ -306,6 +390,50 @@ fn escape_html(input: &str) -> String {
         }
     }
     escaped
+}
+
+#[derive(Debug, Deserialize)]
+struct EditForm {
+    contents: String,
+}
+
+fn atomic_write(path: &Path, contents: &str) -> std::io::Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| std::io::Error::new(ErrorKind::Other, "missing parent directory"))?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("document.md");
+    let pid = std::process::id();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+
+    for attempt in 0..10u32 {
+        let temp_name = format!(".{}.tmp-{}-{}-{}", file_name, pid, nanos, attempt);
+        let temp_path = parent.join(temp_name);
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
+            Ok(mut file) => {
+                file.write_all(contents.as_bytes())?;
+                file.flush()?;
+                std::fs::rename(&temp_path, path)?;
+                return Ok(());
+            }
+            Err(err) if err.kind() == ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err),
+        }
+    }
+
+    Err(std::io::Error::new(
+        ErrorKind::AlreadyExists,
+        "failed to create temp file",
+    ))
 }
 
 #[derive(Debug)]

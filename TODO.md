@@ -4,10 +4,6 @@
 
 ## Next
 
-- [ ] Edit document
-  - GET shows textarea with current contents
-  - POST saves atomically
-
 - [ ] Full-text search
   - Simple implementation acceptable (e.g. ripgrep)
   - Return matching paths + snippets
@@ -58,3 +54,7 @@
   - Add lists, tables, links and other markdown examples
 
 - [x] Render markdown tables
+
+- [x] Edit document
+  - GET shows textarea with current contents
+  - POST saves atomically
