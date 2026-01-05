@@ -46,10 +46,10 @@ const CSS_CONTENT: &str = include_str!("../static/style.css");
 pub fn app(root: PathBuf) -> Router {
     let state = AppState { root };
     Router::new()
-        .route("/", get(list_documents))
-        .route("/edit/{*path}", get(edit_document_form).post(save_document))
-        .route("/doc/{*path}", get(view_document))
-        .route("/static/style.css", get(serve_css))
+        .route("/", get(document_list))
+        .route("/edit/{*path}", get(document_edit).post(document_save))
+        .route("/doc/{*path}", get(document_view))
+        .route("/static/style.css", get(stylesheet))
         .route("/health", get(health))
         .with_state(state)
 }
@@ -67,7 +67,7 @@ async fn health() -> &'static str {
     "ok"
 }
 
-async fn serve_css() -> axum::response::Response {
+async fn stylesheet() -> axum::response::Response {
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "text/css")
@@ -76,7 +76,7 @@ async fn serve_css() -> axum::response::Response {
         .unwrap()
 }
 
-async fn list_documents(
+async fn document_list(
     State(state): State<AppState>,
 ) -> Result<DocumentListTemplate, (StatusCode, &'static str)> {
     let paths = collect_markdown_paths(&state.root).map_err(|err| {
@@ -93,7 +93,7 @@ async fn list_documents(
     Ok(DocumentListTemplate { documents: doc_ids })
 }
 
-async fn view_document(
+async fn document_view(
     State(state): State<AppState>,
     AxumPath(doc_id): AxumPath<String>,
 ) -> Result<DocumentTemplate, (StatusCode, &'static str)> {
@@ -118,7 +118,7 @@ async fn view_document(
     })
 }
 
-async fn edit_document_form(
+async fn document_edit(
     State(state): State<AppState>,
     AxumPath(doc_id): AxumPath<String>,
 ) -> Result<EditTemplate, (StatusCode, &'static str)> {
@@ -137,7 +137,7 @@ async fn edit_document_form(
     })
 }
 
-async fn save_document(
+async fn document_save(
     State(state): State<AppState>,
     AxumPath(doc_id): AxumPath<String>,
     Form(form): Form<EditForm>,
