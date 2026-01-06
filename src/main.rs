@@ -13,7 +13,7 @@ async fn main() {
 
     println!("listening on http://{addr}");
 
-    let config = mindex::AppConfig {
+    let config = mindex::config::AppConfig {
         app_name: cli.app_name,
         icon_192: cli.icon_192,
         icon_512: cli.icon_512,
