@@ -1,23 +1,6 @@
 use clap::Parser;
 use std::{net::SocketAddr, path::PathBuf};
 
-#[derive(Parser, Debug)]
-#[command(
-    name = "mindex",
-    version,
-    about = "Small markdown knowledge base server"
-)]
-struct Cli {
-    #[arg(long)]
-    root: PathBuf,
-    #[arg(long, default_value = "Mindex")]
-    app_name: String,
-    #[arg(long)]
-    icon_192: Option<PathBuf>,
-    #[arg(long)]
-    icon_512: Option<PathBuf>,
-}
-
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -36,4 +19,21 @@ async fn main() {
         icon_512: cli.icon_512,
     };
     mindex::serve(addr, root, config).await;
+}
+
+#[derive(Parser, Debug)]
+#[command(
+    name = "mindex",
+    version,
+    about = "Small markdown knowledge base server"
+)]
+struct Cli {
+    #[arg(long)]
+    root: PathBuf,
+    #[arg(long, default_value = "Mindex")]
+    app_name: String,
+    #[arg(long)]
+    icon_192: Option<PathBuf>,
+    #[arg(long)]
+    icon_512: Option<PathBuf>,
 }
