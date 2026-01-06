@@ -7,8 +7,8 @@ use axum::extract::State;
 
 use askama::Template as _;
 
-pub(crate) const ICON_192_FALLBACK: &[u8] = include_bytes!("../static/icons/icon-192.png");
-pub(crate) const ICON_512_FALLBACK: &[u8] = include_bytes!("../static/icons/icon-512.png");
+pub(crate) const ICON_192_FALLBACK: &[u8] = include_bytes!("../assets/icons/icon-192.png");
+pub(crate) const ICON_512_FALLBACK: &[u8] = include_bytes!("../assets/icons/icon-512.png");
 
 pub(crate) async fn manifest(State(state): State<state::AppState>) -> axum::response::Response {
     let manifest_body = templates::ManifestTemplate {
@@ -29,7 +29,7 @@ pub(crate) async fn manifest(State(state): State<state::AppState>) -> axum::resp
 }
 
 pub(crate) async fn stylesheet() -> axum::response::Response {
-    const CSS_CONTENT: &str = include_str!("../static/style.css");
+    const CSS_CONTENT: &str = include_str!("../assets/style.css");
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "text/css")
@@ -39,7 +39,7 @@ pub(crate) async fn stylesheet() -> axum::response::Response {
 }
 
 pub(crate) async fn theme_script() -> axum::response::Response {
-    const THEME_JS_CONTENT: &str = include_str!("../static/theme.js");
+    const THEME_JS_CONTENT: &str = include_str!("../assets/theme.js");
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "application/javascript")
@@ -49,7 +49,7 @@ pub(crate) async fn theme_script() -> axum::response::Response {
 }
 
 pub(crate) async fn service_worker() -> axum::response::Response {
-    const SW_CONTENT: &str = include_str!("../static/sw.js");
+    const SW_CONTENT: &str = include_str!("../assets/sw.js");
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "application/javascript")
