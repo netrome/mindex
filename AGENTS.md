@@ -53,9 +53,8 @@ For each TODO item:
 ## Output format for implementation responses
 
 - Summary of changes
+- Summary of tests added
 - Files modified
-- Commands to run
-- Manual test checklist
 - Risks / limitations (if any)
 
 ## What NOT to do
