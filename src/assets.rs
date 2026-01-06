@@ -1,5 +1,7 @@
-use crate::state::AppState;
-use crate::templates;
+use std::io::ErrorKind;
+use std::path::{Component, Path, PathBuf};
+
+use crate::{state, templates};
 
 use axum::extract::State;
 
@@ -8,9 +10,9 @@ use askama::Template as _;
 pub(crate) const ICON_192_FALLBACK: &[u8] = include_bytes!("../static/icons/icon-192.png");
 pub(crate) const ICON_512_FALLBACK: &[u8] = include_bytes!("../static/icons/icon-512.png");
 
-pub(crate) async fn manifest(State(state): State<AppState>) -> axum::response::Response {
+pub(crate) async fn manifest(State(state): State<state::AppState>) -> axum::response::Response {
     let manifest_body = templates::ManifestTemplate {
-        app_name: &state.app_name,
+        app_name: &state.config.app_name,
     }
     .render()
     .unwrap_or_else(|err| {
@@ -56,20 +58,93 @@ pub(crate) async fn service_worker() -> axum::response::Response {
         .unwrap()
 }
 
-pub(crate) async fn icon_192(State(state): State<AppState>) -> axum::response::Response {
+pub(crate) async fn icon_192(State(state): State<state::AppState>) -> axum::response::Response {
+    let icon_192_bytes = load_icon_bytes(
+        &state.config.root,
+        state.config.icon_192.as_deref(),
+        ICON_192_FALLBACK,
+        "icon-192",
+    );
+
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "image/png")
         .header("cache-control", "public, max-age=86400")
-        .body(state.icon_192.into())
+        .body(icon_192_bytes.into())
         .unwrap()
 }
 
-pub(crate) async fn icon_512(State(state): State<AppState>) -> axum::response::Response {
+pub(crate) async fn icon_512(State(state): State<state::AppState>) -> axum::response::Response {
+    let icon_512_bytes = load_icon_bytes(
+        &state.config.root,
+        state.config.icon_512.as_deref(),
+        ICON_512_FALLBACK,
+        "icon-512",
+    );
+
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "image/png")
         .header("cache-control", "public, max-age=86400")
-        .body(state.icon_512.into())
+        .body(icon_512_bytes.into())
         .unwrap()
+}
+
+fn load_icon_bytes(root: &Path, path: Option<&Path>, fallback: &[u8], label: &str) -> Vec<u8> {
+    let Some(path) = path else {
+        return fallback.to_vec();
+    };
+    let resolved = match resolve_asset_path(root, path) {
+        Ok(resolved) => resolved,
+        Err(err) => {
+            eprintln!("failed to resolve {label} icon path: {err}");
+            return fallback.to_vec();
+        }
+    };
+    match std::fs::read(&resolved) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!("failed to read {label} icon: {err}");
+            fallback.to_vec()
+        }
+    }
+}
+
+fn resolve_asset_path(root: &Path, path: &Path) -> std::io::Result<PathBuf> {
+    if path.is_absolute() {
+        return Err(std::io::Error::new(
+            ErrorKind::InvalidInput,
+            "absolute paths are not allowed",
+        ));
+    }
+    let mut has_component = false;
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => {
+                has_component = true;
+            }
+            _ => {
+                return Err(std::io::Error::new(ErrorKind::InvalidInput, "invalid path"));
+            }
+        }
+    }
+    if !has_component {
+        return Err(std::io::Error::new(ErrorKind::InvalidInput, "empty path"));
+    }
+    let joined = root.join(path);
+    let resolved = std::fs::canonicalize(&joined)?;
+    if !resolved.starts_with(root) {
+        return Err(std::io::Error::new(
+            ErrorKind::PermissionDenied,
+            "path escapes root",
+        ));
+    }
+    let metadata = std::fs::metadata(&resolved)?;
+    if !metadata.is_file() {
+        return Err(std::io::Error::new(
+            ErrorKind::InvalidInput,
+            "icon path is not a file",
+        ));
+    }
+    Ok(resolved)
 }

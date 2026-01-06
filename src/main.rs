@@ -14,11 +14,12 @@ async fn main() {
     println!("listening on http://{addr}");
 
     let config = mindex::config::AppConfig {
+        root,
         app_name: cli.app_name,
         icon_192: cli.icon_192,
         icon_512: cli.icon_512,
     };
-    mindex::serve(addr, root, config).await;
+    mindex::serve(addr, config).await;
 }
 
 #[derive(Parser, Debug)]
