@@ -1,16 +1,28 @@
 use crate::state::AppState;
+use crate::templates;
 
 use axum::extract::State;
+
+use askama::Template as _;
 
 pub(crate) const ICON_192_FALLBACK: &[u8] = include_bytes!("../static/icons/icon-192.png");
 pub(crate) const ICON_512_FALLBACK: &[u8] = include_bytes!("../static/icons/icon-512.png");
 
 pub(crate) async fn manifest(State(state): State<AppState>) -> axum::response::Response {
+    let manifest_body = templates::ManifestTemplate {
+        app_name: &state.app_name,
+    }
+    .render()
+    .unwrap_or_else(|err| {
+        eprintln!("failed to render manifest: {err}");
+        "{}".to_string()
+    });
+
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "application/manifest+json")
         .header("cache-control", "public, max-age=3600")
-        .body(state.manifest.into())
+        .body(manifest_body.into())
         .unwrap()
 }
 

@@ -22,18 +22,9 @@ use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 
-use askama::Template as _;
 use std::io::Write as _;
 
 pub fn app(root: PathBuf, config: config::AppConfig) -> Router {
-    let manifest_body = templates::ManifestTemplate {
-        app_name: &config.app_name,
-    }
-    .render()
-    .unwrap_or_else(|err| {
-        eprintln!("failed to render manifest: {err}");
-        "{}".to_string()
-    });
     let icon_192_bytes = load_icon_bytes(
         &root,
         config.icon_192.as_deref(),
@@ -49,7 +40,6 @@ pub fn app(root: PathBuf, config: config::AppConfig) -> Router {
     let state = state::AppState {
         root,
         app_name: config.app_name,
-        manifest: manifest_body,
         icon_192: icon_192_bytes,
         icon_512: icon_512_bytes,
     };
@@ -542,11 +532,13 @@ pub(crate) enum DocError {
 #[allow(non_snake_case)]
 pub(crate) mod tests {
     use super::*;
-    use axum::{
-        body::{Body, to_bytes},
-        http::{Request, StatusCode},
-    };
+    use axum::body::Body;
+    use axum::body::to_bytes;
+    use axum::http::Request;
+    use axum::http::StatusCode;
     use tower::ServiceExt;
+
+    use askama::Template as _;
 
     #[tokio::test]
     async fn app__should_return_ok_on_health_endpoint() {
