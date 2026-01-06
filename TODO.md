@@ -4,20 +4,26 @@
 
 ## Next
 
+- [ ] Support multiple instances
+  - Use case: Hosting one shared instance at one domain and a personal instance at another domain.
+  - Allow app name in manifest.json to be configured, defaulting to "Mindex".
+  - Allow icons to be configured dynamically, falling back to the existing ones.
+  - If anything else also is good hygiene.
+
 ## Later
 
-- [ ] Recently opened documents
-- [ ] Pin documents
-- [ ] Image upload support
-- [ ] Offline caching (PWA)
+- [ ] Add MIT license
+- [ ] Simple README.md
+- [ ] Push notifications
+- [ ] Chat boxes
+- [ ] Git integration
+- [ ] TODO lists
+- [ ] Math notation
 
 ## Ideas (parking lot — do NOT implement without moving to Now)
 
 - List-only document view
 - Checkbox toggle UI
-- Backlinks
-- Wiki-style links
-- Git integration
 - AI-assisted editing
 
 ## Done
