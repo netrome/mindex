@@ -10,6 +10,12 @@ use std::{net::SocketAddr, path::PathBuf};
 struct Cli {
     #[arg(long)]
     root: PathBuf,
+    #[arg(long, default_value = "Mindex")]
+    app_name: String,
+    #[arg(long)]
+    icon_192: Option<PathBuf>,
+    #[arg(long)]
+    icon_512: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -24,5 +30,10 @@ async fn main() {
 
     println!("listening on http://{addr}");
 
-    mindex::serve(addr, root).await;
+    let config = mindex::AppConfig {
+        app_name: cli.app_name,
+        icon_192: cli.icon_192,
+        icon_512: cli.icon_512,
+    };
+    mindex::serve(addr, root, config).await;
 }

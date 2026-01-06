@@ -46,8 +46,9 @@ For each TODO item:
 2. Wait for confirmation if the plan changes scope.
 3. Implement the change.
 4. Run formatting / linting.
-5. Update `TODO.md` (check off completed item).
-6. Provide **exact commands** to run and test the change manually.
+5. Run `cargo nextest run` and fix any failures before reporting completion.
+6. Update `TODO.md` (check off completed item).
+7. Provide **exact commands** to run and test the change manually.
 
 ## Output format for implementation responses
 
@@ -65,4 +66,3 @@ For each TODO item:
 - Do not invent APIs or endpoints not in the spec.
 
 When in doubt: **ask or do less.**
-

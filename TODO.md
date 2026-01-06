@@ -4,12 +4,6 @@
 
 ## Next
 
-- [ ] Support multiple instances
-  - Use case: Hosting one shared instance at one domain and a personal instance at another domain.
-  - Allow app name in manifest.json to be configured, defaulting to "Mindex".
-  - Allow icons to be configured dynamically, falling back to the existing ones.
-  - If anything else also is good hygiene.
-
 ## Later
 
 - [ ] Add MIT license
@@ -27,6 +21,12 @@
 - AI-assisted editing
 
 ## Done
+
+- [x] Support multiple instances
+  - Use case: Hosting one shared instance at one domain and a personal instance at another domain.
+  - Allow app name in manifest.json to be configured, defaulting to "Mindex".
+  - Allow icons to be configured dynamically, falling back to the existing ones.
+  - If anything else also is good hygiene.
 
 - [x] PWA support
   - Add the minimal necessary things to support turn this into an PWA.

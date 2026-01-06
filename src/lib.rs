@@ -15,20 +15,48 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+pub struct AppConfig {
+    pub app_name: String,
+    pub icon_192: Option<PathBuf>,
+    pub icon_512: Option<PathBuf>,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            app_name: "Mindex".to_string(),
+            icon_192: None,
+            icon_512: None,
+        }
+    }
+}
+
 #[derive(Clone)]
 struct AppState {
     root: PathBuf,
+    app_name: String,
+    manifest: String,
+    icon_192: Vec<u8>,
+    icon_512: Vec<u8>,
 }
 
 #[derive(Template, WebTemplate)]
 #[template(path = "document_list.html")]
 struct DocumentListTemplate {
+    app_name: String,
     documents: Vec<String>,
+}
+
+#[derive(Template)]
+#[template(path = "manifest.json", escape = "none")]
+struct ManifestTemplate<'a> {
+    app_name: &'a str,
 }
 
 #[derive(Template, WebTemplate)]
 #[template(path = "document.html")]
 struct DocumentTemplate {
+    app_name: String,
     doc_id: String,
     content: String,
 }
@@ -36,6 +64,7 @@ struct DocumentTemplate {
 #[derive(Template, WebTemplate)]
 #[template(path = "edit.html")]
 struct EditTemplate {
+    app_name: String,
     doc_id: String,
     contents: String,
     notice: String,
@@ -49,17 +78,45 @@ struct SearchResult {
 #[derive(Template, WebTemplate)]
 #[template(path = "search.html")]
 struct SearchTemplate {
+    app_name: String,
     query: String,
     results: Vec<SearchResult>,
 }
 
 const CSS_CONTENT: &str = include_str!("../static/style.css");
 const THEME_JS_CONTENT: &str = include_str!("../static/theme.js");
-const MANIFEST_CONTENT: &str = include_str!("../static/manifest.json");
+const ICON_192_FALLBACK: &[u8] = include_bytes!("../static/icons/icon-192.png");
+const ICON_512_FALLBACK: &[u8] = include_bytes!("../static/icons/icon-512.png");
 const SW_CONTENT: &str = include_str!("../static/sw.js");
 
-pub fn app(root: PathBuf) -> Router {
-    let state = AppState { root };
+pub fn app(root: PathBuf, config: AppConfig) -> Router {
+    let manifest_body = ManifestTemplate {
+        app_name: &config.app_name,
+    }
+    .render()
+    .unwrap_or_else(|err| {
+        eprintln!("failed to render manifest: {err}");
+        "{}".to_string()
+    });
+    let icon_192_bytes = load_icon_bytes(
+        &root,
+        config.icon_192.as_deref(),
+        ICON_192_FALLBACK,
+        "icon-192",
+    );
+    let icon_512_bytes = load_icon_bytes(
+        &root,
+        config.icon_512.as_deref(),
+        ICON_512_FALLBACK,
+        "icon-512",
+    );
+    let state = AppState {
+        root,
+        app_name: config.app_name,
+        manifest: manifest_body,
+        icon_192: icon_192_bytes,
+        icon_512: icon_512_bytes,
+    };
     Router::new()
         .route("/", get(document_list))
         .route("/search", get(document_search))
@@ -75,11 +132,11 @@ pub fn app(root: PathBuf) -> Router {
         .with_state(state)
 }
 
-pub async fn serve(addr: SocketAddr, root: PathBuf) {
+pub async fn serve(addr: SocketAddr, root: PathBuf, config: AppConfig) {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect("failed to bind address");
-    axum::serve(listener, app(root))
+    axum::serve(listener, app(root, config))
         .await
         .expect("server error");
 }
@@ -106,12 +163,12 @@ async fn theme_script() -> axum::response::Response {
         .unwrap()
 }
 
-async fn manifest() -> axum::response::Response {
+async fn manifest(State(state): State<AppState>) -> axum::response::Response {
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "application/manifest+json")
         .header("cache-control", "public, max-age=3600")
-        .body(MANIFEST_CONTENT.into())
+        .body(state.manifest.into())
         .unwrap()
 }
 
@@ -124,47 +181,43 @@ async fn service_worker() -> axum::response::Response {
         .unwrap()
 }
 
-async fn icon_192() -> axum::response::Response {
+async fn icon_192(State(state): State<AppState>) -> axum::response::Response {
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "image/png")
         .header("cache-control", "public, max-age=86400")
-        .body(
-            include_bytes!("../static/icons/icon-192.png")
-                .as_slice()
-                .into(),
-        )
+        .body(state.icon_192.into())
         .unwrap()
 }
 
-async fn icon_512() -> axum::response::Response {
+async fn icon_512(State(state): State<AppState>) -> axum::response::Response {
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "image/png")
         .header("cache-control", "public, max-age=86400")
-        .body(
-            include_bytes!("../static/icons/icon-512.png")
-                .as_slice()
-                .into(),
-        )
+        .body(state.icon_512.into())
         .unwrap()
 }
 
 async fn document_list(
     State(state): State<AppState>,
 ) -> Result<DocumentListTemplate, (StatusCode, &'static str)> {
-    let paths = collect_markdown_paths(&state.root).map_err(|err| {
+    let AppState { root, app_name, .. } = state;
+    let paths = collect_markdown_paths(&root).map_err(|err| {
         eprintln!("failed to list markdown files: {err}");
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
     })?;
 
     let mut doc_ids: Vec<String> = paths
         .into_iter()
-        .filter_map(|path| doc_id_from_path(&state.root, &path))
+        .filter_map(|path| doc_id_from_path(&root, &path))
         .collect();
     doc_ids.sort();
 
-    Ok(DocumentListTemplate { documents: doc_ids })
+    Ok(DocumentListTemplate {
+        app_name,
+        documents: doc_ids,
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -176,18 +229,20 @@ async fn document_search(
     State(state): State<AppState>,
     Query(query): Query<SearchQuery>,
 ) -> Result<SearchTemplate, (StatusCode, &'static str)> {
+    let AppState { root, app_name, .. } = state;
     let query = query.q.unwrap_or_default();
     let trimmed = query.trim();
     let results = if trimmed.is_empty() {
         Vec::new()
     } else {
-        search_documents(&state.root, trimmed).map_err(|err| {
+        search_documents(&root, trimmed).map_err(|err| {
             eprintln!("failed to search documents: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
         })?
     };
 
     Ok(SearchTemplate {
+        app_name,
         query: trimmed.to_string(),
         results,
     })
@@ -197,7 +252,8 @@ async fn document_view(
     State(state): State<AppState>,
     AxumPath(doc_id): AxumPath<String>,
 ) -> Result<DocumentTemplate, (StatusCode, &'static str)> {
-    let contents = load_document(&state.root, &doc_id).map_err(|err| match err {
+    let AppState { root, app_name, .. } = state;
+    let contents = load_document(&root, &doc_id).map_err(|err| match err {
         DocError::NotFound => (StatusCode::NOT_FOUND, "document not found"),
         _ => {
             eprintln!("failed to load document {doc_id}: {err:?}");
@@ -213,6 +269,7 @@ async fn document_view(
     html::push_html(&mut body, parser);
 
     Ok(DocumentTemplate {
+        app_name,
         doc_id,
         content: body,
     })
@@ -222,7 +279,8 @@ async fn document_edit(
     State(state): State<AppState>,
     AxumPath(doc_id): AxumPath<String>,
 ) -> Result<EditTemplate, (StatusCode, &'static str)> {
-    let contents = load_document(&state.root, &doc_id).map_err(|err| match err {
+    let AppState { root, app_name, .. } = state;
+    let contents = load_document(&root, &doc_id).map_err(|err| match err {
         DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
         DocError::Io(err) => {
             eprintln!("failed to load document {doc_id}: {err}");
@@ -231,6 +289,7 @@ async fn document_edit(
     })?;
 
     Ok(EditTemplate {
+        app_name,
         doc_id,
         contents,
         notice: String::new(),
@@ -242,7 +301,8 @@ async fn document_save(
     AxumPath(doc_id): AxumPath<String>,
     Form(form): Form<EditForm>,
 ) -> Result<EditTemplate, (StatusCode, &'static str)> {
-    let path = resolve_doc_path(&state.root, &doc_id).map_err(|err| match err {
+    let AppState { root, app_name, .. } = state;
+    let path = resolve_doc_path(&root, &doc_id).map_err(|err| match err {
         DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
         DocError::Io(err) => {
             eprintln!("failed to resolve document {doc_id}: {err}");
@@ -268,6 +328,7 @@ async fn document_save(
     })?;
 
     Ok(EditTemplate {
+        app_name,
         doc_id,
         contents: normalized,
         notice: "Saved.".to_string(),
@@ -278,6 +339,65 @@ fn collect_markdown_paths(root: &Path) -> std::io::Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     collect_markdown_paths_recursive(root, &mut paths)?;
     Ok(paths)
+}
+
+fn load_icon_bytes(root: &Path, path: Option<&Path>, fallback: &[u8], label: &str) -> Vec<u8> {
+    let Some(path) = path else {
+        return fallback.to_vec();
+    };
+    let resolved = match resolve_asset_path(root, path) {
+        Ok(resolved) => resolved,
+        Err(err) => {
+            eprintln!("failed to resolve {label} icon path: {err}");
+            return fallback.to_vec();
+        }
+    };
+    match std::fs::read(&resolved) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!("failed to read {label} icon: {err}");
+            fallback.to_vec()
+        }
+    }
+}
+
+fn resolve_asset_path(root: &Path, path: &Path) -> std::io::Result<PathBuf> {
+    if path.is_absolute() {
+        return Err(std::io::Error::new(
+            ErrorKind::InvalidInput,
+            "absolute paths are not allowed",
+        ));
+    }
+    let mut has_component = false;
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => {
+                has_component = true;
+            }
+            _ => {
+                return Err(std::io::Error::new(ErrorKind::InvalidInput, "invalid path"));
+            }
+        }
+    }
+    if !has_component {
+        return Err(std::io::Error::new(ErrorKind::InvalidInput, "empty path"));
+    }
+    let joined = root.join(path);
+    let resolved = std::fs::canonicalize(&joined)?;
+    if !resolved.starts_with(root) {
+        return Err(std::io::Error::new(
+            ErrorKind::PermissionDenied,
+            "path escapes root",
+        ));
+    }
+    let metadata = std::fs::metadata(&resolved)?;
+    if !metadata.is_file() {
+        return Err(std::io::Error::new(
+            ErrorKind::InvalidInput,
+            "icon path is not a file",
+        ));
+    }
+    Ok(resolved)
 }
 
 fn search_documents(root: &Path, query: &str) -> std::io::Result<Vec<SearchResult>> {
@@ -534,6 +654,30 @@ enum DocError {
     Io(std::io::Error),
 }
 
+mod filters {
+    use std::fmt::Write;
+
+    pub fn json_escape(value: &str, _values: &dyn askama::Values) -> askama::Result<String> {
+        let mut escaped = String::with_capacity(value.len());
+        for ch in value.chars() {
+            match ch {
+                '"' => escaped.push_str("\\\""),
+                '\\' => escaped.push_str("\\\\"),
+                '\n' => escaped.push_str("\\n"),
+                '\r' => escaped.push_str("\\r"),
+                '\t' => escaped.push_str("\\t"),
+                '\u{08}' => escaped.push_str("\\b"),
+                '\u{0C}' => escaped.push_str("\\f"),
+                ch if ch < '\u{20}' => {
+                    write!(escaped, "\\u{:04x}", ch as u32)?;
+                }
+                _ => escaped.push(ch),
+            }
+        }
+        Ok(escaped)
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -546,7 +690,7 @@ mod tests {
 
     #[tokio::test]
     async fn app__should_return_ok_on_health_endpoint() {
-        let response = app(std::env::current_dir().expect("cwd"))
+        let response = app(std::env::current_dir().expect("cwd"), AppConfig::default())
             .oneshot(
                 Request::builder()
                     .uri("/health")
@@ -567,7 +711,10 @@ mod tests {
     #[test]
     fn render_document_list__should_include_links() {
         let doc_ids = vec!["notes/a.md".to_string(), "b.md".to_string()];
-        let template = DocumentListTemplate { documents: doc_ids };
+        let template = DocumentListTemplate {
+            app_name: "Mindex".to_string(),
+            documents: doc_ids,
+        };
         let html = template.render().unwrap();
         assert!(html.contains(r#"<a href="/doc/notes/a.md">notes/a.md</a>"#));
         assert!(html.contains(r#"<a href="/doc/b.md">b.md</a>"#));
@@ -592,6 +739,7 @@ mod tests {
         html::push_html(&mut body, parser);
 
         let template = DocumentTemplate {
+            app_name: "Mindex".to_string(),
             doc_id: "notes/a.md".to_string(),
             content: body,
         };
@@ -620,6 +768,7 @@ mod tests {
         html::push_html(&mut body, parser);
 
         let template = DocumentTemplate {
+            app_name: "Mindex".to_string(),
             doc_id: "table.md".to_string(),
             content: body,
         };
@@ -634,6 +783,7 @@ mod tests {
     #[test]
     fn render_edit_form__should_include_action_and_contents() {
         let template = EditTemplate {
+            app_name: "Mindex".to_string(),
             doc_id: "notes/food.md".to_string(),
             contents: "Line 1\nLine 2".to_string(),
             notice: String::new(),
@@ -647,6 +797,7 @@ mod tests {
     #[test]
     fn render_edit_form__should_include_notice_when_present() {
         let template = EditTemplate {
+            app_name: "Mindex".to_string(),
             doc_id: "notes/food.md".to_string(),
             contents: "Body".to_string(),
             notice: "Saved.".to_string(),
@@ -664,7 +815,7 @@ mod tests {
     #[tokio::test]
     async fn view_document__should_return_not_found_for_missing_doc() {
         let root = create_temp_root("missing-doc");
-        let response = app(root.clone())
+        let response = app(root.clone(), AppConfig::default())
             .oneshot(
                 Request::builder()
                     .uri("/doc/missing.md")

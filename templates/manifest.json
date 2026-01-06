@@ -1,6 +1,6 @@
 {
-  "name": "Mindex - Knowledge Base",
-  "short_name": "Mindex",
+  "name": "{{ app_name|json_escape }} - Knowledge Base",
+  "short_name": "{{ app_name|json_escape }}",
   "description": "A markdown knowledge base for browsing, searching, and editing documents",
   "start_url": "/",
   "display": "standalone",
