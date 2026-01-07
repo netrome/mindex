@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Push Subscription - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Home</a>
+    <button class="theme-toggle" onclick="toggleTheme()">Toggle theme</button>
+</div>
+
+<h1>Push subscription</h1>
+<p>Generate a <code>/subscription</code> block for this device.</p>
+
+<div id="status" role="status"></div>
+
+<label for="username">Username</label>
+<input id="username" type="text" autocomplete="username" />
+
+<button id="subscribe-button" type="button">Enable notifications</button>
+
+<h2>Subscription block</h2>
+<textarea id="subscription-block" readonly></textarea>
+
+<button id="copy-button" type="button">Copy block</button>
+
+<script>
+    const statusEl = document.getElementById("status");
+    const subscribeButton = document.getElementById("subscribe-button");
+    const copyButton = document.getElementById("copy-button");
+    const usernameInput = document.getElementById("username");
+    const output = document.getElementById("subscription-block");
+
+    function setStatus(message) {
+        statusEl.textContent = message;
+    }
+
+    function setOutput(block) {
+        output.value = block;
+        copyButton.disabled = block.trim().length === 0;
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    async function fetchPublicKey() {
+        const response = await fetch("/api/push/public-key");
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            const message = payload.error || "Push notifications are not configured.";
+            throw new Error(message);
+        }
+        const payload = await response.json();
+        return payload.publicKey;
+    }
+
+    function buildBlock(username, subscription) {
+        const user = username.trim() || "your-username";
+        return [
+            "/subscription",
+            "```toml",
+            `user = "${user}"`,
+            `endpoint = "${subscription.endpoint}"`,
+            `p256dh = "${subscription.keys.p256dh}"`,
+            `auth = "${subscription.keys.auth}"`,
+            "```",
+            "",
+        ].join("\n");
+    }
+
+    async function ensureReady() {
+        if (!("serviceWorker" in navigator)) {
+            throw new Error("Service workers are not supported in this browser.");
+        }
+        if (!("PushManager" in window)) {
+            throw new Error("Push notifications are not supported in this browser.");
+        }
+        const registration = await navigator.serviceWorker.ready;
+        if (!registration) {
+            throw new Error("Service worker is not ready yet.");
+        }
+        return registration;
+    }
+
+    async function subscribe() {
+        setStatus("Checking push support...");
+        setOutput("");
+
+        const registration = await ensureReady();
+        const publicKey = await fetchPublicKey();
+
+        setStatus("Requesting notification permission...");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+            throw new Error("Permission denied.");
+        }
+
+        setStatus("Creating subscription...");
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+
+        setOutput(buildBlock(usernameInput.value, subscription));
+        setStatus("Paste the block into any document and save.");
+    }
+
+    subscribeButton.addEventListener("click", async () => {
+        subscribeButton.disabled = true;
+        try {
+            await subscribe();
+        } catch (err) {
+            setStatus(err.message || "Failed to create subscription.");
+        } finally {
+            subscribeButton.disabled = false;
+        }
+    });
+
+    copyButton.addEventListener("click", async () => {
+        if (!output.value) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(output.value);
+            setStatus("Copied to clipboard.");
+        } catch (err) {
+            setStatus("Copy failed. Select the text manually.");
+        }
+    });
+
+    copyButton.disabled = true;
+    setStatus("Ready.");
+</script>
+{% endblock %}

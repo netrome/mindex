@@ -4,6 +4,7 @@
 - [ ] Push notifications [./PushNotifications.md]
   - [x] Directive parser + registry loader
   - [x] Scheduler + delivery
+  - [x] Minimal subscription UI page
 
 ## To do
 - [ ] refactor: Update tests to use //given //when //then sections

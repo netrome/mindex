@@ -67,3 +67,9 @@ pub(crate) struct SearchResult {
     pub(crate) doc_id: String,
     pub(crate) snippet: String,
 }
+
+#[derive(Template, WebTemplate)]
+#[template(path = "push_subscribe.html")]
+pub(crate) struct PushSubscribeTemplate {
+    pub(crate) app_name: String,
+}

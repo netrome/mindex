@@ -81,6 +81,39 @@ self.addEventListener('fetch', event => {
   );
 });
 
+// Push event - display notification
+self.addEventListener('push', event => {
+  let title = 'Mindex';
+  let body = 'You have a notification.';
+
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      if (data && (data.title || data.body)) {
+        title = data.title || title;
+        body = data.body || body;
+      } else {
+        body = event.data.text();
+      }
+    } catch (err) {
+      body = event.data.text();
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/static/icons/icon-192.png',
+      badge: '/static/icons/icon-192.png'
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow('/'));
+});
+
 // Determine if a URL should be cached
 function shouldCache(pathname) {
   // Cache static assets

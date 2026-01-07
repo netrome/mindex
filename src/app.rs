@@ -17,6 +17,7 @@ use pulldown_cmark::Options;
 use pulldown_cmark::Parser;
 use pulldown_cmark::Tag;
 use serde::Deserialize;
+use serde::Serialize;
 
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
@@ -44,6 +45,8 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/search", get(document_search))
         .route("/edit/{*path}", get(document_edit).post(document_save))
         .route("/doc/{*path}", get(document_view))
+        .route("/push/subscribe", get(push_subscribe))
+        .route("/api/push/public-key", get(push_public_key))
         .route("/api/debug/push/registry", get(push_registry_debug))
         .route("/static/style.css", get(assets::stylesheet))
         .route("/static/theme.js", get(assets::theme_script))
@@ -64,6 +67,52 @@ pub(crate) async fn push_registry_debug(
     State(state): State<state::AppState>,
 ) -> Json<push::DirectiveRegistries> {
     Json((*state.push_registries).clone())
+}
+
+#[derive(Serialize)]
+pub(crate) struct PublicKeyResponse {
+    #[serde(rename = "publicKey")]
+    public_key: String,
+}
+
+#[derive(Serialize)]
+pub(crate) struct ErrorResponse {
+    error: &'static str,
+}
+
+pub(crate) async fn push_public_key(
+    State(state): State<state::AppState>,
+) -> Result<Json<PublicKeyResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let config = &state.config;
+    let has_all = config.vapid_private_key.is_some()
+        && config.vapid_public_key.is_some()
+        && config.vapid_subject.is_some();
+
+    if !has_all {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse {
+                error: "Push notifications are not configured.",
+            }),
+        ));
+    }
+
+    let public_key = config
+        .vapid_public_key
+        .as_ref()
+        .expect("public key present");
+
+    Ok(Json(PublicKeyResponse {
+        public_key: public_key.clone(),
+    }))
+}
+
+pub(crate) async fn push_subscribe(
+    State(state): State<state::AppState>,
+) -> templates::PushSubscribeTemplate {
+    templates::PushSubscribeTemplate {
+        app_name: state.config.app_name,
+    }
 }
 
 pub(crate) async fn document_list(
