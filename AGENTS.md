@@ -86,6 +86,7 @@ Use when the task is exploratory/architectural or too large for a single PR.
    - `cargo nextest run`
 4. Update docs if behavior/usage changed (README/docs/*).
 5. Update docs/Projects/TODO.md: check off the item, add follow-ups if needed.
+  - If working on a sub-task in a project, check off the sub-task in the project document.
 6. Provide:
    - Summary of changes
    - Tests added/updated

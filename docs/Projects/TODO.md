@@ -1,24 +1,16 @@
 # TODO
 
-## Now (only one item should be worked on)
+## In progress
+- [ ] Push notifications [./PushNotifications.md]
 
-## Next
-
-## Later
-
-- [ ] Push notifications
+## To do
+- [ ] Math notation
 - [ ] Chat boxes
 - [ ] Git integration
 - [ ] TODO lists
-- [ ] Math notation
-
-## Ideas (parking lot — do NOT implement without moving to Now)
-
-- List-only document view
-- Checkbox toggle UI
-- AI-assisted editing
 
 ## Recently done
+- [x] Push notifications design doc
 - [x] Add MIT license
 - [x] Add a minimal ADR template in docs/Resources/Adrs
 - [x] Align ADR folder path in AGENTS.md with docs/Resources/Adrs
