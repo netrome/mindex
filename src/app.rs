@@ -62,8 +62,8 @@ pub(crate) async fn health() -> &'static str {
 
 pub(crate) async fn push_registry_debug(
     State(state): State<state::AppState>,
-) -> Json<push::DirectiveRegistriesDebug> {
-    Json(state.push_registries.debug_snapshot())
+) -> Json<push::DirectiveRegistries> {
+    Json((*state.push_registries).clone())
 }
 
 pub(crate) async fn document_list(
@@ -545,8 +545,7 @@ message = "Check the daily log."
         let body = to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("read body");
-        let registries: push::DirectiveRegistriesDebug =
-            json_from_slice(&body).expect("parse json");
+        let registries: push::DirectiveRegistries = json_from_slice(&body).expect("parse json");
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
@@ -563,7 +562,10 @@ message = "Check the daily log."
         assert_eq!(registries.notifications.len(), 1);
         let notification = &registries.notifications[0];
         assert_eq!(notification.to, vec!["marten".to_string()]);
-        assert_eq!(notification.at, "2025-01-12T09:30:00Z");
+        assert_eq!(
+            notification.at.to_string(),
+            "2025-01-12 9:30:00.0 +00:00:00"
+        );
         assert_eq!(notification.message, "Check the daily log.");
         assert_eq!(notification.doc_id, "notify.md");
 

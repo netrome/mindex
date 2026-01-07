@@ -72,7 +72,7 @@ pub struct Subscription {
     pub auth: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Notification {
     pub to: Vec<String>,
     pub at: OffsetDateTime,
@@ -80,50 +80,11 @@ pub struct Notification {
     pub doc_id: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DirectiveRegistries {
     pub users: HashMap<String, User>,
     pub subscriptions: HashMap<String, Vec<Subscription>>,
     pub notifications: Vec<Notification>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationDebug {
-    pub to: Vec<String>,
-    pub at: String,
-    pub message: String,
-    pub doc_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DirectiveRegistriesDebug {
-    pub users: HashMap<String, User>,
-    pub subscriptions: HashMap<String, Vec<Subscription>>,
-    pub notifications: Vec<NotificationDebug>,
-}
-
-impl DirectiveRegistries {
-    pub fn debug_snapshot(&self) -> DirectiveRegistriesDebug {
-        let notifications = self
-            .notifications
-            .iter()
-            .map(|notification| NotificationDebug {
-                to: notification.to.clone(),
-                at: notification
-                    .at
-                    .format(&Rfc3339)
-                    .unwrap_or_else(|_| notification.at.to_string()),
-                message: notification.message.clone(),
-                doc_id: notification.doc_id.clone(),
-            })
-            .collect();
-
-        DirectiveRegistriesDebug {
-            users: self.users.clone(),
-            subscriptions: self.subscriptions.clone(),
-            notifications,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

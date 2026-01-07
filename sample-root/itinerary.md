@@ -42,6 +42,6 @@ EVE: write a 3-line recap
 /notify
 ```toml
 to = "marten"
-at = "2025-01-12T09:30:00Z"
+at = "2025-01-07T16:48:00Z"
 message = "Review the itinerary before booking."
 ```
