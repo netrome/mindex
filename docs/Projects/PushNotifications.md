@@ -149,6 +149,10 @@ Rules:
   - `notifications_by_doc: HashMap<DocId, HashSet<ContentHash>>`
   - `scheduled_tasks: HashMap<ContentHash, TaskHandle>`
 
+### Debug endpoint (dev/test)
+- `GET /api/debug/push/registry` returns the current directive registries as JSON.
+- Intended for local testing; the response includes subscription details.
+
 ## Scheduling and execution
 - Create an in-process scheduler task at startup (tokio).
 - For each notification, compute delay and `sleep_until`.

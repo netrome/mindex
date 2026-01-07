@@ -1,8 +1,10 @@
 use crate::assets;
 use crate::config;
+use crate::push;
 use crate::state;
 use crate::templates;
 
+use axum::Json;
 use axum::Router;
 use axum::extract::Form;
 use axum::extract::Path as AxumPath;
@@ -25,12 +27,23 @@ use std::path::PathBuf;
 use std::io::Write as _;
 
 pub fn app(config: config::AppConfig) -> Router {
-    let state = state::AppState { config };
+    let push_registries = match push::load_directive_registries(&config.root) {
+        Ok(registries) => std::sync::Arc::new(registries),
+        Err(err) => {
+            eprintln!("failed to load push directive registries: {err}");
+            std::sync::Arc::new(push::DirectiveRegistries::default())
+        }
+    };
+    let state = state::AppState {
+        config,
+        push_registries,
+    };
     Router::new()
         .route("/", get(document_list))
         .route("/search", get(document_search))
         .route("/edit/{*path}", get(document_edit).post(document_save))
         .route("/doc/{*path}", get(document_view))
+        .route("/api/debug/push/registry", get(push_registry_debug))
         .route("/static/style.css", get(assets::stylesheet))
         .route("/static/theme.js", get(assets::theme_script))
         .route("/static/manifest.json", get(assets::manifest))
@@ -46,11 +59,18 @@ pub(crate) async fn health() -> &'static str {
     "ok"
 }
 
+pub(crate) async fn push_registry_debug(
+    State(state): State<state::AppState>,
+) -> Json<push::DirectiveRegistriesDebug> {
+    Json(state.push_registries.debug_snapshot())
+}
+
 pub(crate) async fn document_list(
     State(state): State<state::AppState>,
 ) -> Result<templates::DocumentListTemplate, (StatusCode, &'static str)> {
     let state::AppState {
         config: config::AppConfig { root, app_name, .. },
+        ..
     } = state;
     let paths = collect_markdown_paths(&root).map_err(|err| {
         eprintln!("failed to list markdown files: {err}");
@@ -454,6 +474,7 @@ pub(crate) mod tests {
     use axum::body::to_bytes;
     use axum::http::Request;
     use axum::http::StatusCode;
+    use serde_json::from_slice as json_from_slice;
     use tower::ServiceExt;
 
     use askama::Template as _;
@@ -476,6 +497,76 @@ pub(crate) mod tests {
             .await
             .expect("read body");
         assert_eq!(body.as_ref(), b"ok");
+    }
+
+    #[tokio::test]
+    async fn push_registry_debug__should_return_loaded_directives() {
+        let root = create_temp_root("push-registry");
+        let contents = r#"/user
+```toml
+name = "marten"
+display_name = "Marten"
+```
+
+/subscription
+```toml
+user = "marten"
+endpoint = "https://push.example/123"
+p256dh = "p256"
+auth = "auth"
+```
+
+/notify
+```toml
+to = "marten"
+at = "2025-01-12T09:30:00Z"
+message = "Check the daily log."
+```
+"#;
+        std::fs::write(root.join("notify.md"), contents).expect("write notify.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/debug/push/registry")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let registries: push::DirectiveRegistriesDebug =
+            json_from_slice(&body).expect("parse json");
+
+        let user = registries.users.get("marten").expect("user entry");
+        assert_eq!(user.display_name.as_deref(), Some("Marten"));
+
+        let subscriptions = registries
+            .subscriptions
+            .get("marten")
+            .expect("subscriptions");
+        assert_eq!(subscriptions.len(), 1);
+        assert_eq!(subscriptions[0].endpoint, "https://push.example/123");
+        assert_eq!(subscriptions[0].p256dh, "p256");
+        assert_eq!(subscriptions[0].auth, "auth");
+
+        assert_eq!(registries.notifications.len(), 1);
+        let notification = &registries.notifications[0];
+        assert_eq!(notification.to, vec!["marten".to_string()]);
+        assert_eq!(notification.at, "2025-01-12T09:30:00Z");
+        assert_eq!(notification.message, "Check the daily log.");
+        assert_eq!(notification.doc_id, "notify.md");
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[test]
