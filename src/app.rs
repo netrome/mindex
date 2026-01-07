@@ -1,8 +1,8 @@
 use crate::adapters::WebPushSender;
 use crate::assets;
 use crate::config;
-use crate::push;
 use crate::ports::PushSender;
+use crate::push;
 use crate::state;
 use crate::templates;
 
@@ -55,7 +55,7 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/static/style.css", get(assets::stylesheet))
         .route("/static/theme.js", get(assets::theme_script))
         .route("/static/manifest.json", get(assets::manifest))
-        .route("/static/sw.js", get(assets::service_worker))
+        .route("/sw.js", get(assets::service_worker))
         .route("/static/icons/icon-192.png", get(assets::icon_192))
         .route("/static/icons/icon-512.png", get(assets::icon_512))
         .route("/health", get(health))
