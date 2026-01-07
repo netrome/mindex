@@ -5,6 +5,8 @@
   - [x] Directive parser + registry loader
 
 ## To do
+- [ ] refactor: Update tests to use //given //when //then sections
+- [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.
 - [ ] Math notation
 - [ ] Chat boxes
 - [ ] Git integration
