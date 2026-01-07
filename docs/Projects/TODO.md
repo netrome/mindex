@@ -7,7 +7,6 @@
 ## Later
 
 - [ ] Add MIT license
-- [ ] Simple README.md
 - [ ] Push notifications
 - [ ] Chat boxes
 - [ ] Git integration
@@ -19,3 +18,8 @@
 - List-only document view
 - Checkbox toggle UI
 - AI-assisted editing
+
+## Recently done
+- [x] Add a minimal ADR template in docs/Resources/Adrs
+- [x] Align ADR folder path in AGENTS.md with docs/Resources/Adrs
+- [x] Simple README.md

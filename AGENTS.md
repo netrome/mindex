@@ -7,7 +7,7 @@ Optimize for: simplicity, hackability, minimal dependencies, and long-term maint
 - README.md
 - docs/Resources/INVARIANTS.md
 - docs/Resources/ARCHITECTURE.md
-- docs/Resources/adr/*
+- docs/Resources/Adrs/*
 - docs/Projects/TODO.md (current task only)
 
 ## Core rules
@@ -22,7 +22,7 @@ Optimize for: simplicity, hackability, minimal dependencies, and long-term maint
 
 - **DECISIONS REQUIRE ADRs**
   - If a change affects architecture, security model, data model, or introduces a significant dependency,
-    create/update an ADR in `docs/adr/`.
+    create/update an ADR in `docs/Resources/Adrs/`.
 
 - **FILES ARE THE SOURCE OF TRUTH**
   - No database, no background jobs unless explicitly approved via ADR.
@@ -53,6 +53,17 @@ Optimize for: simplicity, hackability, minimal dependencies, and long-term maint
   - Never treat Archive as current requirements.
 
 ## Work modes
+
+### Design mode
+Use when the task is exploratory/architectural or too large for a single PR.
+
+- Default output is a single document: `docs/Projects/<project>.md`
+- Do not modify code unless explicitly requested (design mode is typically docs-only)
+- Consider max 2–3 options, recommend one
+- End with a task breakdown of small PR-sized items, each with acceptance criteria
+- If the design changes architecture/security/data model or adds a significant dependency:
+  - draft/update an ADR in `docs/Resources/Adrs/`
+  - call out the invariant changes explicitly
 
 ### Feature mode
 - Smallest change that satisfies acceptance criteria.
