@@ -18,6 +18,9 @@ async fn main() {
         app_name: cli.app_name,
         icon_192: cli.icon_192,
         icon_512: cli.icon_512,
+        vapid_private_key: cli.vapid_private_key,
+        vapid_public_key: cli.vapid_public_key,
+        vapid_subject: cli.vapid_subject,
     };
     mindex::serve(addr, config).await;
 }
@@ -37,4 +40,10 @@ struct Cli {
     icon_192: Option<PathBuf>,
     #[arg(long)]
     icon_512: Option<PathBuf>,
+    #[arg(long, env = "MINDEX_VAPID_PRIVATE_KEY")]
+    vapid_private_key: Option<String>,
+    #[arg(long, env = "MINDEX_VAPID_PUBLIC_KEY")]
+    vapid_public_key: Option<String>,
+    #[arg(long, env = "MINDEX_VAPID_SUBJECT")]
+    vapid_subject: Option<String>,
 }

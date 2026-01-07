@@ -30,3 +30,14 @@ cargo run -- --root ./sample-root
 ```
 
 That's it. The documents are now served at `http://localhost:3000`.
+
+## Push notifications (optional)
+
+Push notifications require VAPID keys. Provide them via CLI flags or environment
+variables:
+
+- `--vapid-private-key` / `MINDEX_VAPID_PRIVATE_KEY`
+- `--vapid-public-key` / `MINDEX_VAPID_PUBLIC_KEY`
+- `--vapid-subject` / `MINDEX_VAPID_SUBJECT`
+
+If these are not set, the server runs normally but the scheduler is disabled.

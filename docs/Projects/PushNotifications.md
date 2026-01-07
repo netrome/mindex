@@ -253,7 +253,7 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
 ## Task breakdown (PR-sized)
 1. [x] Directive parser + registry loader. Acceptance: loads `/user`, `/subscription`,
    `/notify` blocks; logs on invalid blocks; respects root and symlink policy.
-2. [ ] Scheduler + delivery. Acceptance: pending notifications send via web-push and
+2. [x] Scheduler + delivery. Acceptance: pending notifications send via web-push and
    respect `to` and `at`; no writes outside root.
 3. [ ] Minimal subscription UI page. Acceptance: can generate a `/subscription` block
    without writing to disk; works with existing service worker.

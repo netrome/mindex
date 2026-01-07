@@ -38,6 +38,7 @@ pub fn app(config: config::AppConfig) -> Router {
         config,
         push_registries,
     };
+    push::maybe_start_scheduler(&state.config, std::sync::Arc::clone(&state.push_registries));
     Router::new()
         .route("/", get(document_list))
         .route("/search", get(document_search))
