@@ -247,7 +247,7 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
   `/user` and `/notify` blocks. No dedicated file required.
 
 ## Task breakdown (PR-sized)
-1. [ ] Directive parser + registry loader. Acceptance: loads `/user`, `/subscription`,
+1. [x] Directive parser + registry loader. Acceptance: loads `/user`, `/subscription`,
    `/notify` blocks; logs on invalid blocks; respects root and symlink policy.
 2. [ ] Scheduler + delivery. Acceptance: pending notifications send via web-push and
    respect `to` and `at`; no writes outside root.

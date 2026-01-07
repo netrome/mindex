@@ -2,6 +2,7 @@
 
 ## In progress
 - [ ] Push notifications [./PushNotifications.md]
+  - [x] Directive parser + registry loader
 
 ## To do
 - [ ] Math notation

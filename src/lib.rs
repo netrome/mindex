@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 mod app;
 mod assets;
 pub mod config;
+pub mod push;
 pub mod state;
 mod templates;
 
