@@ -1,5 +1,5 @@
 use crate::app::{collect_markdown_paths, doc_id_from_path};
-use crate::config;
+use crate::{config, ports};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -42,23 +42,15 @@ impl DirectiveRegistries {
 #[derive(Debug, Clone)]
 pub struct VapidConfig {
     pub private_key: String,
+    #[allow(unused)] // TODO: Will be used when we implement subscription UI
     pub public_key: String,
     pub subject: String,
-}
-
-pub trait TimeProvider: Clone + Send + Sync + 'static {
-    type Sleep<'a>: Future<Output = ()> + Send + 'a
-    where
-        Self: 'a;
-
-    fn now(&self) -> OffsetDateTime;
-    fn sleep<'a>(&'a self, duration: Duration) -> Self::Sleep<'a>;
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioTimeProvider;
 
-impl TimeProvider for TokioTimeProvider {
+impl ports::TimeProvider for TokioTimeProvider {
     type Sleep<'a>
         = tokio::time::Sleep
     where
@@ -71,15 +63,6 @@ impl TimeProvider for TokioTimeProvider {
     fn sleep<'a>(&'a self, duration: Duration) -> Self::Sleep<'a> {
         tokio::time::sleep(duration)
     }
-}
-
-pub trait PushSender: Clone + Send + Sync + 'static {
-    type Error: std::fmt::Display + Send + Sync + 'static;
-    type Fut<'a>: Future<Output = Result<(), Self::Error>> + Send + 'a
-    where
-        Self: 'a;
-
-    fn send<'a>(&'a self, subscription: &'a Subscription, message: &'a str) -> Self::Fut<'a>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,8 +94,8 @@ pub struct PushScheduler<T, S> {
 
 impl<T, S> PushScheduler<T, S>
 where
-    T: TimeProvider,
-    S: PushSender,
+    T: ports::TimeProvider,
+    S: ports::PushSender,
 {
     pub fn new(time: T, sender: S) -> Self {
         Self { time, sender }
@@ -151,7 +134,7 @@ impl WebPushSender {
     }
 }
 
-impl PushSender for WebPushSender {
+impl ports::PushSender for WebPushSender {
     type Error = WebPushError;
     type Fut<'a>
         = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'a>>
@@ -219,7 +202,7 @@ pub fn maybe_start_scheduler(config: &config::AppConfig, registries: Arc<Directi
     scheduler.spawn_all(registries);
 }
 
-fn compute_delay<T: TimeProvider>(time: &T, at: OffsetDateTime) -> Option<Duration> {
+fn compute_delay<T: ports::TimeProvider>(time: &T, at: OffsetDateTime) -> Option<Duration> {
     let now = time.now();
     let delay = at - now;
     if delay.is_positive() {
@@ -236,8 +219,8 @@ async fn run_notification<T, S>(
     registries: Arc<DirectiveRegistries>,
     notification: Notification,
 ) where
-    T: TimeProvider,
-    S: PushSender,
+    T: ports::TimeProvider,
+    S: ports::PushSender,
 {
     if let Some(delay) = compute_delay(&time, notification.at) {
         time.sleep(delay).await;
@@ -812,7 +795,7 @@ name = "real"
         }
     }
 
-    impl TimeProvider for TestTime {
+    impl ports::TimeProvider for TestTime {
         type Sleep<'a>
             = ManualSleep
         where
@@ -847,7 +830,7 @@ name = "real"
         sent: Arc<Mutex<Vec<(String, String)>>>,
     }
 
-    impl PushSender for TestSender {
+    impl ports::PushSender for TestSender {
         type Error = TestSendError;
         type Fut<'a>
             = std::future::Ready<Result<(), Self::Error>>

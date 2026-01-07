@@ -1,10 +1,14 @@
 use std::net::SocketAddr;
 
+pub mod config;
+
+mod adapters;
+mod ports;
+
 mod app;
 mod assets;
-pub mod config;
-pub mod push;
-pub mod state;
+mod push;
+mod state;
 mod templates;
 
 pub async fn serve(addr: SocketAddr, config: config::AppConfig) {
