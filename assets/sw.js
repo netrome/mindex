@@ -43,23 +43,50 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  const isDocument = request.destination === 'document';
+  const networkFirst = isDocument || url.pathname.startsWith('/doc/');
+
+  if (networkFirst) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => cache.put(request, responseToCache));
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request).then(cachedResponse => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            if (isDocument) {
+              return new Response(
+                '<html><body><h1>Offline</h1><p>This page is not available offline.</p></body></html>',
+                { headers: { 'Content-Type': 'text/html' } }
+              );
+            }
+          });
+        })
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(request)
       .then(cachedResponse => {
-        // If we have a cached response, serve it
         if (cachedResponse) {
           return cachedResponse;
         }
 
-        // Otherwise, fetch from network and cache the response
         return fetch(request)
           .then(response => {
-            // Don't cache non-successful responses
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
 
-            // Cache documents and static assets for offline viewing
             const responseToCache = response.clone();
 
             if (shouldCache(url.pathname)) {
@@ -70,8 +97,7 @@ self.addEventListener('fetch', event => {
             return response;
           })
           .catch(() => {
-            // If network fails and we don't have cache, return a basic offline page
-            if (request.destination === 'document') {
+            if (isDocument) {
               return new Response(
                 '<html><body><h1>Offline</h1><p>This page is not available offline.</p></body></html>',
                 { headers: { 'Content-Type': 'text/html' } }

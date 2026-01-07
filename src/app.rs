@@ -60,7 +60,6 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/static/icons/icon-512.png", get(assets::icon_512))
         .route("/health", get(health))
         .with_state(state)
-        .with_state(String::from("derp"))
 }
 
 pub(crate) async fn health() -> &'static str {
