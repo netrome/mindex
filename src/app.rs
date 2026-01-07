@@ -27,7 +27,7 @@ use std::path::PathBuf;
 use std::io::Write as _;
 
 pub fn app(config: config::AppConfig) -> Router {
-    let push_registries = match push::load_directive_registries(&config.root) {
+    let push_registries = match push::DirectiveRegistries::load(&config.root) {
         Ok(registries) => std::sync::Arc::new(registries),
         Err(err) => {
             eprintln!("failed to load push directive registries: {err}");

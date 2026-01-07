@@ -23,18 +23,20 @@ pub struct DirectiveRegistries {
     pub notifications: Vec<Notification>,
 }
 
-pub fn load_directive_registries(root: &Path) -> std::io::Result<DirectiveRegistries> {
-    let mut registries = DirectiveRegistries::default();
-    let paths = collect_markdown_paths(root)?;
-    for path in paths {
-        let doc_id = match doc_id_from_path(root, &path) {
-            Some(doc_id) => doc_id,
-            None => continue,
-        };
-        let contents = std::fs::read_to_string(&path)?;
-        parse_document(&doc_id, &contents, &mut registries);
+impl DirectiveRegistries {
+    pub fn load(root: &Path) -> std::io::Result<Self> {
+        let mut registries = DirectiveRegistries::default();
+        let paths = collect_markdown_paths(root)?;
+        for path in paths {
+            let doc_id = match doc_id_from_path(root, &path) {
+                Some(doc_id) => doc_id,
+                None => continue,
+            };
+            let contents = std::fs::read_to_string(&path)?;
+            parse_document(&doc_id, &contents, &mut registries);
+        }
+        Ok(registries)
     }
-    Ok(registries)
 }
 
 #[derive(Debug, Clone)]
@@ -657,7 +659,7 @@ message = "Check the daily log."
 "#;
         std::fs::write(root.join("note.md"), contents).expect("write note.md");
 
-        let registries = load_directive_registries(&root).expect("load registries");
+        let registries = DirectiveRegistries::load(&root).expect("load registries");
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
@@ -700,7 +702,7 @@ message = "Nope"
 "#;
         std::fs::write(root.join("bad.md"), contents).expect("write bad.md");
 
-        let registries = load_directive_registries(&root).expect("load registries");
+        let registries = DirectiveRegistries::load(&root).expect("load registries");
 
         assert!(registries.users.is_empty());
         assert!(registries.notifications.is_empty());
@@ -725,7 +727,7 @@ display_name = "Second"
 "#;
         std::fs::write(root.join("dup.md"), contents).expect("write dup.md");
 
-        let registries = load_directive_registries(&root).expect("load registries");
+        let registries = DirectiveRegistries::load(&root).expect("load registries");
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("First"));
@@ -748,7 +750,7 @@ name = "real"
         std::fs::write(&target, contents).expect("write real.md");
         symlink(&target, root.join("link.md")).expect("create symlink");
 
-        let registries = load_directive_registries(&root).expect("load registries");
+        let registries = DirectiveRegistries::load(&root).expect("load registries");
 
         assert_eq!(registries.users.len(), 1);
         assert!(registries.users.contains_key("real"));
