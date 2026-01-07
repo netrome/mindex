@@ -75,15 +75,47 @@
         return payload.publicKey;
     }
 
+    function arrayBufferToBase64Url(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i += 1) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+        return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function extractKeys(subscription) {
+        if (subscription.keys && subscription.keys.p256dh && subscription.keys.auth) {
+            return {
+                p256dh: subscription.keys.p256dh,
+                auth: subscription.keys.auth,
+            };
+        }
+        const p256dhBuffer = subscription.getKey("p256dh");
+        const authBuffer = subscription.getKey("auth");
+        if (!p256dhBuffer || !authBuffer) {
+            return null;
+        }
+        return {
+            p256dh: arrayBufferToBase64Url(p256dhBuffer),
+            auth: arrayBufferToBase64Url(authBuffer),
+        };
+    }
+
     function buildBlock(username, subscription) {
         const user = username.trim() || "your-username";
+        const keys = extractKeys(subscription);
+        if (!keys) {
+            return "";
+        }
         return [
             "/subscription",
             "```toml",
             `user = "${user}"`,
             `endpoint = "${subscription.endpoint}"`,
-            `p256dh = "${subscription.keys.p256dh}"`,
-            `auth = "${subscription.keys.auth}"`,
+            `p256dh = "${keys.p256dh}"`,
+            `auth = "${keys.auth}"`,
             "```",
             "",
         ].join("\n");
@@ -123,7 +155,11 @@
         });
 
         currentSubscription = subscription;
-        setOutput(buildBlock(usernameInput.value, subscription));
+        const block = buildBlock(usernameInput.value, subscription);
+        if (!block) {
+            throw new Error("Failed to read subscription keys.");
+        }
+        setOutput(block);
         setStatus("Paste the block into any document and save.");
     }
 
@@ -159,13 +195,17 @@
             testMessageInput.value.trim() || "Test notification from Mindex";
         testButton.disabled = true;
         try {
+            const keys = extractKeys(currentSubscription);
+            if (!keys) {
+                throw new Error("Failed to read subscription keys.");
+            }
             const response = await fetch("/api/push/test", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     endpoint: currentSubscription.endpoint,
-                    p256dh: currentSubscription.keys.p256dh,
-                    auth: currentSubscription.keys.auth,
+                    p256dh: keys.p256dh,
+                    auth: keys.auth,
                     message,
                 }),
             });
