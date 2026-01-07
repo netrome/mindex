@@ -1,20 +1,15 @@
+use crate::adapters::{TokioTimeProvider, WebPushSender};
 use crate::app::{collect_markdown_paths, doc_id_from_path};
 use crate::{config, ports};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::future::Future;
 use std::path::Path;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 use tokio::task::JoinHandle;
-use web_push::{
-    ContentEncoding, SubscriptionInfo, VapidSignatureBuilder, WebPushClient, WebPushError,
-    WebPushMessageBuilder,
-};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DirectiveRegistries {
@@ -45,24 +40,6 @@ pub struct VapidConfig {
     #[allow(unused)] // TODO: Will be used when we implement subscription UI
     pub public_key: String,
     pub subject: String,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct TokioTimeProvider;
-
-impl ports::TimeProvider for TokioTimeProvider {
-    type Sleep<'a>
-        = tokio::time::Sleep
-    where
-        Self: 'a;
-
-    fn now(&self) -> OffsetDateTime {
-        OffsetDateTime::now_utc()
-    }
-
-    fn sleep<'a>(&'a self, duration: Duration) -> Self::Sleep<'a> {
-        tokio::time::sleep(duration)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,51 +92,6 @@ where
                 })
             })
             .collect()
-    }
-}
-
-#[derive(Clone)]
-pub struct WebPushSender {
-    vapid: VapidConfig,
-    client: Arc<WebPushClient>,
-}
-
-impl WebPushSender {
-    pub fn new(vapid: VapidConfig) -> Result<Self, WebPushError> {
-        let client = WebPushClient::new()?;
-        Ok(Self {
-            vapid,
-            client: Arc::new(client),
-        })
-    }
-}
-
-impl ports::PushSender for WebPushSender {
-    type Error = WebPushError;
-    type Fut<'a>
-        = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'a>>
-    where
-        Self: 'a;
-
-    fn send<'a>(&'a self, subscription: &'a Subscription, message: &'a str) -> Self::Fut<'a> {
-        Box::pin(async move {
-            let subscription_info = SubscriptionInfo::new(
-                subscription.endpoint.clone(),
-                subscription.p256dh.clone(),
-                subscription.auth.clone(),
-            );
-            let mut builder = WebPushMessageBuilder::new(&subscription_info)?;
-            builder.set_payload(ContentEncoding::Aes128Gcm, message.as_bytes());
-            let mut signature_builder = VapidSignatureBuilder::from_base64(
-                &self.vapid.private_key,
-                web_push::URL_SAFE_NO_PAD,
-                &subscription_info,
-            )?;
-            signature_builder.add_claim("sub", self.vapid.subject.as_str());
-            builder.set_vapid_signature(signature_builder.build()?);
-            self.client.send(builder.build()?).await?;
-            Ok(())
-        })
     }
 }
 
