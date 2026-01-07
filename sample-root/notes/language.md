@@ -31,3 +31,10 @@
 
 [Jisho]: https://jisho.org/
 [DeepL]: https://www.deepl.com/
+
+## Push Directives (sample)
+/user
+```toml
+name = "marten"
+display_name = "Marten"
+```

@@ -37,3 +37,11 @@ EVE: write a 3-line recap
 - Which museums need timed tickets?
 - Should we add a short beach stop?
 - How many travel days feel comfortable?
+
+## Push Directives (sample)
+/notify
+```toml
+to = "marten"
+at = "2025-01-12T09:30:00Z"
+message = "Review the itinerary before booking."
+```

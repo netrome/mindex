@@ -25,3 +25,12 @@
 
 ## Simple Rule
 - Try one new dish each day and write a short note
+
+## Push Directives (sample)
+/subscription
+```toml
+user = "marten"
+endpoint = "https://push.example/abc123"
+p256dh = "p256dh-example"
+auth = "auth-example"
+```
