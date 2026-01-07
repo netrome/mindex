@@ -77,17 +77,18 @@ Use when the task is exploratory/architectural or too large for a single PR.
 
 ## Workflow expectations (per task)
 
-1. Start with a short plan:
+1. First respond with a plan:
    - approach, files to touch, non-goals, risks
-2. Implement exactly the plan.
-3. Run:
+2. Wait for confirmation/feedback, adjust the plan accordingly.
+3. Implement exactly the plan.
+4. Run:
    - `cargo fmt`
    - `cargo clippy --all-targets --all-features`
    - `cargo nextest run`
-4. Update docs if behavior/usage changed (README/docs/*).
-5. Update docs/Projects/TODO.md: check off the item, add follow-ups if needed.
+5. Update docs if behavior/usage changed (README/docs/*).
+6. Update docs/Projects/TODO.md: check off the item, add follow-ups if needed.
   - If working on a sub-task in a project, check off the sub-task in the project document.
-6. Provide:
+7. Provide:
    - Summary of changes
    - Tests added/updated
    - Commands to run
