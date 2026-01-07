@@ -1,6 +1,8 @@
+use crate::adapters::WebPushSender;
 use crate::assets;
 use crate::config;
 use crate::push;
+use crate::ports::PushSender;
 use crate::state;
 use crate::templates;
 
@@ -12,6 +14,7 @@ use axum::extract::Query;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::routing::get;
+use axum::routing::post;
 use pulldown_cmark::Event;
 use pulldown_cmark::Options;
 use pulldown_cmark::Parser;
@@ -47,6 +50,7 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/doc/{*path}", get(document_view))
         .route("/push/subscribe", get(push_subscribe))
         .route("/api/push/public-key", get(push_public_key))
+        .route("/api/push/test", post(push_test))
         .route("/api/debug/push/registry", get(push_registry_debug))
         .route("/static/style.css", get(assets::stylesheet))
         .route("/static/theme.js", get(assets::theme_script))
@@ -105,6 +109,110 @@ pub(crate) async fn push_public_key(
     Ok(Json(PublicKeyResponse {
         public_key: public_key.clone(),
     }))
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TestPushRequest {
+    pub(crate) endpoint: String,
+    pub(crate) p256dh: String,
+    pub(crate) auth: String,
+    pub(crate) message: Option<String>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct TestPushResponse {
+    status: &'static str,
+}
+
+pub(crate) async fn push_test(
+    State(state): State<state::AppState>,
+    Json(request): Json<TestPushRequest>,
+) -> Result<Json<TestPushResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let config = &state.config;
+    let has_all = config.vapid_private_key.is_some()
+        && config.vapid_public_key.is_some()
+        && config.vapid_subject.is_some();
+
+    if !has_all {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse {
+                error: "Push notifications are not configured.",
+            }),
+        ));
+    }
+
+    if request.endpoint.trim().is_empty()
+        || request.p256dh.trim().is_empty()
+        || request.auth.trim().is_empty()
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "endpoint, p256dh, and auth are required.",
+            }),
+        ));
+    }
+
+    let message = request
+        .message
+        .as_deref()
+        .unwrap_or("Test notification from Mindex")
+        .trim();
+    if message.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "message must not be empty.",
+            }),
+        ));
+    }
+
+    let vapid = push::VapidConfig {
+        private_key: config
+            .vapid_private_key
+            .as_ref()
+            .expect("private key present")
+            .clone(),
+        public_key: config
+            .vapid_public_key
+            .as_ref()
+            .expect("public key present")
+            .clone(),
+        subject: config
+            .vapid_subject
+            .as_ref()
+            .expect("subject present")
+            .clone(),
+    };
+
+    let sender = WebPushSender::new(vapid).map_err(|err| {
+        eprintln!("push test error: failed to init web-push ({err})");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "Failed to initialize push sender.",
+            }),
+        )
+    })?;
+
+    let subscription = push::Subscription {
+        endpoint: request.endpoint,
+        p256dh: request.p256dh,
+        auth: request.auth,
+    };
+
+    if let Err(err) = sender.send(&subscription, message).await {
+        eprintln!("push test error: {err}");
+        return Err((
+            StatusCode::BAD_GATEWAY,
+            Json(ErrorResponse {
+                error: "Failed to send test notification.",
+            }),
+        ));
+    }
+
+    Ok(Json(TestPushResponse { status: "sent" }))
 }
 
 pub(crate) async fn push_subscribe(

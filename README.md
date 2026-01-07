@@ -43,4 +43,5 @@ variables:
 If these are not set, the server runs normally but the scheduler is disabled.
 
 To register a device, visit `/push/subscribe` and copy the generated
-`/subscription` block into any markdown document.
+`/subscription` block into any markdown document. The page also includes
+a "Send test" button for quick verification.

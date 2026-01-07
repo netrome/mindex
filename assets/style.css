@@ -177,6 +177,23 @@ textarea {
     color: var(--text);
 }
 
+input[type="text"],
+input[type="search"] {
+    width: 100%;
+    max-width: 100%;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background-color: var(--input-bg);
+    color: var(--text);
+}
+
+label {
+    display: block;
+    margin-top: 0.75rem;
+    font-weight: 500;
+}
+
 button {
     background-color: var(--button-bg);
     color: var(--button-text);

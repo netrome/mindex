@@ -5,7 +5,11 @@
 {% block content %}
 <div class="nav">
     <a href="/">Home</a>
-    <button class="theme-toggle" onclick="toggleTheme()">Toggle theme</button>
+    <a href="/search">Search</a>
+    <a href="/push/subscribe">Push</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+        Theme
+    </button>
 </div>
 
 <h1>Push subscription</h1>
@@ -23,12 +27,22 @@
 
 <button id="copy-button" type="button">Copy block</button>
 
+<h2>Test notification</h2>
+<p>Sends a one-off push using the current subscription.</p>
+
+<label for="test-message">Message</label>
+<input id="test-message" type="text" placeholder="Test notification from Mindex" />
+<button id="test-button" type="button">Send test</button>
+
 <script>
     const statusEl = document.getElementById("status");
     const subscribeButton = document.getElementById("subscribe-button");
     const copyButton = document.getElementById("copy-button");
     const usernameInput = document.getElementById("username");
     const output = document.getElementById("subscription-block");
+    const testMessageInput = document.getElementById("test-message");
+    const testButton = document.getElementById("test-button");
+    let currentSubscription = null;
 
     function setStatus(message) {
         statusEl.textContent = message;
@@ -108,6 +122,7 @@
             applicationServerKey: urlBase64ToUint8Array(publicKey),
         });
 
+        currentSubscription = subscription;
         setOutput(buildBlock(usernameInput.value, subscription));
         setStatus("Paste the block into any document and save.");
     }
@@ -132,6 +147,38 @@
             setStatus("Copied to clipboard.");
         } catch (err) {
             setStatus("Copy failed. Select the text manually.");
+        }
+    });
+
+    testButton.addEventListener("click", async () => {
+        if (!currentSubscription) {
+            setStatus("Create a subscription first.");
+            return;
+        }
+        const message =
+            testMessageInput.value.trim() || "Test notification from Mindex";
+        testButton.disabled = true;
+        try {
+            const response = await fetch("/api/push/test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    endpoint: currentSubscription.endpoint,
+                    p256dh: currentSubscription.keys.p256dh,
+                    auth: currentSubscription.keys.auth,
+                    message,
+                }),
+            });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                const error = payload.error || "Failed to send test notification.";
+                throw new Error(error);
+            }
+            setStatus("Test notification sent.");
+        } catch (err) {
+            setStatus(err.message || "Failed to send test notification.");
+        } finally {
+            testButton.disabled = false;
         }
     });
 

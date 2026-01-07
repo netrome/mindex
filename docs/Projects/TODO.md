@@ -5,6 +5,7 @@
   - [x] Directive parser + registry loader
   - [x] Scheduler + delivery
   - [x] Minimal subscription UI page
+  - [x] Subscription nav link + test helper
 
 ## To do
 - [ ] refactor: Update tests to use //given //when //then sections
