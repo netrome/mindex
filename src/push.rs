@@ -16,6 +16,27 @@ use web_push::{
     WebPushMessageBuilder,
 };
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DirectiveRegistries {
+    pub users: HashMap<String, User>,
+    pub subscriptions: HashMap<String, Vec<Subscription>>,
+    pub notifications: Vec<Notification>,
+}
+
+pub fn load_directive_registries(root: &Path) -> std::io::Result<DirectiveRegistries> {
+    let mut registries = DirectiveRegistries::default();
+    let paths = collect_markdown_paths(root)?;
+    for path in paths {
+        let doc_id = match doc_id_from_path(root, &path) {
+            Some(doc_id) => doc_id,
+            None => continue,
+        };
+        let contents = std::fs::read_to_string(&path)?;
+        parse_document(&doc_id, &contents, &mut registries);
+    }
+    Ok(registries)
+}
+
 #[derive(Debug, Clone)]
 pub struct VapidConfig {
     pub private_key: String,
@@ -78,13 +99,6 @@ pub struct Notification {
     pub at: OffsetDateTime,
     pub message: String,
     pub doc_id: String,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct DirectiveRegistries {
-    pub users: HashMap<String, User>,
-    pub subscriptions: HashMap<String, Vec<Subscription>>,
-    pub notifications: Vec<Notification>,
 }
 
 #[derive(Debug, Clone)]
@@ -248,20 +262,6 @@ async fn run_notification<T, S>(
             }
         }
     }
-}
-
-pub fn load_directive_registries(root: &Path) -> std::io::Result<DirectiveRegistries> {
-    let mut registries = DirectiveRegistries::default();
-    let paths = collect_markdown_paths(root)?;
-    for path in paths {
-        let doc_id = match doc_id_from_path(root, &path) {
-            Some(doc_id) => doc_id,
-            None => continue,
-        };
-        let contents = std::fs::read_to_string(&path)?;
-        parse_document(&doc_id, &contents, &mut registries);
-    }
-    Ok(registries)
 }
 
 #[derive(Debug, Clone, Copy)]
