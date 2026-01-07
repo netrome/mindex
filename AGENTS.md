@@ -1,67 +1,75 @@
-# Agent Instructions
+# Agent Instructions (Mindex)
 
 This repository is a **small, file-backed markdown knowledge base web app**.
-You are acting as a disciplined engineer implementing a clearly scoped MVP.
+Optimize for: simplicity, hackability, minimal dependencies, and long-term maintainability.
 
-## Core rules (very important)
+## Read these first
+- README.md (what the app is)
+- docs/INVARIANTS.md (must-stay-true design constraints)
+- docs/ARCHITECTURE.md (module map)
+- docs/adr/* (why key decisions were made)
+
+## Core rules
 
 - **NO FEATURE CREEP**
-  - If a feature is not explicitly listed in `SPEC.md` *and* the current TODO item, do NOT implement it.
-  - If you think something would be useful later, add it to `TODO.md` under “Ideas” instead.
+  - Implement only the explicitly requested task.
+  - If you see a good idea, add it to TODO.md under “Ideas” (do not implement).
 
-- **ONE TASK AT A TIME**
-  - Tasks are defined in `TODO.md`.
-  - Only work on the TODO item I explicitly ask for.
-  - Do not “prepare for future features”.
+- **KEEP INVARIANTS TRUE**
+  - Do not violate docs/INVARIANTS.md.
+  - If you believe an invariant must change, propose an ADR instead of changing code.
+
+- **DECISIONS REQUIRE ADRs**
+  - If a change affects architecture, security model, data model, or introduces a significant dependency,
+    create/update an ADR in `docs/adr/`.
 
 - **FILES ARE THE SOURCE OF TRUTH**
-  - No database.
-  - No background jobs.
-  - No metadata store beyond what is on disk.
+  - No database, no background jobs unless explicitly approved via ADR.
 
 - **DOCUMENT ID = RELATIVE PATH**
-  - The canonical identifier for a document is its normalized relative path from the root directory.
-  - Do not introduce UUIDs, slugs, or hashes.
-
-- **PREFER SIMPLE SOLUTIONS**
-  - Choose the simplest correct implementation, even if it is less “elegant”.
-  - Avoid abstractions unless strictly necessary for the current task.
+  - The canonical identifier is the normalized relative path from root.
+  - No UUIDs/slugs/hashes as primary identifiers.
 
 - **DEPENDENCY DISCIPLINE**
-  - Do not add new dependencies without explaining why they are required.
-  - Prefer standard library solutions where reasonable.
+  - Avoid adding dependencies. If needed, justify why (and why stdlib isn’t enough).
 
 - **SECURITY IS NOT OPTIONAL**
-  - Path traversal must be prevented.
-  - The server must never read or write outside the configured root directory.
-  - Do not follow symlinks that escape the root.
+  - Prevent path traversal.
+  - Never read/write outside configured root.
+  - Be explicit about symlink policy (per invariants).
 
-## Workflow expectations
+## Work modes
 
-For each TODO item:
-1. First respond with a **short implementation plan**:
-   - files to touch
-   - approach
-   - explicit non-goals
-2. Wait for confirmation if the plan changes scope.
-3. Implement the change.
-4. Run formatting / linting.
-5. Run `cargo nextest run` and fix any failures before reporting completion.
-6. Update `TODO.md` (check off completed item).
-7. Provide **exact commands** to run and test the change manually.
+### Feature mode
+- Smallest change that satisfies acceptance criteria.
+- Avoid refactors unless required to implement the feature safely.
 
-## Output format for implementation responses
+### Refactor/Engineering-excellence mode
+- Must include:
+  - clear motivation (what pain/risk it reduces)
+  - a safety net (tests/snapshots/golden files)
+  - a bounded scope (what is NOT being refactored)
 
-- Summary of changes
-- Summary of tests added
-- Files modified
-- Risks / limitations (if any)
+## Workflow expectations (per task)
+
+1. Start with a short plan:
+   - approach, files to touch, non-goals, risks
+2. Implement exactly the plan.
+3. Run:
+   - `cargo fmt`
+   - `cargo clippy --all-targets --all-features`
+   - `cargo nextest run`
+4. Update docs if behavior/usage changed (README/docs/*).
+5. Update TODO.md: check off the item, add follow-ups if needed.
+6. Provide:
+   - Summary of changes
+   - Tests added/updated
+   - Commands to run
+   - Manual test checklist
+   - Risks/limitations
 
 ## What NOT to do
-
-- Do not refactor unrelated code.
-- Do not introduce “nice-to-have” UX improvements.
-- Do not redesign architecture.
-- Do not invent APIs or endpoints not in the spec.
-
-When in doubt: **ask or do less.**
+- No drive-by refactors.
+- No new architecture without ADR.
+- No adding “nice UX” unless requested.
+- No “future-proofing” unless part of the task.
