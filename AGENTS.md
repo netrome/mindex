@@ -4,19 +4,20 @@ This repository is a **small, file-backed markdown knowledge base web app**.
 Optimize for: simplicity, hackability, minimal dependencies, and long-term maintainability.
 
 ## Read these first
-- README.md (what the app is)
-- docs/INVARIANTS.md (must-stay-true design constraints)
-- docs/ARCHITECTURE.md (module map)
-- docs/adr/* (why key decisions were made)
+- README.md
+- docs/Resources/INVARIANTS.md
+- docs/Resources/ARCHITECTURE.md
+- docs/Resources/adr/*
+- docs/Projects/TODO.md (current task only)
 
 ## Core rules
 
 - **NO FEATURE CREEP**
-  - Implement only the explicitly requested task.
-  - If you see a good idea, add it to TODO.md under “Ideas” (do not implement).
+  - Implement only the explicitly requested task from `docs/Projects/TODO.md`.
+  - `docs/Resources/*` defines constraints, not a feature backlog.
 
 - **KEEP INVARIANTS TRUE**
-  - Do not violate docs/INVARIANTS.md.
+  - Do not violate docs/Resources/INVARIANTS.md.
   - If you believe an invariant must change, propose an ADR instead of changing code.
 
 - **DECISIONS REQUIRE ADRs**
@@ -37,6 +38,19 @@ Optimize for: simplicity, hackability, minimal dependencies, and long-term maint
   - Prevent path traversal.
   - Never read/write outside configured root.
   - Be explicit about symlink policy (per invariants).
+
+## Documentation rules
+- Projects:
+  - Active tasks live in `docs/Projects/`.
+  - Completed work should be checked off or moved to Archive if it’s no longer relevant.
+
+- Resources:
+  - Stable knowledge and constraints live in `docs/Resources/`.
+  - Changes here should be rare and deliberate.
+
+- Archive:
+  - Historical documents only.
+  - Never treat Archive as current requirements.
 
 ## Work modes
 
@@ -60,7 +74,7 @@ Optimize for: simplicity, hackability, minimal dependencies, and long-term maint
    - `cargo clippy --all-targets --all-features`
    - `cargo nextest run`
 4. Update docs if behavior/usage changed (README/docs/*).
-5. Update TODO.md: check off the item, add follow-ups if needed.
+5. Update docs/Projects/TODO.md: check off the item, add follow-ups if needed.
 6. Provide:
    - Summary of changes
    - Tests added/updated
