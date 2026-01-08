@@ -1,5 +1,5 @@
 use crate::adapters::{TokioTimeProvider, WebPushSender};
-use crate::app::{collect_markdown_paths, doc_id_from_path};
+use crate::documents::{collect_markdown_paths, doc_id_from_path};
 use crate::{config, ports};
 
 use serde::{Deserialize, Serialize};
@@ -138,8 +138,10 @@ fn compute_delay<T: ports::TimeProvider>(time: &T, at: OffsetDateTime) -> Option
     let now = time.now();
     let delay = at - now;
     if delay.is_positive() {
-        let std_delay: Duration = delay.try_into().unwrap_or_default();
-        Some(std_delay)
+        match delay.try_into() {
+            Ok(std_delay) => Some(std_delay),
+            Err(_) => Some(Duration::MAX),
+        }
     } else {
         None
     }
@@ -776,6 +778,33 @@ name = "real"
                 .push((subscription.endpoint.clone(), message.to_string()));
             std::future::ready(Ok(()))
         }
+    }
+
+    #[test]
+    fn compute_delay__should_return_none_for_past() {
+        let now = OffsetDateTime::parse("2025-01-12T09:30:00Z", &Rfc3339).expect("parse now");
+        let time = TestTime::new(now);
+        let at = now - time::Duration::seconds(5);
+
+        assert!(compute_delay(&time, at).is_none());
+    }
+
+    #[test]
+    fn compute_delay__should_return_none_for_now() {
+        let now = OffsetDateTime::parse("2025-01-12T09:30:00Z", &Rfc3339).expect("parse now");
+        let time = TestTime::new(now);
+
+        assert!(compute_delay(&time, now).is_none());
+    }
+
+    #[test]
+    fn compute_delay__should_return_duration_for_future() {
+        let now = OffsetDateTime::parse("2025-01-12T09:30:00Z", &Rfc3339).expect("parse now");
+        let time = TestTime::new(now);
+        let at = now + time::Duration::milliseconds(1500);
+
+        let delay = compute_delay(&time, at).expect("delay");
+        assert_eq!(delay, Duration::from_millis(1500));
     }
 
     #[tokio::test]
