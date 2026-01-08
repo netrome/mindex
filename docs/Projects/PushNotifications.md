@@ -255,5 +255,23 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
    `/notify` blocks; logs on invalid blocks; respects root and symlink policy.
 2. [x] Scheduler + delivery. Acceptance: pending notifications send via web-push and
    respect `to` and `at`; no writes outside root.
-3. [ ] Minimal subscription UI page. Acceptance: can generate a `/subscription` block
+3. [x] Minimal subscription UI page. Acceptance: can generate a `/subscription` block
    without writing to disk; works with existing service worker.
+4. [ ] Refactor: extract push domain types to break the `ports`/`push` dependency cycle.
+   Acceptance: `ports` no longer imports `push`; shared types live in a dedicated module.
+5. [ ] Docs: document ports/adapters boundaries for push + time abstractions.
+   Acceptance: `docs/Resources/ARCHITECTURE.md` (or another canonical doc) reflects the
+   updated module and boundary layout.
+6. [ ] Refactor: extract directive parsing into `push/directives.rs`.
+   Acceptance: parsing logic + tests move; `push.rs` becomes a small public surface.
+7. [ ] Refactor: extract registry loading into `push/registry.rs`.
+   Acceptance: `DirectiveRegistries::load` and helpers live in the registry module.
+8. [ ] Refactor: extract scheduling into `push/scheduler.rs`.
+   Acceptance: `PushScheduler`, delay computation, and notification runner are isolated.
+9. [ ] Refactor: centralize VAPID validation/construction.
+   Acceptance: a single helper is used by scheduler startup and API handlers.
+10. [ ] Refactor: make directive parsing return warnings instead of `eprintln!` in core logic.
+    Acceptance: logging happens at the call boundary; tests cover warning collection.
+11. [ ] Feature: store scheduler handles and add a debug view for scheduled notifications.
+    Acceptance: app state keeps handles; debug endpoint returns scheduled entries and
+    current server time for timezone inspection.
