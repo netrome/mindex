@@ -75,7 +75,22 @@ Use when the task is exploratory/architectural or too large for a single PR.
   - a safety net (tests/snapshots/golden files)
   - a bounded scope (what is NOT being refactored)
 
-## Workflow expectations (per task)
+### Review mode
+- Assume the code already compiles, passes all tests and clippy passes.
+- Focus first on correctness.
+  - Is there any logic error?
+  - Does the change satisfy the acceptance criteria?
+  - Do we introduce any new potential bugs?
+  - Are there tests covering any new or changed logic?
+  - Is the documentation in sync with the current changes?
+- If the code is correct, proceed with reviewing readability.
+  - Are functions lean and focused so that they can be easily tested?
+  - Are names accurate and convey their intention clearly?
+  - Is the code well-organized with the most significant functions and types defined first and any helpers declared after?
+  - Are all functions and types defined in appropriate places, or should they be moved to other (potentially new) modules for a cleaner separation of concerns?
+  - Can all functions be reasoned about locally or is there a high degree of context required to understand their correctness?
+
+## Development workflow expectations (for feature implementations and refactors)
 
 1. First respond with a plan:
    - approach, files to touch, non-goals, risks
@@ -91,8 +106,6 @@ Use when the task is exploratory/architectural or too large for a single PR.
 7. Provide:
    - Summary of changes
    - Tests added/updated
-   - Commands to run
-   - Manual test checklist
    - Risks/limitations
 
 ## What NOT to do
