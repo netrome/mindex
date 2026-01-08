@@ -7,6 +7,7 @@ use crate::documents::{
 };
 use crate::ports::PushSender;
 use crate::push;
+use crate::push_types;
 use crate::state;
 use crate::templates;
 
@@ -28,11 +29,11 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 pub fn app(config: config::AppConfig) -> Router {
-    let push_registries = match push::DirectiveRegistries::load(&config.root) {
+    let push_registries = match push_types::DirectiveRegistries::load(&config.root) {
         Ok(registries) => std::sync::Arc::new(registries),
         Err(err) => {
             eprintln!("failed to load push directive registries: {err}");
-            std::sync::Arc::new(push::DirectiveRegistries::default())
+            std::sync::Arc::new(push_types::DirectiveRegistries::default())
         }
     };
     let state = state::AppState {
@@ -65,7 +66,7 @@ pub(crate) async fn health() -> &'static str {
 
 pub(crate) async fn push_registry_debug(
     State(state): State<state::AppState>,
-) -> Json<push::DirectiveRegistries> {
+) -> Json<push_types::DirectiveRegistries> {
     Json((*state.push_registries).clone())
 }
 
@@ -164,7 +165,7 @@ pub(crate) async fn push_test(
         ));
     }
 
-    let vapid = push::VapidConfig {
+    let vapid = push_types::VapidConfig {
         private_key: config
             .vapid_private_key
             .as_ref()
@@ -192,7 +193,7 @@ pub(crate) async fn push_test(
         )
     })?;
 
-    let subscription = push::Subscription {
+    let subscription = push_types::Subscription {
         endpoint: request.endpoint,
         p256dh: request.p256dh,
         auth: request.auth,
@@ -467,7 +468,8 @@ message = "Check the daily log."
         let body = to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("read body");
-        let registries: push::DirectiveRegistries = json_from_slice(&body).expect("parse json");
+        let registries: push_types::DirectiveRegistries =
+            json_from_slice(&body).expect("parse json");
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));

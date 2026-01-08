@@ -1,22 +1,15 @@
 use crate::adapters::{TokioTimeProvider, WebPushSender};
 use crate::documents::{collect_markdown_paths, doc_id_from_path};
+use crate::push_types::{DirectiveRegistries, Notification, Subscription, User, VapidConfig};
 use crate::{config, ports};
 
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde::Deserialize;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 use tokio::task::JoinHandle;
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct DirectiveRegistries {
-    pub users: HashMap<String, User>,
-    pub subscriptions: HashMap<String, Vec<Subscription>>,
-    pub notifications: Vec<Notification>,
-}
 
 impl DirectiveRegistries {
     pub fn load(root: &Path) -> std::io::Result<Self> {
@@ -32,35 +25,6 @@ impl DirectiveRegistries {
         }
         Ok(registries)
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct VapidConfig {
-    pub private_key: String,
-    #[allow(unused)] // TODO: Will be used when we implement subscription UI
-    pub public_key: String,
-    pub subject: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct User {
-    pub name: String,
-    pub display_name: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Subscription {
-    pub endpoint: String,
-    pub p256dh: String,
-    pub auth: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Notification {
-    pub to: Vec<String>,
-    pub at: OffsetDateTime,
-    pub message: String,
-    pub doc_id: String,
 }
 
 #[derive(Debug, Clone)]

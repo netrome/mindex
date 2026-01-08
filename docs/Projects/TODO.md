@@ -7,6 +7,7 @@
   - [x] Minimal subscription UI page
   - [x] Subscription nav link + test helper
   - [x] Harden scheduler delay conversion + extract doc helpers
+  - [x] Refactor: extract push domain types to break the `ports`/`push` dependency cycle
 
 ## To do
 - [ ] refactor: Update tests to use //given //when //then sections

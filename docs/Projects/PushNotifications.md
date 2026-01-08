@@ -257,7 +257,7 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
    respect `to` and `at`; no writes outside root.
 3. [x] Minimal subscription UI page. Acceptance: can generate a `/subscription` block
    without writing to disk; works with existing service worker.
-4. [ ] Refactor: extract push domain types to break the `ports`/`push` dependency cycle.
+4. [x] Refactor: extract push domain types to break the `ports`/`push` dependency cycle.
    Acceptance: `ports` no longer imports `push`; shared types live in a dedicated module.
 5. [ ] Docs: document ports/adapters boundaries for push + time abstractions.
    Acceptance: `docs/Resources/ARCHITECTURE.md` (or another canonical doc) reflects the

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use time::OffsetDateTime;
 
-use crate::push::Subscription;
+use crate::push_types::Subscription;
 
 pub trait TimeProvider: Clone + Send + Sync + 'static {
     type Sleep<'a>: Future<Output = ()> + Send + 'a

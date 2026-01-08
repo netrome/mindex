@@ -5,7 +5,7 @@ use std::time::Duration;
 use time::OffsetDateTime;
 
 use crate::ports;
-use crate::push;
+use crate::push_types;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioTimeProvider;
@@ -27,12 +27,12 @@ impl ports::TimeProvider for TokioTimeProvider {
 
 #[derive(Clone)]
 pub struct WebPushSender {
-    vapid: push::VapidConfig,
+    vapid: push_types::VapidConfig,
     client: Arc<web_push::WebPushClient>,
 }
 
 impl WebPushSender {
-    pub fn new(vapid: push::VapidConfig) -> Result<Self, web_push::WebPushError> {
+    pub fn new(vapid: push_types::VapidConfig) -> Result<Self, web_push::WebPushError> {
         let client = web_push::WebPushClient::new()?;
         Ok(Self {
             vapid,
@@ -48,7 +48,11 @@ impl ports::PushSender for WebPushSender {
     where
         Self: 'a;
 
-    fn send<'a>(&'a self, subscription: &'a push::Subscription, message: &'a str) -> Self::Fut<'a> {
+    fn send<'a>(
+        &'a self,
+        subscription: &'a push_types::Subscription,
+        message: &'a str,
+    ) -> Self::Fut<'a> {
         Box::pin(async move {
             let subscription_info = web_push::SubscriptionInfo::new(
                 subscription.endpoint.clone(),
