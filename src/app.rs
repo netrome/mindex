@@ -2,8 +2,8 @@ use crate::adapters::WebPushSender;
 use crate::assets;
 use crate::config;
 use crate::documents::{
-    DocError, atomic_write, collect_markdown_paths, doc_id_from_path, load_document,
-    normalize_newlines, resolve_doc_path, rewrite_relative_md_links,
+    DocError, atomic_write, collect_markdown_paths, create_document, doc_id_from_path,
+    load_document, normalize_newlines, resolve_doc_path, rewrite_relative_md_links,
 };
 use crate::ports::push::PushSender;
 use crate::push as push_service;
@@ -18,6 +18,7 @@ use axum::extract::Path as AxumPath;
 use axum::extract::Query;
 use axum::extract::State;
 use axum::http::StatusCode;
+use axum::response::Redirect;
 use axum::routing::get;
 use axum::routing::post;
 use pulldown_cmark::Options;
@@ -52,6 +53,7 @@ pub fn app(config: config::AppConfig) -> Router {
     Router::new()
         .route("/", get(document_list))
         .route("/search", get(document_search))
+        .route("/new", get(document_new).post(document_create))
         .route("/edit/{*path}", get(document_edit).post(document_save))
         .route("/doc/{*path}", get(document_view))
         .route("/push/subscribe", get(push_subscribe))
@@ -269,6 +271,79 @@ pub(crate) async fn document_list(
         app_name,
         documents: doc_ids,
     })
+}
+
+pub(crate) async fn document_new(
+    State(state): State<state::AppState>,
+) -> templates::NewDocumentTemplate {
+    templates::NewDocumentTemplate {
+        app_name: state.config.app_name,
+        doc_id: String::new(),
+        error: String::new(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct NewDocumentForm {
+    pub(crate) doc_id: String,
+}
+
+pub(crate) async fn document_create(
+    State(state): State<state::AppState>,
+    Form(form): Form<NewDocumentForm>,
+) -> Result<Redirect, (StatusCode, templates::NewDocumentTemplate)> {
+    let app_name = state.config.app_name.clone();
+    let doc_id = form.doc_id.trim().to_string();
+    if doc_id.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            templates::NewDocumentTemplate {
+                app_name: app_name.clone(),
+                doc_id,
+                error: "Document path is required.".to_string(),
+            },
+        ));
+    }
+
+    let empty = String::new();
+    match create_document(&state.config.root, &doc_id, &empty) {
+        Ok(()) => Ok(Redirect::to(&format!("/edit/{doc_id}"))),
+        Err(DocError::BadPath) => Err((
+            StatusCode::BAD_REQUEST,
+            templates::NewDocumentTemplate {
+                app_name: app_name.clone(),
+                doc_id,
+                error: "Invalid path. Use a relative .md path.".to_string(),
+            },
+        )),
+        Err(DocError::Io(err)) if err.kind() == ErrorKind::AlreadyExists => Err((
+            StatusCode::CONFLICT,
+            templates::NewDocumentTemplate {
+                app_name: app_name.clone(),
+                doc_id,
+                error: "A document already exists at that path.".to_string(),
+            },
+        )),
+        Err(DocError::Io(err)) => {
+            eprintln!("failed to create document {doc_id}: {err}");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                templates::NewDocumentTemplate {
+                    app_name: app_name.clone(),
+                    doc_id,
+                    error: "Internal error.".to_string(),
+                },
+            ))
+        }
+        Err(DocError::NotFound) => Err((
+            StatusCode::BAD_REQUEST,
+            templates::NewDocumentTemplate {
+                app_name: app_name.clone(),
+                doc_id,
+                error: "Invalid path. Use a relative .md path.".to_string(),
+            },
+        )),
+    }
 }
 
 pub(crate) async fn document_search(

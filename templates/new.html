@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}New document - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Documents</a>
+    <a href="/new">New</a>
+    <a href="/search">Search</a>
+    <a href="/push/subscribe">Push</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+        Theme
+    </button>
+</div>
+
+<h1>New document</h1>
+
+{% if !error.is_empty() %}
+<div class="notice">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/new">
+    <label for="doc_id">Document path</label>
+    <input
+        id="doc_id"
+        name="doc_id"
+        type="text"
+        value="{{ doc_id }}"
+        placeholder="notes/idea.md"
+        required
+    />
+    <p>Paths are relative to the root and must end with <code>.md</code>.</p>
+    <button type="submit">Create</button>
+</form>
+{% endblock %}

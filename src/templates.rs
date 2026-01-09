@@ -8,6 +8,14 @@ pub(crate) struct DocumentListTemplate {
     pub(crate) documents: Vec<String>,
 }
 
+#[derive(Template, WebTemplate)]
+#[template(path = "new.html")]
+pub(crate) struct NewDocumentTemplate {
+    pub(crate) app_name: String,
+    pub(crate) doc_id: String,
+    pub(crate) error: String,
+}
+
 #[derive(Template)]
 #[template(path = "manifest.json", escape = "none")]
 pub(crate) struct ManifestTemplate<'a> {

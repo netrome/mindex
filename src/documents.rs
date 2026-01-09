@@ -75,6 +75,28 @@ pub(crate) fn resolve_doc_path(root: &Path, doc_id: &str) -> Result<PathBuf, Doc
     Ok(resolved)
 }
 
+pub(crate) fn create_document(root: &Path, doc_id: &str, contents: &str) -> Result<(), DocError> {
+    let doc_path = doc_id_to_path(doc_id).ok_or(DocError::BadPath)?;
+    ensure_parent_dirs(root, &doc_path)?;
+    let target = root.join(&doc_path);
+
+    match std::fs::symlink_metadata(&target) {
+        Ok(metadata) => {
+            if metadata.file_type().is_symlink() {
+                return Err(DocError::BadPath);
+            }
+            return Err(DocError::Io(std::io::Error::new(
+                ErrorKind::AlreadyExists,
+                "document already exists",
+            )));
+        }
+        Err(err) if err.kind() == ErrorKind::NotFound => {}
+        Err(err) => return Err(DocError::Io(err)),
+    }
+
+    atomic_write(&target, contents).map_err(DocError::Io)
+}
+
 fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
     if doc_id.is_empty() {
         return None;
@@ -90,6 +112,39 @@ fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
         return None;
     }
     Some(path.to_path_buf())
+}
+
+fn ensure_parent_dirs(root: &Path, doc_path: &Path) -> Result<(), DocError> {
+    let Some(parent) = doc_path.parent() else {
+        return Ok(());
+    };
+    let mut current = root.to_path_buf();
+    for component in parent.components() {
+        let component = match component {
+            Component::Normal(component) => component,
+            _ => return Err(DocError::BadPath),
+        };
+        current.push(component);
+        match std::fs::symlink_metadata(&current) {
+            Ok(metadata) => {
+                if metadata.file_type().is_symlink() {
+                    return Err(DocError::BadPath);
+                }
+                if !metadata.is_dir() {
+                    return Err(DocError::BadPath);
+                }
+                let resolved = std::fs::canonicalize(&current).map_err(DocError::Io)?;
+                if !resolved.starts_with(root) {
+                    return Err(DocError::BadPath);
+                }
+            }
+            Err(err) if err.kind() == ErrorKind::NotFound => {
+                std::fs::create_dir(&current).map_err(DocError::Io)?;
+            }
+            Err(err) => return Err(DocError::Io(err)),
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn rewrite_relative_md_links<'a>(event: Event<'a>, doc_id: &str) -> Event<'a> {
@@ -300,6 +355,47 @@ mod tests {
         assert_eq!(doc_ids, vec!["a.md".to_string(), "notes/c.md".to_string()]);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn create_document__should_create_file_and_parent_dirs() {
+        let root = create_temp_root("create");
+        create_document(&root, "notes/new.md", "# New\n").expect("create document");
+
+        let contents = std::fs::read_to_string(root.join("notes/new.md")).expect("read file");
+        assert_eq!(contents, "# New\n");
+    }
+
+    #[test]
+    fn create_document__should_reject_duplicate_paths() {
+        let root = create_temp_root("create-existing");
+        std::fs::write(root.join("a.md"), "A").expect("write a.md");
+
+        let err = create_document(&root, "a.md", "B").expect_err("should fail");
+        match err {
+            DocError::Io(err) => assert_eq!(err.kind(), ErrorKind::AlreadyExists),
+            _ => panic!("expected already exists error"),
+        }
+    }
+
+    #[test]
+    fn create_document__should_reject_parent_traversal() {
+        let root = create_temp_root("create-bad-path");
+        let err = create_document(&root, "../outside.md", "oops").expect_err("should fail");
+        assert!(matches!(err, DocError::BadPath));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn create_document__should_reject_symlinked_parent() {
+        use std::os::unix::fs::symlink;
+
+        let root = create_temp_root("create-symlink");
+        let outside = create_temp_root("create-symlink-outside");
+        symlink(&outside, root.join("link")).expect("create symlink");
+
+        let err = create_document(&root, "link/escape.md", "oops").expect_err("should fail");
+        assert!(matches!(err, DocError::BadPath));
     }
 
     fn create_temp_root(test_name: &str) -> PathBuf {

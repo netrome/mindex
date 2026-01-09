@@ -3,8 +3,6 @@
 ## In progress
 
 ## To do
-- [ ] feat: Create new document
-  - Allow creating new documents from the UI.
 - [ ] feat: TODO lists
   - When rendering lists with the `- [ ] <text>` structure, render checkboxes and allow ticking off items directly from the view page.
 - [ ] refactor: Update tests to use //given //when //then sections
@@ -15,6 +13,8 @@
 - [ ] TODO lists
 
 ## Recently done
+- [x] feat: Create new document
+  - Allow creating new documents from the UI.
 - [x] Module layout refactor [./ModuleLayoutRefactor.md]
 - [x] Push notifications [./PushNotifications.md]
   - [x] Directive parser + registry loader
