@@ -15,6 +15,8 @@ Adopt a hybrid module layout:
 - Use top-level categories for shared abstractions (`ports/`, `types/`).
 - Scope those categories by feature via submodules (e.g. `ports/push.rs`,
   `types/push.rs`).
+- Allow generic, cross-cutting ports to live directly under `ports/` (e.g.
+  `ports/time.rs`).
 - Keep feature orchestration in feature modules (e.g. `push.rs`).
 
 ## Consequences

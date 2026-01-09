@@ -45,6 +45,7 @@ Keep top-level categories, but scope them by feature inside:
 - `src/ports/push.rs`, `src/ports/time.rs`
 - `src/types/push.rs`
 - `src/push.rs` for orchestration
+Generic ports live directly under `src/ports/` when they are not feature-specific.
 
 Pros: explicit boundaries + reasonable cohesion; avoids cycles.
 Cons: still some scattering, but less than Option A.
@@ -53,6 +54,10 @@ Cons: still some scattering, but less than Option A.
 Option C (Hybrid). It keeps the ports/adapters boundaries clear without creating
 deep folder hierarchies, and it scales as additional features arrive.
 
+## Safety net
+- Run `cargo test` and `cargo clippy` after module moves.
+- If the refactor touches behavior, add targeted tests before making changes.
+
 ## Task breakdown (PR-sized)
 1. **Adopt module layout decision (docs-only).**
    Acceptance: ADR accepted; `docs/Resources/ARCHITECTURE.md` mentions the
@@ -60,7 +65,7 @@ deep folder hierarchies, and it scales as additional features arrive.
 2. **Move push domain types to `src/types/push.rs`.**
    Acceptance: no behavior changes; tests pass; imports updated.
 3. **Split ports into `src/ports/push.rs` and `src/ports/time.rs`.**
-   Acceptance: `PushSender` and `TimeProvider` reside in their respective
-   modules; no dependency cycles.
+   Acceptance: `PushSender` lives in `ports/push.rs`; `TimeProvider` is a
+   shared port in `ports/time.rs`; no dependency cycles.
 4. **Consolidate module wiring in `src/lib.rs`.**
    Acceptance: module declarations match the new layout; no unused modules.
