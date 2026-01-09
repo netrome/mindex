@@ -265,7 +265,7 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
    Acceptance: `DirectiveRegistries::load` and helpers live in the registry module.
 7. [x] Refactor: extract scheduling into `push/scheduler.rs`.
    Acceptance: `PushScheduler`, delay computation, and notification runner are isolated.
-8. [ ] Refactor: centralize VAPID validation/construction.
+8. [x] Refactor: centralize VAPID validation/construction.
    Acceptance: a single helper is used by scheduler startup and API handlers.
 9. [ ] Refactor: make directive parsing return warnings instead of `eprintln!` in core logic.
     Acceptance: logging happens at the call boundary; tests cover warning collection.

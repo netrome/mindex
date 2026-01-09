@@ -84,27 +84,20 @@ pub(crate) struct ErrorResponse {
 pub(crate) async fn push_public_key(
     State(state): State<state::AppState>,
 ) -> Result<Json<PublicKeyResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let config = &state.config;
-    let has_all = config.vapid_private_key.is_some()
-        && config.vapid_public_key.is_some()
-        && config.vapid_subject.is_some();
-
-    if !has_all {
-        return Err((
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(ErrorResponse {
-                error: "Push notifications are not configured.",
-            }),
-        ));
-    }
-
-    let public_key = config
-        .vapid_public_key
-        .as_ref()
-        .expect("public key present");
+    let vapid = match push::load_vapid_config(&state.config) {
+        push::VapidConfigStatus::Ready(vapid) => vapid,
+        push::VapidConfigStatus::Incomplete | push::VapidConfigStatus::Missing => {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: "Push notifications are not configured.",
+                }),
+            ));
+        }
+    };
 
     Ok(Json(PublicKeyResponse {
-        public_key: public_key.clone(),
+        public_key: vapid.public_key,
     }))
 }
 
@@ -125,19 +118,17 @@ pub(crate) async fn push_test(
     State(state): State<state::AppState>,
     Json(request): Json<TestPushRequest>,
 ) -> Result<Json<TestPushResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let config = &state.config;
-    let has_all = config.vapid_private_key.is_some()
-        && config.vapid_public_key.is_some()
-        && config.vapid_subject.is_some();
-
-    if !has_all {
-        return Err((
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(ErrorResponse {
-                error: "Push notifications are not configured.",
-            }),
-        ));
-    }
+    let vapid = match push::load_vapid_config(&state.config) {
+        push::VapidConfigStatus::Ready(vapid) => vapid,
+        push::VapidConfigStatus::Incomplete | push::VapidConfigStatus::Missing => {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: "Push notifications are not configured.",
+                }),
+            ));
+        }
+    };
 
     if request.endpoint.trim().is_empty()
         || request.p256dh.trim().is_empty()
@@ -164,24 +155,6 @@ pub(crate) async fn push_test(
             }),
         ));
     }
-
-    let vapid = push_types::VapidConfig {
-        private_key: config
-            .vapid_private_key
-            .as_ref()
-            .expect("private key present")
-            .clone(),
-        public_key: config
-            .vapid_public_key
-            .as_ref()
-            .expect("public key present")
-            .clone(),
-        subject: config
-            .vapid_subject
-            .as_ref()
-            .expect("subject present")
-            .clone(),
-    };
 
     let sender = WebPushSender::new(vapid).map_err(|err| {
         eprintln!("push test error: failed to init web-push ({err})");

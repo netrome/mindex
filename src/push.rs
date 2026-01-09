@@ -1,38 +1,25 @@
 use crate::adapters::{TokioTimeProvider, WebPushSender};
 use crate::config;
-use crate::push_types::{DirectiveRegistries, VapidConfig};
+use crate::push_types::DirectiveRegistries;
 
 mod directives;
 mod registry;
 mod scheduler;
+mod vapid;
 
 use std::sync::Arc;
 
 use scheduler::PushScheduler;
+pub(crate) use vapid::{VapidConfigStatus, load_vapid_config};
 
 pub fn maybe_start_scheduler(config: &config::AppConfig, registries: Arc<DirectiveRegistries>) {
-    let has_any = config.vapid_private_key.is_some()
-        || config.vapid_public_key.is_some()
-        || config.vapid_subject.is_some();
-    let vapid = match (
-        config.vapid_private_key.as_ref(),
-        config.vapid_public_key.as_ref(),
-        config.vapid_subject.as_ref(),
-    ) {
-        (Some(private_key), Some(public_key), Some(subject)) => Some(VapidConfig {
-            private_key: private_key.clone(),
-            public_key: public_key.clone(),
-            subject: subject.clone(),
-        }),
-        _ => None,
-    };
-
-    let vapid = match vapid {
-        Some(vapid) => vapid,
-        None => {
-            if has_any {
-                eprintln!("push notifications disabled: incomplete VAPID configuration");
-            }
+    let vapid = match load_vapid_config(config) {
+        VapidConfigStatus::Ready(vapid) => vapid,
+        VapidConfigStatus::Incomplete => {
+            eprintln!("push notifications disabled: incomplete VAPID configuration");
+            return;
+        }
+        VapidConfigStatus::Missing => {
             return;
         }
     };

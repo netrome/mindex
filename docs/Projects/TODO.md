@@ -27,3 +27,4 @@
 - [x] Refactor: extract directive parsing into `push/directives.rs`
 - [x] Refactor: extract registry loading into `push/registry.rs`
 - [x] Refactor: extract scheduling into `push/scheduler.rs`
+- [x] Refactor: centralize VAPID validation/construction
