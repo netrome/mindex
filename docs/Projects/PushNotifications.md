@@ -267,7 +267,7 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
    Acceptance: `PushScheduler`, delay computation, and notification runner are isolated.
 8. [x] Refactor: centralize VAPID validation/construction.
    Acceptance: a single helper is used by scheduler startup and API handlers.
-9. [ ] Refactor: make directive parsing return warnings instead of `eprintln!` in core logic.
+9. [x] Refactor: make directive parsing return warnings instead of `eprintln!` in core logic.
     Acceptance: logging happens at the call boundary; tests cover warning collection.
 10. [ ] Feature: store scheduler handles and add a debug view for scheduled notifications.
     Acceptance: app state keeps handles; debug endpoint returns scheduled entries and

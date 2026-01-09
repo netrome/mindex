@@ -14,7 +14,13 @@ impl DirectiveRegistries {
                 None => continue,
             };
             let contents = std::fs::read_to_string(&path)?;
-            directives::parse_document(&doc_id, &contents, &mut registries);
+            let warnings = directives::parse_document(&doc_id, &contents, &mut registries);
+            for warning in warnings {
+                eprintln!(
+                    "push directive warning: {}:{}: {}",
+                    warning.doc_id, warning.line, warning.message
+                );
+            }
         }
         Ok(registries)
     }

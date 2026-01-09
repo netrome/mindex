@@ -28,3 +28,4 @@
 - [x] Refactor: extract registry loading into `push/registry.rs`
 - [x] Refactor: extract scheduling into `push/scheduler.rs`
 - [x] Refactor: centralize VAPID validation/construction
+- [x] Refactor: make directive parsing return warnings instead of `eprintln!`
