@@ -261,7 +261,7 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
    Acceptance: `ports` no longer imports `push`; shared types live in a dedicated module.
 5. [x] Refactor: extract directive parsing into `push/directives.rs`.
    Acceptance: parsing logic + tests move; `push.rs` becomes a small public surface.
-6. [ ] Refactor: extract registry loading into `push/registry.rs`.
+6. [x] Refactor: extract registry loading into `push/registry.rs`.
    Acceptance: `DirectiveRegistries::load` and helpers live in the registry module.
 7. [ ] Refactor: extract scheduling into `push/scheduler.rs`.
    Acceptance: `PushScheduler`, delay computation, and notification runner are isolated.

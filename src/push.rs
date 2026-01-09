@@ -1,31 +1,14 @@
 use crate::adapters::{TokioTimeProvider, WebPushSender};
-use crate::documents::{collect_markdown_paths, doc_id_from_path};
 use crate::push_types::{DirectiveRegistries, Notification, VapidConfig};
 use crate::{config, ports};
 
 mod directives;
+mod registry;
 
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use time::OffsetDateTime;
 use tokio::task::JoinHandle;
-
-impl DirectiveRegistries {
-    pub fn load(root: &Path) -> std::io::Result<Self> {
-        let mut registries = DirectiveRegistries::default();
-        let paths = collect_markdown_paths(root)?;
-        for path in paths {
-            let doc_id = match doc_id_from_path(root, &path) {
-                Some(doc_id) => doc_id,
-                None => continue,
-            };
-            let contents = std::fs::read_to_string(&path)?;
-            directives::parse_document(&doc_id, &contents, &mut registries);
-        }
-        Ok(registries)
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct PushScheduler<T, S> {

@@ -25,3 +25,4 @@
 - [x] Align ADR folder path in AGENTS.md with docs/Resources/Adrs
 - [x] Simple README.md
 - [x] Refactor: extract directive parsing into `push/directives.rs`
+- [x] Refactor: extract registry loading into `push/registry.rs`
