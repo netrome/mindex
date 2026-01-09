@@ -1,7 +1,7 @@
 # Push Notifications (Design)
 
 ## Status
-Accepted
+Done
 
 ## Context
 Mindex is a file-backed markdown knowledge base. Push notifications should follow the

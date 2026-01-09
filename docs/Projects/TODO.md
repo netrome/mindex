@@ -1,15 +1,6 @@
 # TODO
 
 ## In progress
-- [ ] Push notifications [./PushNotifications.md]
-  - [x] Directive parser + registry loader
-  - [x] Scheduler + delivery
-  - [x] Minimal subscription UI page
-  - [x] Subscription nav link + test helper
-  - [x] Harden scheduler delay conversion + extract doc helpers
-  - [x] Refactor: extract push domain types to break the `ports`/`push` dependency cycle
-  - [x] Feature: store scheduler handles and add a debug view for scheduled notifications
-  - [x] Refresh push registries + scheduler on in-app save
 
 ## To do
 - [ ] Module layout refactor [./ModuleLayoutRefactor.md]
@@ -21,6 +12,16 @@
 - [ ] TODO lists
 
 ## Recently done
+- [x] Push notifications [./PushNotifications.md]
+  - [x] Directive parser + registry loader
+  - [x] Scheduler + delivery
+  - [x] Minimal subscription UI page
+  - [x] Subscription nav link + test helper
+  - [x] Harden scheduler delay conversion + extract doc helpers
+  - [x] Refactor: extract push domain types to break the `ports`/`push` dependency cycle
+  - [x] Feature: store scheduler handles and add a debug view for scheduled notifications
+  - [x] Refresh push registries + scheduler on in-app save
+
 - [x] Push notifications design doc
 - [x] Add MIT license
 - [x] Add a minimal ADR template in docs/Resources/Adrs
