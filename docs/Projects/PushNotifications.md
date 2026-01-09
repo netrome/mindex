@@ -259,7 +259,7 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
    without writing to disk; works with existing service worker.
 4. [x] Refactor: extract push domain types to break the `ports`/`push` dependency cycle.
    Acceptance: `ports` no longer imports `push`; shared types live in a dedicated module.
-5. [ ] Refactor: extract directive parsing into `push/directives.rs`.
+5. [x] Refactor: extract directive parsing into `push/directives.rs`.
    Acceptance: parsing logic + tests move; `push.rs` becomes a small public surface.
 6. [ ] Refactor: extract registry loading into `push/registry.rs`.
    Acceptance: `DirectiveRegistries::load` and helpers live in the registry module.
