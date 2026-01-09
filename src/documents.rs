@@ -97,6 +97,81 @@ pub(crate) fn create_document(root: &Path, doc_id: &str, contents: &str) -> Resu
     atomic_write(&target, contents).map_err(DocError::Io)
 }
 
+pub(crate) fn render_task_list_markdown(contents: &str) -> String {
+    let mut output = String::with_capacity(contents.len());
+    let mut in_fence = false;
+    let mut task_index = 0usize;
+
+    for segment in contents.split_inclusive('\n') {
+        let (line, ending) = split_line_ending(segment);
+        if is_fence_line(line) {
+            in_fence = !in_fence;
+            output.push_str(line);
+            output.push_str(ending);
+            continue;
+        }
+
+        if !in_fence && let Some(parts) = parse_task_line(line) {
+            let checked = if parts.checked { " checked" } else { "" };
+            let input = format!(
+                "<input type=\"checkbox\" class=\"todo-checkbox\" data-task-index=\"{}\"{} />",
+                task_index, checked
+            );
+            output.push_str(parts.prefix);
+            output.push_str(&input);
+            output.push_str(parts.suffix);
+            output.push_str(ending);
+            task_index += 1;
+            continue;
+        }
+
+        output.push_str(line);
+        output.push_str(ending);
+    }
+
+    output
+}
+
+pub(crate) fn toggle_task_item(contents: &str, task_index: usize, checked: bool) -> Option<String> {
+    let mut output = String::with_capacity(contents.len());
+    let mut in_fence = false;
+    let mut current = 0usize;
+    let mut updated = false;
+
+    for segment in contents.split_inclusive('\n') {
+        let (line, ending) = split_line_ending(segment);
+        if is_fence_line(line) {
+            in_fence = !in_fence;
+            output.push_str(line);
+            output.push_str(ending);
+            continue;
+        }
+
+        if !in_fence && let Some(parts) = parse_task_line(line) {
+            if current == task_index {
+                let mark = if checked { 'x' } else { ' ' };
+                output.push_str(parts.prefix);
+                output.push('[');
+                output.push(mark);
+                output.push(']');
+                output.push_str(parts.suffix);
+                output.push_str(ending);
+                updated = true;
+            } else {
+                output.push_str(line);
+                output.push_str(ending);
+            }
+            current += 1;
+            continue;
+        }
+
+        output.push_str(line);
+        output.push_str(ending);
+    }
+
+    if updated { Some(output) } else { None }
+}
+
 fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
     if doc_id.is_empty() {
         return None;
@@ -112,6 +187,78 @@ fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
         return None;
     }
     Some(path.to_path_buf())
+}
+
+struct TaskLineParts<'a> {
+    prefix: &'a str,
+    suffix: &'a str,
+    checked: bool,
+}
+
+fn parse_task_line(line: &str) -> Option<TaskLineParts<'_>> {
+    let bytes = line.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() && matches!(bytes[i], b' ' | b'\t') {
+        i += 1;
+    }
+    if i >= bytes.len() {
+        return None;
+    }
+
+    let marker = bytes[i];
+    if !matches!(marker, b'-' | b'*' | b'+') {
+        return None;
+    }
+    i += 1;
+
+    let mut j = i;
+    while j < bytes.len() && matches!(bytes[j], b' ' | b'\t') {
+        j += 1;
+    }
+    if j == i {
+        return None;
+    }
+    if j + 2 >= bytes.len() {
+        return None;
+    }
+    if bytes[j] != b'[' {
+        return None;
+    }
+    let status = bytes[j + 1];
+    if !matches!(status, b' ' | b'x' | b'X') {
+        return None;
+    }
+    if bytes[j + 2] != b']' {
+        return None;
+    }
+    let after = j + 3;
+    if after < bytes.len() && !matches!(bytes[after], b' ' | b'\t') {
+        return None;
+    }
+
+    Some(TaskLineParts {
+        prefix: &line[..j],
+        suffix: &line[after..],
+        checked: status != b' ',
+    })
+}
+
+fn is_fence_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with("```") || trimmed.starts_with("~~~")
+}
+
+fn split_line_ending(segment: &str) -> (&str, &str) {
+    if let Some(without_nl) = segment.strip_suffix('\n') {
+        if let Some(without_cr) = without_nl.strip_suffix('\r') {
+            return (without_cr, "\r\n");
+        }
+        return (without_nl, "\n");
+    }
+    if let Some(without_cr) = segment.strip_suffix('\r') {
+        return (without_cr, "\r");
+    }
+    (segment, "")
 }
 
 fn ensure_parent_dirs(root: &Path, doc_path: &Path) -> Result<(), DocError> {
@@ -396,6 +543,58 @@ mod tests {
 
         let err = create_document(&root, "link/escape.md", "oops").expect_err("should fail");
         assert!(matches!(err, DocError::BadPath));
+    }
+
+    #[test]
+    fn render_task_list_markdown__should_inject_checkboxes_and_skip_fences() {
+        let contents = "\
+- [ ] one
+* [x] two
++ [X] three
+```md
+- [ ] nope
+```
+";
+        let rendered = render_task_list_markdown(contents);
+        assert_eq!(rendered.matches("todo-checkbox").count(), 3);
+        assert!(rendered.contains("data-task-index=\"0\""));
+        assert!(rendered.contains("data-task-index=\"1\""));
+        assert!(rendered.contains("data-task-index=\"2\""));
+        assert!(rendered.contains("data-task-index=\"1\" checked"));
+        assert!(rendered.contains("data-task-index=\"2\" checked"));
+        assert!(rendered.contains("```md\n- [ ] nope\n```"));
+    }
+
+    #[test]
+    fn toggle_task_item__should_update_target() {
+        let contents = "\
+- [ ] one
+- [x] two
+";
+        let updated = toggle_task_item(contents, 1, false).expect("updated");
+        assert!(updated.contains("- [ ] one"));
+        assert!(updated.contains("- [ ] two"));
+    }
+
+    #[test]
+    fn toggle_task_item__should_ignore_tasks_inside_fences() {
+        let contents = "\
+```
+- [ ] nope
+```
+- [ ] yes
+";
+        let updated = toggle_task_item(contents, 0, true).expect("updated");
+        assert!(updated.contains("```"));
+        assert!(updated.contains("- [ ] nope"));
+        assert!(updated.contains("- [x] yes"));
+    }
+
+    #[test]
+    fn toggle_task_item__should_return_none_for_missing_index() {
+        let contents = "- [ ] one\n";
+        let updated = toggle_task_item(contents, 3, true);
+        assert!(updated.is_none());
     }
 
     fn create_temp_root(test_name: &str) -> PathBuf {

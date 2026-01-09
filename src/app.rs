@@ -3,7 +3,8 @@ use crate::assets;
 use crate::config;
 use crate::documents::{
     DocError, atomic_write, collect_markdown_paths, create_document, doc_id_from_path,
-    load_document, normalize_newlines, resolve_doc_path, rewrite_relative_md_links,
+    load_document, normalize_newlines, render_task_list_markdown, resolve_doc_path,
+    rewrite_relative_md_links, toggle_task_item,
 };
 use crate::ports::push::PushSender;
 use crate::push as push_service;
@@ -56,6 +57,7 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/new", get(document_new).post(document_create))
         .route("/edit/{*path}", get(document_edit).post(document_save))
         .route("/doc/{*path}", get(document_view))
+        .route("/api/doc/toggle-task", post(document_toggle_task))
         .route("/push/subscribe", get(push_subscribe))
         .route("/api/push/public-key", get(push_public_key))
         .route("/api/push/test", post(push_test))
@@ -385,11 +387,12 @@ pub(crate) async fn document_view(
         }
     })?;
 
+    let rendered = render_task_list_markdown(&contents);
     let mut body = String::new();
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     let parser =
-        Parser::new_ext(&contents, options).map(|event| rewrite_relative_md_links(event, &doc_id));
+        Parser::new_ext(&rendered, options).map(|event| rewrite_relative_md_links(event, &doc_id));
     pulldown_cmark::html::push_html(&mut body, parser);
 
     Ok(templates::DocumentTemplate {
@@ -459,6 +462,53 @@ pub(crate) async fn document_save(
         contents: normalized,
         notice: "Saved.".to_string(),
     })
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ToggleTaskForm {
+    pub(crate) doc_id: String,
+    pub(crate) task_index: usize,
+    pub(crate) checked: bool,
+}
+
+pub(crate) async fn document_toggle_task(
+    State(state): State<state::AppState>,
+    Form(form): Form<ToggleTaskForm>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let doc_id = form.doc_id.trim();
+    if doc_id.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "doc_id is required"));
+    }
+
+    let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let contents = std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let updated = toggle_task_item(&contents, form.task_index, form.checked)
+        .ok_or((StatusCode::NOT_FOUND, "task not found"))?;
+
+    atomic_write(&path, &updated).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after toggle: {err}");
+    }
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 fn refresh_push_state(state: &state::AppState) -> std::io::Result<()> {

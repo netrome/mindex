@@ -188,6 +188,16 @@ input[type="search"] {
     color: var(--text);
 }
 
+.todo-checkbox {
+    margin-right: 0.5rem;
+    transform: translateY(1px);
+}
+
+.todo-checkbox:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
 label {
     display: block;
     margin-top: 0.75rem;

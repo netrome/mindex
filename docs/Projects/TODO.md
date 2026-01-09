@@ -3,8 +3,6 @@
 ## In progress
 
 ## To do
-- [ ] feat: TODO lists
-  - When rendering lists with the `- [ ] <text>` structure, render checkboxes and allow ticking off items directly from the view page.
 - [ ] refactor: Update tests to use //given //when //then sections
 - [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.
 - [ ] Math notation
@@ -13,6 +11,8 @@
 - [ ] TODO lists
 
 ## Recently done
+- [x] feat: TODO lists
+  - When rendering lists with the `- [ ] <text>` structure, render checkboxes and allow ticking off items directly from the view page.
 - [x] feat: Create new document
   - Allow creating new documents from the UI.
 - [x] Module layout refactor [./ModuleLayoutRefactor.md]
