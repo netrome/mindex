@@ -24,6 +24,7 @@ use pulldown_cmark::Options;
 use pulldown_cmark::Parser;
 use serde::Deserialize;
 use serde::Serialize;
+use time::OffsetDateTime;
 
 use std::io::ErrorKind;
 use std::path::Path;
@@ -36,11 +37,17 @@ pub fn app(config: config::AppConfig) -> Router {
             std::sync::Arc::new(push_types::DirectiveRegistries::default())
         }
     };
+    let push_handles = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let state = state::AppState {
         config,
         push_registries,
+        push_handles: std::sync::Arc::clone(&push_handles),
     };
-    push::maybe_start_scheduler(&state.config, std::sync::Arc::clone(&state.push_registries));
+    push::maybe_start_scheduler(
+        &state.config,
+        std::sync::Arc::clone(&state.push_registries),
+        std::sync::Arc::clone(&push_handles),
+    );
     Router::new()
         .route("/", get(document_list))
         .route("/search", get(document_search))
@@ -50,6 +57,7 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/api/push/public-key", get(push_public_key))
         .route("/api/push/test", post(push_test))
         .route("/api/debug/push/registry", get(push_registry_debug))
+        .route("/api/debug/push/schedule", get(push_schedule_debug))
         .route("/static/style.css", get(assets::stylesheet))
         .route("/static/theme.js", get(assets::theme_script))
         .route("/static/manifest.json", get(assets::manifest))
@@ -68,6 +76,46 @@ pub(crate) async fn push_registry_debug(
     State(state): State<state::AppState>,
 ) -> Json<push_types::DirectiveRegistries> {
     Json((*state.push_registries).clone())
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct PushScheduleDebugResponse {
+    server_time: OffsetDateTime,
+    scheduled: Vec<PushScheduleEntry>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct PushScheduleEntry {
+    doc_id: String,
+    at: OffsetDateTime,
+    message: String,
+    to: Vec<String>,
+    scheduled_at: OffsetDateTime,
+    finished: bool,
+}
+
+pub(crate) async fn push_schedule_debug(
+    State(state): State<state::AppState>,
+) -> Json<PushScheduleDebugResponse> {
+    let server_time = OffsetDateTime::now_utc();
+    let scheduled = {
+        let handles = state.push_handles.lock().expect("push handles lock");
+        handles
+            .iter()
+            .map(|handle| PushScheduleEntry {
+                doc_id: handle.notification.doc_id.clone(),
+                at: handle.notification.at,
+                message: handle.notification.message.clone(),
+                to: handle.notification.to.clone(),
+                scheduled_at: handle.scheduled_at,
+                finished: handle.is_finished(),
+            })
+            .collect()
+    };
+    Json(PushScheduleDebugResponse {
+        server_time,
+        scheduled,
+    })
 }
 
 #[derive(Serialize)]
@@ -465,6 +513,37 @@ message = "Check the daily log."
         );
         assert_eq!(notification.message, "Check the daily log.");
         assert_eq!(notification.doc_id, "notify.md");
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn push_schedule_debug__should_return_server_time_and_entries() {
+        let root = create_temp_root("push-schedule");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/debug/push/schedule")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let debug: PushScheduleDebugResponse = json_from_slice(&body).expect("parse json");
+
+        assert!(debug.server_time.unix_timestamp() > 0);
+        assert!(debug.scheduled.is_empty());
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

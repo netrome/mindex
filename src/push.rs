@@ -8,11 +8,17 @@ mod scheduler;
 mod vapid;
 
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use scheduler::PushScheduler;
+pub(crate) use scheduler::ScheduledNotificationHandle;
 pub(crate) use vapid::{VapidConfigStatus, load_vapid_config};
 
-pub fn maybe_start_scheduler(config: &config::AppConfig, registries: Arc<DirectiveRegistries>) {
+pub fn maybe_start_scheduler(
+    config: &config::AppConfig,
+    registries: Arc<DirectiveRegistries>,
+    handles: Arc<Mutex<Vec<ScheduledNotificationHandle>>>,
+) {
     let vapid = match load_vapid_config(config) {
         VapidConfigStatus::Ready(vapid) => vapid,
         VapidConfigStatus::Incomplete => {
@@ -33,5 +39,7 @@ pub fn maybe_start_scheduler(config: &config::AppConfig, registries: Arc<Directi
     };
 
     let scheduler = PushScheduler::new(TokioTimeProvider, sender);
-    scheduler.spawn_all(registries);
+    let scheduled = scheduler.spawn_all(registries);
+    let mut guard = handles.lock().expect("push handles lock");
+    guard.extend(scheduled);
 }

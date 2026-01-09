@@ -8,6 +8,7 @@
   - [x] Subscription nav link + test helper
   - [x] Harden scheduler delay conversion + extract doc helpers
   - [x] Refactor: extract push domain types to break the `ports`/`push` dependency cycle
+  - [x] Feature: store scheduler handles and add a debug view for scheduled notifications
 
 ## To do
 - [ ] Module layout refactor [./ModuleLayoutRefactor.md]

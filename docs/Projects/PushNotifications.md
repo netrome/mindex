@@ -151,7 +151,8 @@ Rules:
 
 ### Debug endpoint (dev/test)
 - `GET /api/debug/push/registry` returns the current directive registries as JSON.
-- Intended for local testing; the response includes subscription details.
+- `GET /api/debug/push/schedule` returns scheduled notifications and current server time.
+- Intended for local testing; the responses include subscription details.
 
 ## Scheduling and execution
 - Create an in-process scheduler task at startup (tokio).
@@ -269,6 +270,6 @@ Manual paste keeps the flow auth-free and mutation-free, consistent with Mindex 
    Acceptance: a single helper is used by scheduler startup and API handlers.
 9. [x] Refactor: make directive parsing return warnings instead of `eprintln!` in core logic.
     Acceptance: logging happens at the call boundary; tests cover warning collection.
-10. [ ] Feature: store scheduler handles and add a debug view for scheduled notifications.
+10. [x] Feature: store scheduler handles and add a debug view for scheduled notifications.
     Acceptance: app state keeps handles; debug endpoint returns scheduled entries and
     current server time for timezone inspection.

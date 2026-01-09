@@ -6,6 +6,23 @@ use std::time::Duration;
 use time::OffsetDateTime;
 use tokio::task::JoinHandle;
 
+pub(crate) struct ScheduledNotificationHandle {
+    pub(crate) notification: Notification,
+    pub(crate) scheduled_at: OffsetDateTime,
+    handle: JoinHandle<()>,
+}
+
+impl ScheduledNotificationHandle {
+    pub(crate) fn is_finished(&self) -> bool {
+        self.handle.is_finished()
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn join(self) -> Result<(), tokio::task::JoinError> {
+        self.handle.await
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct PushScheduler<T, S> {
     time: T,
@@ -21,7 +38,10 @@ where
         Self { time, sender }
     }
 
-    pub(crate) fn spawn_all(&self, registries: Arc<DirectiveRegistries>) -> Vec<JoinHandle<()>> {
+    pub(crate) fn spawn_all(
+        &self,
+        registries: Arc<DirectiveRegistries>,
+    ) -> Vec<ScheduledNotificationHandle> {
         registries
             .notifications
             .iter()
@@ -30,9 +50,16 @@ where
                 let sender = self.sender.clone();
                 let registries = Arc::clone(&registries);
                 let notification = notification.clone();
-                tokio::spawn(async move {
-                    run_notification(time, sender, registries, notification).await;
-                })
+                let scheduled_at = time.now();
+                let notification_for_task = notification.clone();
+                let handle = tokio::spawn(async move {
+                    run_notification(time, sender, registries, notification_for_task).await;
+                });
+                ScheduledNotificationHandle {
+                    notification,
+                    scheduled_at,
+                    handle,
+                }
             })
             .collect()
     }
@@ -247,11 +274,15 @@ mod tests {
 
         tokio::task::yield_now().await;
         assert_eq!(sender.sent.lock().expect("sent lock").len(), 0);
+        assert_eq!(handles.len(), 1);
+        assert_eq!(handles[0].notification.doc_id, "note.md");
+        assert_eq!(handles[0].scheduled_at, now);
+        assert!(!handles[0].is_finished());
         assert_eq!(time.sleep_durations(), vec![Duration::from_secs(30)]);
 
         time.trigger_all();
         for handle in handles {
-            handle.await.expect("join handle");
+            handle.join().await.expect("join handle");
         }
 
         let sent = sender.sent.lock().expect("sent lock");
@@ -286,7 +317,7 @@ mod tests {
         let handles = scheduler.spawn_all(Arc::new(registries));
 
         for handle in handles {
-            handle.await.expect("join handle");
+            handle.join().await.expect("join handle");
         }
 
         assert!(time.sleep_durations().is_empty());
