@@ -1,6 +1,6 @@
 use crate::documents::{collect_markdown_paths, doc_id_from_path};
 use crate::push::directives;
-use crate::push_types::DirectiveRegistries;
+use crate::types::push::DirectiveRegistries;
 
 use std::path::Path;
 

@@ -5,11 +5,11 @@ use crate::documents::{
     DocError, atomic_write, collect_markdown_paths, doc_id_from_path, load_document,
     normalize_newlines, resolve_doc_path, rewrite_relative_md_links,
 };
-use crate::ports::PushSender;
-use crate::push;
-use crate::push_types;
+use crate::ports::push::PushSender;
+use crate::push as push_service;
 use crate::state;
 use crate::templates;
+use crate::types::push;
 
 use axum::Json;
 use axum::Router;
@@ -30,11 +30,11 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 pub fn app(config: config::AppConfig) -> Router {
-    let push_registries = match push_types::DirectiveRegistries::load(&config.root) {
+    let push_registries = match push::DirectiveRegistries::load(&config.root) {
         Ok(registries) => registries,
         Err(err) => {
             eprintln!("failed to load push directive registries: {err}");
-            push_types::DirectiveRegistries::default()
+            push::DirectiveRegistries::default()
         }
     };
     let push_registries = std::sync::Arc::new(std::sync::Mutex::new(push_registries));
@@ -48,7 +48,7 @@ pub fn app(config: config::AppConfig) -> Router {
         let registries = push_registries.lock().expect("push registries lock");
         std::sync::Arc::new(registries.clone())
     };
-    push::maybe_start_scheduler(&state.config, registries_snapshot, push_handles);
+    push_service::maybe_start_scheduler(&state.config, registries_snapshot, push_handles);
     Router::new()
         .route("/", get(document_list))
         .route("/search", get(document_search))
@@ -75,7 +75,7 @@ pub(crate) async fn health() -> &'static str {
 
 pub(crate) async fn push_registry_debug(
     State(state): State<state::AppState>,
-) -> Json<push_types::DirectiveRegistries> {
+) -> Json<push::DirectiveRegistries> {
     let registries = state
         .push_registries
         .lock()
@@ -138,9 +138,9 @@ pub(crate) struct ErrorResponse {
 pub(crate) async fn push_public_key(
     State(state): State<state::AppState>,
 ) -> Result<Json<PublicKeyResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let vapid = match push::load_vapid_config(&state.config) {
-        push::VapidConfigStatus::Ready(vapid) => vapid,
-        push::VapidConfigStatus::Incomplete | push::VapidConfigStatus::Missing => {
+    let vapid = match push_service::load_vapid_config(&state.config) {
+        push_service::VapidConfigStatus::Ready(vapid) => vapid,
+        push_service::VapidConfigStatus::Incomplete | push_service::VapidConfigStatus::Missing => {
             return Err((
                 StatusCode::SERVICE_UNAVAILABLE,
                 Json(ErrorResponse {
@@ -172,9 +172,9 @@ pub(crate) async fn push_test(
     State(state): State<state::AppState>,
     Json(request): Json<TestPushRequest>,
 ) -> Result<Json<TestPushResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let vapid = match push::load_vapid_config(&state.config) {
-        push::VapidConfigStatus::Ready(vapid) => vapid,
-        push::VapidConfigStatus::Incomplete | push::VapidConfigStatus::Missing => {
+    let vapid = match push_service::load_vapid_config(&state.config) {
+        push_service::VapidConfigStatus::Ready(vapid) => vapid,
+        push_service::VapidConfigStatus::Incomplete | push_service::VapidConfigStatus::Missing => {
             return Err((
                 StatusCode::SERVICE_UNAVAILABLE,
                 Json(ErrorResponse {
@@ -220,7 +220,7 @@ pub(crate) async fn push_test(
         )
     })?;
 
-    let subscription = push_types::Subscription {
+    let subscription = push::Subscription {
         endpoint: request.endpoint,
         p256dh: request.p256dh,
         auth: request.auth,
@@ -387,12 +387,12 @@ pub(crate) async fn document_save(
 }
 
 fn refresh_push_state(state: &state::AppState) -> std::io::Result<()> {
-    let registries = push_types::DirectiveRegistries::load(&state.config.root)?;
+    let registries = push::DirectiveRegistries::load(&state.config.root)?;
     {
         let mut guard = state.push_registries.lock().expect("push registries lock");
         *guard = registries.clone();
     }
-    push::restart_scheduler(
+    push_service::restart_scheduler(
         &state.config,
         std::sync::Arc::new(registries),
         std::sync::Arc::clone(&state.push_handles),
@@ -513,8 +513,7 @@ message = "Check the daily log."
         let body = to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("read body");
-        let registries: push_types::DirectiveRegistries =
-            json_from_slice(&body).expect("parse json");
+        let registries: push::DirectiveRegistries = json_from_slice(&body).expect("parse json");
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
@@ -582,7 +581,7 @@ message = "Check the daily log."
                 ..Default::default()
             },
             push_registries: std::sync::Arc::new(std::sync::Mutex::new(
-                push_types::DirectiveRegistries::default(),
+                push::DirectiveRegistries::default(),
             )),
             push_handles: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         };

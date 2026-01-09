@@ -1,7 +1,7 @@
 # Module Layout Refactor (Design)
 
 ## Status
-Proposed
+Done
 
 ## Context
 Mindex recently introduced push notifications and supporting abstractions (ports,
@@ -59,17 +59,17 @@ deep folder hierarchies, and it scales as additional features arrive.
 - If the refactor touches behavior, add targeted tests before making changes.
 
 ## Task breakdown (PR-sized)
-1. **Adopt module layout decision (docs-only).**
+1. [x] **Adopt module layout decision (docs-only).**
    Acceptance: ADR accepted; `docs/Resources/ARCHITECTURE.md` mentions the
    chosen layout and boundaries.
-2. **Move push domain types to `src/types/push.rs`.**
+2. [x] **Move push domain types to `src/types/push.rs`.**
    Acceptance: no behavior changes; tests pass; imports updated.
-3. **Split ports into `src/ports/push.rs` and `src/ports/time.rs`.**
+3. [x] **Split ports into `src/ports/push.rs` and `src/ports/time.rs`.**
    Acceptance: `PushSender` lives in `ports/push.rs`; `TimeProvider` is a
    shared port in `ports/time.rs`; module paths updated; no dependency cycles.
-4. **Add module wiring in `src/lib.rs` (and any new `mod.rs`).**
+4. [x] **Add module wiring in `src/lib.rs` (and any new `mod.rs`).**
    Acceptance: module declarations match the new layout; no unused modules.
-5. **Update imports and clean up old paths.**
+5. [x] **Update imports and clean up old paths.**
    Acceptance: no `push_types` or `ports.rs` references remain; build succeeds.
-6. **Run safety net checks.**
+6. [x] **Run safety net checks.**
    Acceptance: `cargo test` and `cargo clippy` pass.

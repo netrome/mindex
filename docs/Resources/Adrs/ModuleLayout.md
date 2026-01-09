@@ -1,7 +1,7 @@
 # Module Layout: Hybrid Categories with Feature Submodules
 
 ## Status
-- Proposed
+- Accepted
 
 ## Context
 Mindex uses a ports/adapters approach for some features (push notifications),

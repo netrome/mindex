@@ -1,4 +1,4 @@
-use crate::push_types::{DirectiveRegistries, Notification, Subscription, User};
+use crate::types::push::{DirectiveRegistries, Notification, Subscription, User};
 
 use serde::Deserialize;
 use time::OffsetDateTime;

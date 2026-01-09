@@ -1,5 +1,6 @@
-use crate::ports;
-use crate::push_types::{DirectiveRegistries, Notification};
+use crate::ports::push::PushSender;
+use crate::ports::time::TimeProvider;
+use crate::types::push::{DirectiveRegistries, Notification};
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -35,8 +36,8 @@ pub(crate) struct PushScheduler<T, S> {
 
 impl<T, S> PushScheduler<T, S>
 where
-    T: ports::TimeProvider,
-    S: ports::PushSender,
+    T: TimeProvider,
+    S: PushSender,
 {
     pub(crate) fn new(time: T, sender: S) -> Self {
         Self { time, sender }
@@ -69,7 +70,7 @@ where
     }
 }
 
-fn compute_delay<T: ports::TimeProvider>(time: &T, at: OffsetDateTime) -> Option<Duration> {
+fn compute_delay<T: TimeProvider>(time: &T, at: OffsetDateTime) -> Option<Duration> {
     let now = time.now();
     let delay = at - now;
     if delay.is_positive() {
@@ -88,8 +89,8 @@ async fn run_notification<T, S>(
     registries: Arc<DirectiveRegistries>,
     notification: Notification,
 ) where
-    T: ports::TimeProvider,
-    S: ports::PushSender,
+    T: TimeProvider,
+    S: PushSender,
 {
     if let Some(delay) = compute_delay(&time, notification.at) {
         time.sleep(delay).await;
@@ -122,7 +123,7 @@ async fn run_notification<T, S>(
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
-    use crate::push_types::Subscription;
+    use crate::types::push::Subscription;
     use std::future::Future;
     use std::pin::Pin;
     use std::sync::Mutex;
@@ -173,7 +174,7 @@ mod tests {
         }
     }
 
-    impl ports::TimeProvider for TestTime {
+    impl TimeProvider for TestTime {
         type Sleep<'a>
             = ManualSleep
         where
@@ -208,7 +209,7 @@ mod tests {
         sent: Arc<Mutex<Vec<(String, String)>>>,
     }
 
-    impl ports::PushSender for TestSender {
+    impl PushSender for TestSender {
         type Error = TestSendError;
         type Fut<'a>
             = std::future::Ready<Result<(), Self::Error>>

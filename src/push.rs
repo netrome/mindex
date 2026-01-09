@@ -1,6 +1,6 @@
 use crate::adapters::{TokioTimeProvider, WebPushSender};
 use crate::config;
-use crate::push_types::DirectiveRegistries;
+use crate::types::push::DirectiveRegistries;
 
 mod directives;
 mod registry;

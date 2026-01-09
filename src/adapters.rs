@@ -4,13 +4,14 @@ use std::time::Duration;
 
 use time::OffsetDateTime;
 
-use crate::ports;
-use crate::push_types;
+use crate::ports::push::PushSender;
+use crate::ports::time::TimeProvider;
+use crate::types::push::{Subscription, VapidConfig};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioTimeProvider;
 
-impl ports::TimeProvider for TokioTimeProvider {
+impl TimeProvider for TokioTimeProvider {
     type Sleep<'a>
         = tokio::time::Sleep
     where
@@ -27,12 +28,12 @@ impl ports::TimeProvider for TokioTimeProvider {
 
 #[derive(Clone)]
 pub struct WebPushSender {
-    vapid: push_types::VapidConfig,
+    vapid: VapidConfig,
     client: Arc<web_push::WebPushClient>,
 }
 
 impl WebPushSender {
-    pub fn new(vapid: push_types::VapidConfig) -> Result<Self, web_push::WebPushError> {
+    pub fn new(vapid: VapidConfig) -> Result<Self, web_push::WebPushError> {
         let client = web_push::WebPushClient::new()?;
         Ok(Self {
             vapid,
@@ -41,18 +42,14 @@ impl WebPushSender {
     }
 }
 
-impl ports::PushSender for WebPushSender {
+impl PushSender for WebPushSender {
     type Error = web_push::WebPushError;
     type Fut<'a>
         = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send + 'a>>
     where
         Self: 'a;
 
-    fn send<'a>(
-        &'a self,
-        subscription: &'a push_types::Subscription,
-        message: &'a str,
-    ) -> Self::Fut<'a> {
+    fn send<'a>(&'a self, subscription: &'a Subscription, message: &'a str) -> Self::Fut<'a> {
         Box::pin(async move {
             let subscription_info = web_push::SubscriptionInfo::new(
                 subscription.endpoint.clone(),

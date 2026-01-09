@@ -31,6 +31,12 @@ Mindex is a single-process web server that:
 - `src/state.rs`
   - Shared application state (configured root directory, caches/indexes if any)
 
+- `src/ports/`
+  - Shared trait interfaces, scoped by feature where needed
+
+- `src/types/`
+  - Domain types, scoped by feature where needed
+
 - `src/app.rs`
   - HTTP routing and request handlers
 
@@ -39,6 +45,9 @@ Mindex is a single-process web server that:
 
 - `src/assets.rs`
   - Serves or embeds static UI assets from `static/`
+
+- `src/push/`
+  - Push notification internals (directive parsing, registry, scheduling, VAPID)
 
 ## Key design choices
 

@@ -5,7 +5,7 @@ pub mod config;
 mod adapters;
 mod documents;
 mod ports;
-mod push_types;
+mod types;
 
 mod app;
 mod assets;

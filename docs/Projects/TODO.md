@@ -3,7 +3,6 @@
 ## In progress
 
 ## To do
-- [ ] Module layout refactor [./ModuleLayoutRefactor.md]
 - [ ] refactor: Update tests to use //given //when //then sections
 - [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.
 - [ ] Math notation
@@ -12,6 +11,7 @@
 - [ ] TODO lists
 
 ## Recently done
+- [x] Module layout refactor [./ModuleLayoutRefactor.md]
 - [x] Push notifications [./PushNotifications.md]
   - [x] Directive parser + registry loader
   - [x] Scheduler + delivery

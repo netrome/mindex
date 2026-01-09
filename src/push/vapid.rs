@@ -1,5 +1,5 @@
 use crate::config;
-use crate::push_types::VapidConfig;
+use crate::types::push::VapidConfig;
 
 #[derive(Debug, Clone)]
 pub(crate) enum VapidConfigStatus {
