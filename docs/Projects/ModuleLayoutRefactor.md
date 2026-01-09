@@ -66,6 +66,10 @@ deep folder hierarchies, and it scales as additional features arrive.
    Acceptance: no behavior changes; tests pass; imports updated.
 3. **Split ports into `src/ports/push.rs` and `src/ports/time.rs`.**
    Acceptance: `PushSender` lives in `ports/push.rs`; `TimeProvider` is a
-   shared port in `ports/time.rs`; no dependency cycles.
-4. **Consolidate module wiring in `src/lib.rs`.**
+   shared port in `ports/time.rs`; module paths updated; no dependency cycles.
+4. **Add module wiring in `src/lib.rs` (and any new `mod.rs`).**
    Acceptance: module declarations match the new layout; no unused modules.
+5. **Update imports and clean up old paths.**
+   Acceptance: no `push_types` or `ports.rs` references remain; build succeeds.
+6. **Run safety net checks.**
+   Acceptance: `cargo test` and `cargo clippy` pass.
