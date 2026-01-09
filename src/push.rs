@@ -43,3 +43,17 @@ pub fn maybe_start_scheduler(
     let mut guard = handles.lock().expect("push handles lock");
     guard.extend(scheduled);
 }
+
+pub fn restart_scheduler(
+    config: &config::AppConfig,
+    registries: Arc<DirectiveRegistries>,
+    handles: Arc<Mutex<Vec<ScheduledNotificationHandle>>>,
+) {
+    {
+        let mut guard = handles.lock().expect("push handles lock");
+        for handle in guard.drain(..) {
+            handle.abort();
+        }
+    }
+    maybe_start_scheduler(config, registries, handles);
+}

@@ -158,8 +158,9 @@ Rules:
 - Create an in-process scheduler task at startup (tokio).
 - For each notification, compute delay and `sleep_until`.
 - Send via `web-push` to all subscriptions for each recipient.
-- On in-app save (`document_save`), re-parse that document and refresh affected
-  notifications/users. External edits require a restart or a manual reload endpoint.
+- On in-app save (`document_save`), reload registries and restart the scheduler so
+  notifications/users stay in sync. External edits require a restart or a manual
+  reload endpoint.
 
 ## Notification identity and bookkeeping
 

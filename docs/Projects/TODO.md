@@ -9,6 +9,7 @@
   - [x] Harden scheduler delay conversion + extract doc helpers
   - [x] Refactor: extract push domain types to break the `ports`/`push` dependency cycle
   - [x] Feature: store scheduler handles and add a debug view for scheduled notifications
+  - [x] Refresh push registries + scheduler on in-app save
 
 ## To do
 - [ ] Module layout refactor [./ModuleLayoutRefactor.md]

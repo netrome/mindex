@@ -31,23 +31,24 @@ use std::path::Path;
 
 pub fn app(config: config::AppConfig) -> Router {
     let push_registries = match push_types::DirectiveRegistries::load(&config.root) {
-        Ok(registries) => std::sync::Arc::new(registries),
+        Ok(registries) => registries,
         Err(err) => {
             eprintln!("failed to load push directive registries: {err}");
-            std::sync::Arc::new(push_types::DirectiveRegistries::default())
+            push_types::DirectiveRegistries::default()
         }
     };
+    let push_registries = std::sync::Arc::new(std::sync::Mutex::new(push_registries));
     let push_handles = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let state = state::AppState {
         config,
-        push_registries,
+        push_registries: std::sync::Arc::clone(&push_registries),
         push_handles: std::sync::Arc::clone(&push_handles),
     };
-    push::maybe_start_scheduler(
-        &state.config,
-        std::sync::Arc::clone(&state.push_registries),
-        std::sync::Arc::clone(&push_handles),
-    );
+    let registries_snapshot = {
+        let registries = push_registries.lock().expect("push registries lock");
+        std::sync::Arc::new(registries.clone())
+    };
+    push::maybe_start_scheduler(&state.config, registries_snapshot, push_handles);
     Router::new()
         .route("/", get(document_list))
         .route("/search", get(document_search))
@@ -75,7 +76,12 @@ pub(crate) async fn health() -> &'static str {
 pub(crate) async fn push_registry_debug(
     State(state): State<state::AppState>,
 ) -> Json<push_types::DirectiveRegistries> {
-    Json((*state.push_registries).clone())
+    let registries = state
+        .push_registries
+        .lock()
+        .expect("push registries lock")
+        .clone();
+    Json(registries)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -368,12 +374,30 @@ pub(crate) async fn document_save(
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
     })?;
 
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after save: {err}");
+    }
+
     Ok(templates::EditTemplate {
         app_name: state.config.app_name,
         doc_id,
         contents: normalized,
         notice: "Saved.".to_string(),
     })
+}
+
+fn refresh_push_state(state: &state::AppState) -> std::io::Result<()> {
+    let registries = push_types::DirectiveRegistries::load(&state.config.root)?;
+    {
+        let mut guard = state.push_registries.lock().expect("push registries lock");
+        *guard = registries.clone();
+    }
+    push::restart_scheduler(
+        &state.config,
+        std::sync::Arc::new(registries),
+        std::sync::Arc::clone(&state.push_handles),
+    );
+    Ok(())
 }
 
 pub(crate) fn search_documents(
@@ -544,6 +568,48 @@ message = "Check the daily log."
 
         assert!(debug.server_time.unix_timestamp() > 0);
         assert!(debug.scheduled.is_empty());
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn document_save__should_refresh_push_registries() {
+        let root = create_temp_root("push-refresh");
+        std::fs::write(root.join("note.md"), "Initial").expect("write note.md");
+        let app_state = state::AppState {
+            config: config::AppConfig {
+                root: root.clone(),
+                ..Default::default()
+            },
+            push_registries: std::sync::Arc::new(std::sync::Mutex::new(
+                push_types::DirectiveRegistries::default(),
+            )),
+            push_handles: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+        };
+
+        let form = EditForm {
+            contents: r#"/user
+```toml
+name = "marten"
+```
+"#
+            .to_string(),
+        };
+
+        document_save(
+            State(app_state.clone()),
+            AxumPath("note.md".to_string()),
+            Form(form),
+        )
+        .await
+        .expect("save note.md");
+
+        let registries = app_state
+            .push_registries
+            .lock()
+            .expect("push registries lock")
+            .clone();
+        assert!(registries.users.contains_key("marten"));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

@@ -17,6 +17,10 @@ impl ScheduledNotificationHandle {
         self.handle.is_finished()
     }
 
+    pub(crate) fn abort(&self) {
+        self.handle.abort();
+    }
+
     #[cfg(test)]
     pub(crate) async fn join(self) -> Result<(), tokio::task::JoinError> {
         self.handle.await
