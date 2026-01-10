@@ -1,7 +1,7 @@
 # Authentication (Design)
 
 ## Status
-Proposed
+In progress
 
 ## Context
 Mindex currently assumes a trusted environment and typically relies on a reverse
@@ -142,22 +142,22 @@ module instead of each other.
 - Token TTL defaults (short vs "remember me").
 
 ## Task breakdown (PR-sized)
-1. ADR: define optional in-app auth and credential storage. Acceptance: ADR merged
+1. [x] ADR: define optional in-app auth and credential storage. Acceptance: ADR merged
    with decision, consequences, and dependency rationale.
-2. Config plumbing. Acceptance: auth config loads, validation rejects missing
+2. [x] Config plumbing. Acceptance: auth config loads, validation rejects missing
    `auth-key` when auth is enabled, default behavior unchanged.
-3. Refactor: extract directive parsing/registries from push. Acceptance: push and
+3. [ ] Refactor: extract directive parsing/registries from push. Acceptance: push and
    auth depend on shared directives module; module layout stays consistent with
    existing ADR; tests updated.
-4. `/user` parsing update. Acceptance: `password_hash` is required; missing
+4. [ ] `/user` parsing update. Acceptance: `password_hash` is required; missing
    hashes emit warnings and the user entry is skipped; tests updated.
-5. Auth middleware + JWT. Acceptance: protected routes require auth; JWT cookie
+5. [ ] Auth middleware + JWT. Acceptance: protected routes require auth; JWT cookie
    validated; API returns 401; HTML routes redirect to `/login`.
-6. Login/logout UI. Acceptance: minimal login form; success sets cookie; logout
+6. [ ] Login/logout UI. Acceptance: minimal login form; success sets cookie; logout
    clears cookie; safe `next` handling.
-7. Service worker changes. Acceptance: when auth enabled, no document caching;
+7. [ ] Service worker changes. Acceptance: when auth enabled, no document caching;
    static assets still cached.
-8. CLI helper for auth secrets. Acceptance: `mindex auth-key` (or similar) prints
+8. [ ] CLI helper for auth secrets. Acceptance: `mindex auth-key` (or similar) prints
    a base64-encoded secret; docs updated with usage.
-9. Docs update. Acceptance: README and auth setup docs describe configuration,
+9. [ ] Docs update. Acceptance: README and auth setup docs describe configuration,
    hash generation, and PWA considerations.

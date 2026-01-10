@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use time::Duration;
 
 #[derive(Clone)]
 pub struct AppConfig {
@@ -9,6 +10,15 @@ pub struct AppConfig {
     pub vapid_private_key: Option<String>,
     pub vapid_public_key: Option<String>,
     pub vapid_subject: Option<String>,
+    pub auth: Option<AuthConfig>,
+}
+
+#[derive(Clone)]
+pub struct AuthConfig {
+    pub key: String,
+    pub token_ttl: Duration,
+    pub cookie_name: String,
+    pub cookie_secure: bool,
 }
 
 #[cfg(test)]
@@ -22,6 +32,7 @@ impl Default for AppConfig {
             vapid_private_key: None,
             vapid_public_key: None,
             vapid_subject: None,
+            auth: None,
         }
     }
 }

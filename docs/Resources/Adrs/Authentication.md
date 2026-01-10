@@ -1,7 +1,7 @@
 # In-App Authentication: Optional JWT Cookie with Document-Backed Credentials
 
 ## Status
-- Proposed
+- Accepted
 
 ## Context
 Mindex is typically deployed behind a reverse proxy for auth, but PWAs and
