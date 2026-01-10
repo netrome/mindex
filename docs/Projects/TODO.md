@@ -3,9 +3,9 @@
 ## In progress
 
 ## To do
+- [ ] Git integration
 - [ ] Math notation
 - [ ] Chat boxes
-- [ ] Git integration
 - [ ] TODO lists
 
 ## Recently done
