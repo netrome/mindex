@@ -1,7 +1,7 @@
 # Git Integration (Design)
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 Mindex is increasingly used from mobile, and the most pressing feature request is
@@ -101,13 +101,13 @@ Steps:
 - None.
 
 ## Task breakdown (PR-sized)
-1) **Doc-only: finalize design + ADR.**
+1. [x] **Doc-only: finalize design + ADR.**
    - Acceptance: `docs/Projects/GitIntegration.md` and `docs/Resources/Adrs/GitIntegration.md` approved.
-2) **Git availability helper + tests.**
+2. [x] **Git availability helper + tests.**
    - Acceptance: detects git presence and `.git` inside root; disables when `.git` is outside root.
-3) **Diff/status handler + template.**
+3. [ ] **Diff/status handler + template.**
    - Acceptance: `/git` renders status + diff or “Git not available.”
-4) **Commit handler + form.**
+4. [ ] **Commit handler + form.**
    - Acceptance: commits staged changes under root; returns success or error; no interactive prompts.
-5) **Docs update (README or Resources).**
+5. [ ] **Docs update (README or Resources).**
    - Acceptance: mention git integration behavior and limitations (repo root requirement).

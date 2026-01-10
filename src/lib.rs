@@ -11,6 +11,7 @@ mod types;
 
 mod app;
 mod assets;
+mod git;
 mod push;
 mod state;
 mod templates;
