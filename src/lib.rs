@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 pub mod config;
 
 mod adapters;
-mod auth;
+pub mod auth;
 mod directives;
 mod documents;
 mod ports;

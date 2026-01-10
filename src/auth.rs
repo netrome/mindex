@@ -1,10 +1,12 @@
 use crate::config;
 
-use base64::{STANDARD, STANDARD_NO_PAD, URL_SAFE_NO_PAD, decode_config};
+use base64::{STANDARD, STANDARD_NO_PAD, URL_SAFE_NO_PAD, decode_config, encode_config};
 use jwt_simple::algorithms::MACLike;
 use jwt_simple::prelude::{
     Claims, Duration as JwtDuration, HS256Key, NoCustomClaims, VerificationOptions,
 };
+use rand::rngs::OsRng;
+use rand::{CryptoRng, RngCore};
 
 use std::collections::HashSet;
 
@@ -18,7 +20,7 @@ pub(crate) struct AuthState {
 }
 
 #[derive(Debug)]
-pub(crate) enum AuthError {
+pub enum AuthError {
     InvalidKey,
     InvalidToken,
     MissingExpiry,
@@ -134,4 +136,64 @@ fn decode_key(raw: &str) -> Result<Vec<u8>, AuthError> {
     }
 
     Ok(decoded)
+}
+
+pub fn generate_auth_key() -> Result<String, AuthError> {
+    let mut rng = OsRng;
+    generate_auth_key_with_rng(&mut rng)
+}
+
+pub(crate) fn generate_auth_key_with_rng<R: RngCore + CryptoRng>(
+    rng: &mut R,
+) -> Result<String, AuthError> {
+    let mut bytes = [0u8; 32];
+    rng.fill_bytes(&mut bytes);
+    let encoded = encode_config(bytes, URL_SAFE_NO_PAD);
+    if encoded.is_empty() {
+        return Err(AuthError::InvalidKey);
+    }
+    Ok(encoded)
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod tests {
+    use super::*;
+
+    struct ZeroRng;
+
+    impl RngCore for ZeroRng {
+        fn next_u32(&mut self) -> u32 {
+            0
+        }
+
+        fn next_u64(&mut self) -> u64 {
+            0
+        }
+
+        fn fill_bytes(&mut self, dest: &mut [u8]) {
+            for value in dest.iter_mut() {
+                *value = 0;
+            }
+        }
+
+        fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+            self.fill_bytes(dest);
+            Ok(())
+        }
+    }
+
+    impl CryptoRng for ZeroRng {}
+
+    #[test]
+    fn generate_auth_key_with_rng__should_match_fixture() {
+        // Given
+        let mut rng = ZeroRng;
+
+        // When
+        let key = generate_auth_key_with_rng(&mut rng).expect("auth key");
+
+        // Then
+        assert_eq!(key, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    }
 }

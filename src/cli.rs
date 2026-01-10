@@ -16,6 +16,10 @@ pub(crate) fn run() -> RunOutcome {
         let code = run_init(args);
         return RunOutcome::Exit(code);
     }
+    if let Some(Command::AuthKey) = cli.command {
+        let code = run_auth_key();
+        return RunOutcome::Exit(code);
+    }
 
     let root = match cli.root.as_ref() {
         Some(root) => root.clone(),
@@ -86,6 +90,7 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Command {
     Init(InitArgs),
+    AuthKey,
 }
 
 #[derive(Args, Debug)]
@@ -121,6 +126,18 @@ fn run_init(args: InitArgs) -> i32 {
         "--vapid-private-key \"{}\" --vapid-public-key \"{}\" --vapid-subject \"{subject}\"",
         credentials.private_key, credentials.public_key
     );
+    0
+}
+
+fn run_auth_key() -> i32 {
+    let secret = match mindex::auth::generate_auth_key() {
+        Ok(secret) => secret,
+        Err(err) => {
+            eprintln!("failed to generate auth key: {err}");
+            return 1;
+        }
+    };
+    println!("{secret}");
     0
 }
 

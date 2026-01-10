@@ -157,7 +157,7 @@ module instead of each other.
    clears cookie; safe `next` handling.
 7. [x] Service worker changes. Acceptance: when auth enabled, no document caching;
    static assets still cached.
-8. [ ] CLI helper for auth secrets. Acceptance: `mindex auth-key` (or similar) prints
+8. [x] CLI helper for auth secrets. Acceptance: `mindex auth-key` (or similar) prints
    a base64-encoded secret; docs updated with usage.
 9. [ ] Docs update. Acceptance: README and auth setup docs describe configuration,
    hash generation, and PWA considerations.
