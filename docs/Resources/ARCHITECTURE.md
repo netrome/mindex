@@ -53,4 +53,4 @@ Mindex is a single-process web server that:
 
 - Filesystem-backed storage (no DB)
 - Document identity = relative path from root
-- Reverse proxy handles TLS/auth in typical deployments
+- Reverse proxy handles TLS/auth in typical deployments; in-app auth is optional when configured

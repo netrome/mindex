@@ -1,7 +1,7 @@
 # Authentication (Design)
 
 ## Status
-In progress
+Completed
 
 ## Context
 Mindex currently assumes a trusted environment and typically relies on a reverse
@@ -159,5 +159,5 @@ module instead of each other.
    static assets still cached.
 8. [x] CLI helper for auth secrets. Acceptance: `mindex auth-key` (or similar) prints
    a base64-encoded secret; docs updated with usage.
-9. [ ] Docs update. Acceptance: README and auth setup docs describe configuration,
+9. [x] Docs update. Acceptance: README and auth setup docs describe configuration,
    hash generation, and PWA considerations.

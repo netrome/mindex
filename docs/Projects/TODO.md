@@ -1,14 +1,6 @@
 # TODO
 
 ## In progress
-- [ ] auth: Introduce authentication [./Authentication.md]
-  - [x] Config plumbing
-  - [x] Refactor: extract directive parsing/registries from push
-  - [x] `/user` parsing update (require `password_hash`)
-  - [x] Auth middleware + JWT
-  - [x] Login/logout handlers + cookie issuance
-  - [x] Service worker caching guard for auth
-  - [x] CLI helper for auth secrets
 
 ## To do
 - [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.
@@ -18,6 +10,15 @@
 - [ ] TODO lists
 
 ## Recently done
+- [x] auth: Introduce authentication [./Authentication.md]
+  - [x] Config plumbing
+  - [x] Refactor: extract directive parsing/registries from push
+  - [x] `/user` parsing update (require `password_hash`)
+  - [x] Auth middleware + JWT
+  - [x] Login/logout handlers + cookie issuance
+  - [x] Service worker caching guard for auth
+  - [x] CLI helper for auth secrets
+  - [x] Docs update for auth
 - [x] auth: accept ADR and config plumbing
 - [x] refactor: Update tests to use //given //when //then sections
 - [x] refactor: Move CLI subcommand handling out of `main.rs`
