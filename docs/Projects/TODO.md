@@ -3,6 +3,9 @@
 ## In progress
 
 ## To do
+- [ ] feat: VAPID credential generation
+  - Currently it's inconvenient to have to go to a third party generator to get VAPID credentials. It would be better if the application could generate them.
+  - Acceptance criteria: Add a `mindex init` subcommand that generates VAPID credentials.
 - [ ] refactor: Update tests to use //given //when //then sections
 - [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.
 - [ ] Math notation
