@@ -1,0 +1,317 @@
+use crate::config;
+use crate::documents::{
+    DocError, atomic_write, collect_markdown_paths, create_document, doc_id_from_path,
+    load_document, normalize_newlines, render_task_list_markdown, resolve_doc_path,
+    rewrite_relative_md_links, toggle_task_item,
+};
+use crate::state;
+use crate::templates;
+
+use axum::extract::Form;
+use axum::extract::Path as AxumPath;
+use axum::extract::Query;
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::Redirect;
+use pulldown_cmark::Options;
+use pulldown_cmark::Parser;
+use serde::Deserialize;
+
+use std::io::ErrorKind;
+use std::path::Path;
+
+use super::push::refresh_push_state;
+
+pub(crate) async fn document_list(
+    State(state): State<state::AppState>,
+) -> Result<templates::DocumentListTemplate, (StatusCode, &'static str)> {
+    let state::AppState {
+        config: config::AppConfig { root, app_name, .. },
+        ..
+    } = state;
+    let paths = collect_markdown_paths(&root).map_err(|err| {
+        eprintln!("failed to list markdown files: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    let mut doc_ids: Vec<String> = paths
+        .into_iter()
+        .filter_map(|path| doc_id_from_path(&root, &path))
+        .collect();
+    doc_ids.sort();
+
+    Ok(templates::DocumentListTemplate {
+        app_name,
+        documents: doc_ids,
+    })
+}
+
+pub(crate) async fn document_new(
+    State(state): State<state::AppState>,
+) -> templates::NewDocumentTemplate {
+    templates::NewDocumentTemplate {
+        app_name: state.config.app_name,
+        doc_id: String::new(),
+        error: String::new(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct NewDocumentForm {
+    pub(crate) doc_id: String,
+}
+
+pub(crate) async fn document_create(
+    State(state): State<state::AppState>,
+    Form(form): Form<NewDocumentForm>,
+) -> Result<Redirect, (StatusCode, templates::NewDocumentTemplate)> {
+    let app_name = state.config.app_name.clone();
+    let doc_id = form.doc_id.trim().to_string();
+    if doc_id.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            templates::NewDocumentTemplate {
+                app_name: app_name.clone(),
+                doc_id,
+                error: "Document path is required.".to_string(),
+            },
+        ));
+    }
+
+    let empty = String::new();
+    match create_document(&state.config.root, &doc_id, &empty) {
+        Ok(()) => Ok(Redirect::to(&format!("/edit/{doc_id}"))),
+        Err(DocError::BadPath) => Err((
+            StatusCode::BAD_REQUEST,
+            templates::NewDocumentTemplate {
+                app_name: app_name.clone(),
+                doc_id,
+                error: "Invalid path. Use a relative .md path.".to_string(),
+            },
+        )),
+        Err(DocError::Io(err)) if err.kind() == ErrorKind::AlreadyExists => Err((
+            StatusCode::CONFLICT,
+            templates::NewDocumentTemplate {
+                app_name: app_name.clone(),
+                doc_id,
+                error: "A document already exists at that path.".to_string(),
+            },
+        )),
+        Err(DocError::Io(err)) => {
+            eprintln!("failed to create document {doc_id}: {err}");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                templates::NewDocumentTemplate {
+                    app_name: app_name.clone(),
+                    doc_id,
+                    error: "Internal error.".to_string(),
+                },
+            ))
+        }
+        Err(DocError::NotFound) => Err((
+            StatusCode::BAD_REQUEST,
+            templates::NewDocumentTemplate {
+                app_name: app_name.clone(),
+                doc_id,
+                error: "Invalid path. Use a relative .md path.".to_string(),
+            },
+        )),
+    }
+}
+
+pub(crate) async fn document_search(
+    State(state): State<state::AppState>,
+    Query(query): Query<SearchQuery>,
+) -> Result<templates::SearchTemplate, (StatusCode, &'static str)> {
+    let query = query.q.unwrap_or_default();
+    let trimmed = query.trim();
+    let results = if trimmed.is_empty() {
+        Vec::new()
+    } else {
+        search_documents(&state.config.root, trimmed).map_err(|err| {
+            eprintln!("failed to search documents: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        })?
+    };
+
+    Ok(templates::SearchTemplate {
+        app_name: state.config.app_name,
+        query: trimmed.to_string(),
+        results,
+    })
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct SearchQuery {
+    pub(crate) q: Option<String>,
+}
+
+pub(crate) async fn document_view(
+    State(state): State<state::AppState>,
+    AxumPath(doc_id): AxumPath<String>,
+) -> Result<templates::DocumentTemplate, (StatusCode, &'static str)> {
+    let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
+        DocError::NotFound => (StatusCode::NOT_FOUND, "document not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err:?}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let rendered = render_task_list_markdown(&contents);
+    let mut body = String::new();
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    let parser =
+        Parser::new_ext(&rendered, options).map(|event| rewrite_relative_md_links(event, &doc_id));
+    pulldown_cmark::html::push_html(&mut body, parser);
+
+    Ok(templates::DocumentTemplate {
+        app_name: state.config.app_name,
+        doc_id,
+        content: body,
+    })
+}
+
+pub(crate) async fn document_edit(
+    State(state): State<state::AppState>,
+    AxumPath(doc_id): AxumPath<String>,
+) -> Result<templates::EditTemplate, (StatusCode, &'static str)> {
+    let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    Ok(templates::EditTemplate {
+        app_name: state.config.app_name,
+        doc_id,
+        contents,
+        notice: String::new(),
+    })
+}
+
+pub(crate) async fn document_save(
+    State(state): State<state::AppState>,
+    AxumPath(doc_id): AxumPath<String>,
+    Form(form): Form<EditForm>,
+) -> Result<templates::EditTemplate, (StatusCode, &'static str)> {
+    let path = resolve_doc_path(&state.config.root, &doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let metadata = std::fs::metadata(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to stat document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+    if !metadata.is_file() {
+        return Err((StatusCode::NOT_FOUND, "not found"));
+    }
+
+    let normalized = normalize_newlines(&form.contents);
+    atomic_write(&path, &normalized).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after save: {err}");
+    }
+
+    Ok(templates::EditTemplate {
+        app_name: state.config.app_name,
+        doc_id,
+        contents: normalized,
+        notice: "Saved.".to_string(),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ToggleTaskForm {
+    pub(crate) doc_id: String,
+    pub(crate) task_index: usize,
+    pub(crate) checked: bool,
+}
+
+pub(crate) async fn document_toggle_task(
+    State(state): State<state::AppState>,
+    Form(form): Form<ToggleTaskForm>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let doc_id = form.doc_id.trim();
+    if doc_id.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "doc_id is required"));
+    }
+
+    let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let contents = std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let updated = toggle_task_item(&contents, form.task_index, form.checked)
+        .ok_or((StatusCode::NOT_FOUND, "task not found"))?;
+
+    atomic_write(&path, &updated).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after toggle: {err}");
+    }
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub(crate) fn search_documents(
+    root: &Path,
+    query: &str,
+) -> std::io::Result<Vec<templates::SearchResult>> {
+    let mut results = Vec::new();
+    let needle = query.to_lowercase();
+    for path in collect_markdown_paths(root)? {
+        let doc_id = match doc_id_from_path(root, &path) {
+            Some(doc_id) => doc_id,
+            None => continue,
+        };
+        let contents = std::fs::read_to_string(&path)?;
+        if let Some(snippet) = find_match_snippet(&contents, &needle) {
+            results.push(templates::SearchResult { doc_id, snippet });
+        }
+    }
+    results.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
+    Ok(results)
+}
+
+pub(crate) fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
+    for line in contents.lines() {
+        if line.to_lowercase().contains(needle) {
+            return Some(line.trim().to_string());
+        }
+    }
+    None
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct EditForm {
+    pub(crate) contents: String,
+}

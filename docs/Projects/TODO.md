@@ -3,13 +3,13 @@
 ## In progress
 
 ## To do
-- [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.
 - [ ] Math notation
 - [ ] Chat boxes
 - [ ] Git integration
 - [ ] TODO lists
 
 ## Recently done
+- [x] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.
 - [x] auth: add password hash helper + docs
 - [x] auth: Introduce authentication [./Authentication.md]
   - [x] Config plumbing
@@ -41,7 +41,6 @@
   - [x] Refactor: extract push domain types to break the `ports`/`push` dependency cycle
   - [x] Feature: store scheduler handles and add a debug view for scheduled notifications
   - [x] Refresh push registries + scheduler on in-app save
-
 - [x] Push notifications design doc
 - [x] Add MIT license
 - [x] Add a minimal ADR template in docs/Resources/Adrs

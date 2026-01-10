@@ -1,46 +1,21 @@
-use crate::adapters::WebPushSender;
 use crate::assets;
-use crate::auth;
+use crate::auth as auth_service;
 use crate::config;
-use crate::documents::{
-    DocError, atomic_write, collect_markdown_paths, create_document, doc_id_from_path,
-    load_document, normalize_newlines, render_task_list_markdown, resolve_doc_path,
-    rewrite_relative_md_links, toggle_task_item,
-};
-use crate::ports::push::PushSender;
 use crate::push as push_service;
 use crate::state;
-use crate::templates;
 use crate::types::directives;
 
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use axum::Json;
 use axum::Router;
-use axum::body::Body;
-use axum::extract::Form;
-use axum::extract::Path as AxumPath;
-use axum::extract::Query;
-use axum::extract::State;
-use axum::http::HeaderMap;
-use axum::http::HeaderValue;
-use axum::http::Request;
-use axum::http::StatusCode;
-use axum::http::header::{COOKIE, SET_COOKIE};
-use axum::middleware::{self, Next};
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::middleware;
 use axum::routing::get;
 use axum::routing::post;
-use pulldown_cmark::Options;
-use pulldown_cmark::Parser;
-use serde::Deserialize;
-use serde::Serialize;
-use time::OffsetDateTime;
 
-use std::io::ErrorKind;
-use std::path::Path;
+mod auth;
+mod documents;
+mod push;
 
 pub fn app(config: config::AppConfig) -> Router {
-    let auth = auth::AuthState::from_config(&config)
+    let auth = auth_service::AuthState::from_config(&config)
         .unwrap_or_else(|err| panic!("invalid auth configuration: {err}"));
     let push_registries = match directives::DirectiveRegistries::load(&config.root) {
         Ok(registries) => registries,
@@ -63,19 +38,28 @@ pub fn app(config: config::AppConfig) -> Router {
     };
     push_service::maybe_start_scheduler(&state.config, registries_snapshot, push_handles);
     Router::new()
-        .route("/", get(document_list))
-        .route("/login", get(login_form).post(login_submit))
-        .route("/logout", post(logout))
-        .route("/search", get(document_search))
-        .route("/new", get(document_new).post(document_create))
-        .route("/edit/{*path}", get(document_edit).post(document_save))
-        .route("/doc/{*path}", get(document_view))
-        .route("/api/doc/toggle-task", post(document_toggle_task))
-        .route("/push/subscribe", get(push_subscribe))
-        .route("/api/push/public-key", get(push_public_key))
-        .route("/api/push/test", post(push_test))
-        .route("/api/debug/push/registry", get(push_registry_debug))
-        .route("/api/debug/push/schedule", get(push_schedule_debug))
+        .route("/", get(documents::document_list))
+        .route("/login", get(auth::login_form).post(auth::login_submit))
+        .route("/logout", post(auth::logout))
+        .route("/search", get(documents::document_search))
+        .route(
+            "/new",
+            get(documents::document_new).post(documents::document_create),
+        )
+        .route(
+            "/edit/{*path}",
+            get(documents::document_edit).post(documents::document_save),
+        )
+        .route("/doc/{*path}", get(documents::document_view))
+        .route(
+            "/api/doc/toggle-task",
+            post(documents::document_toggle_task),
+        )
+        .route("/push/subscribe", get(push::push_subscribe))
+        .route("/api/push/public-key", get(push::push_public_key))
+        .route("/api/push/test", post(push::push_test))
+        .route("/api/debug/push/registry", get(push::push_registry_debug))
+        .route("/api/debug/push/schedule", get(push::push_schedule_debug))
         .route("/static/style.css", get(assets::stylesheet))
         .route("/static/theme.js", get(assets::theme_script))
         .route("/static/manifest.json", get(assets::manifest))
@@ -84,715 +68,34 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/static/icons/icon-512.png", get(assets::icon_512))
         .route("/health", get(health))
         .with_state(state.clone())
-        .layer(middleware::from_fn_with_state(state, auth_middleware))
+        .layer(middleware::from_fn_with_state(state, auth::auth_middleware))
 }
 
 pub(crate) async fn health() -> &'static str {
     "ok"
 }
 
-#[derive(Serialize)]
-struct AuthErrorResponse {
-    error: &'static str,
-}
-
-async fn auth_middleware(
-    State(state): State<state::AppState>,
-    req: Request<Body>,
-    next: Next,
-) -> Response {
-    let auth = match &state.auth {
-        Some(auth) => auth,
-        None => return next.run(req).await,
-    };
-
-    let path = req.uri().path();
-    if is_auth_bypass_path(path) {
-        return next.run(req).await;
-    }
-
-    if let Some(token) = auth_cookie(req.headers(), auth.cookie_name())
-        && auth.verify_token(token).is_ok()
-    {
-        return next.run(req).await;
-    }
-
-    if path.starts_with("/api/") {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(AuthErrorResponse {
-                error: "unauthorized",
-            }),
-        )
-            .into_response();
-    }
-
-    Redirect::to("/login").into_response()
-}
-
-fn is_auth_bypass_path(path: &str) -> bool {
-    path == "/login"
-        || path == "/logout"
-        || path == "/sw.js"
-        || path == "/health"
-        || path.starts_with("/static/")
-}
-
-fn auth_cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
-    for header in headers.get_all(COOKIE).iter() {
-        if let Ok(raw) = header.to_str()
-            && let Some(value) = cookie_from_header(raw, name)
-        {
-            return Some(value);
-        }
-    }
-    None
-}
-
-fn cookie_from_header<'a>(header: &'a str, name: &str) -> Option<&'a str> {
-    for part in header.split(';') {
-        let trimmed = part.trim();
-        if let Some((cookie_name, cookie_value)) = trimmed.split_once('=')
-            && cookie_name == name
-        {
-            return Some(cookie_value);
-        }
-    }
-    None
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct LoginQuery {
-    next: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct LoginForm {
-    name: String,
-    password: String,
-    next: Option<String>,
-}
-
-pub(crate) async fn login_form(
-    State(state): State<state::AppState>,
-    Query(query): Query<LoginQuery>,
-) -> Result<templates::LoginTemplate, (StatusCode, &'static str)> {
-    if state.auth.is_none() {
-        return Err((StatusCode::NOT_FOUND, "not found"));
-    }
-    let next = sanitize_next(query.next.as_deref()).unwrap_or_else(|| "/".to_string());
-
-    Ok(templates::LoginTemplate {
-        app_name: state.config.app_name,
-        error: String::new(),
-        next,
-    })
-}
-
-pub(crate) async fn login_submit(
-    State(state): State<state::AppState>,
-    Form(form): Form<LoginForm>,
-) -> Result<Response, (StatusCode, templates::LoginTemplate)> {
-    let auth = state.auth.as_ref().ok_or((
-        StatusCode::NOT_FOUND,
-        templates::LoginTemplate {
-            app_name: state.config.app_name.clone(),
-            error: "Auth is not enabled.".to_string(),
-            next: String::new(),
-        },
-    ))?;
-    let name = form.name.trim();
-    let password = form.password;
-    let next = sanitize_next(form.next.as_deref()).unwrap_or_else(|| "/".to_string());
-
-    if name.is_empty() || password.trim().is_empty() {
-        return Err(login_error(&state.config.app_name, &next));
-    }
-
-    let password_hash = {
-        let registries = state.push_registries.lock().expect("push registries lock");
-        registries
-            .users
-            .get(name)
-            .map(|user| user.password_hash.clone())
-    };
-
-    let Some(password_hash) = password_hash else {
-        return Err(login_error(&state.config.app_name, &next));
-    };
-
-    if !verify_password(&password, &password_hash) {
-        return Err(login_error(&state.config.app_name, &next));
-    }
-
-    let token = match auth.issue_token(name) {
-        Ok(token) => token,
-        Err(err) => {
-            eprintln!("failed to issue auth token: {err}");
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                templates::LoginTemplate {
-                    app_name: state.config.app_name,
-                    error: "Failed to sign in.".to_string(),
-                    next,
-                },
-            ));
-        }
-    };
-
-    let mut response = Redirect::to(&next).into_response();
-    let cookie = auth.auth_cookie(&token);
-    response.headers_mut().append(
-        SET_COOKIE,
-        HeaderValue::from_str(&cookie).expect("auth cookie header"),
-    );
-    Ok(response)
-}
-
-pub(crate) async fn logout(
-    State(state): State<state::AppState>,
-) -> Result<Response, (StatusCode, &'static str)> {
-    let auth = state
-        .auth
-        .as_ref()
-        .ok_or((StatusCode::NOT_FOUND, "not found"))?;
-    let mut response = Redirect::to("/login").into_response();
-    let cookie = auth.clear_cookie();
-    response.headers_mut().append(
-        SET_COOKIE,
-        HeaderValue::from_str(&cookie).expect("logout cookie header"),
-    );
-    Ok(response)
-}
-
-fn verify_password(password: &str, password_hash: &str) -> bool {
-    let hash = match PasswordHash::new(password_hash) {
-        Ok(hash) => hash,
-        Err(_) => return false,
-    };
-    Argon2::default()
-        .verify_password(password.as_bytes(), &hash)
-        .is_ok()
-}
-
-fn sanitize_next(next: Option<&str>) -> Option<String> {
-    let next = next?.trim();
-    if next.is_empty() {
-        return None;
-    }
-    if !next.starts_with('/') || next.starts_with("//") || next.contains("://") {
-        return None;
-    }
-    Some(next.to_string())
-}
-
-fn login_error(app_name: &str, next: &str) -> (StatusCode, templates::LoginTemplate) {
-    (
-        StatusCode::UNAUTHORIZED,
-        templates::LoginTemplate {
-            app_name: app_name.to_string(),
-            error: "Invalid username or password.".to_string(),
-            next: next.to_string(),
-        },
-    )
-}
-
-pub(crate) async fn push_registry_debug(
-    State(state): State<state::AppState>,
-) -> Json<directives::DirectiveRegistries> {
-    let registries = state
-        .push_registries
-        .lock()
-        .expect("push registries lock")
-        .clone();
-    Json(registries)
-}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PushScheduleDebugResponse {
-    server_time: OffsetDateTime,
-    scheduled: Vec<PushScheduleEntry>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct PushScheduleEntry {
-    doc_id: String,
-    at: OffsetDateTime,
-    message: String,
-    to: Vec<String>,
-    scheduled_at: OffsetDateTime,
-    finished: bool,
-}
-
-pub(crate) async fn push_schedule_debug(
-    State(state): State<state::AppState>,
-) -> Json<PushScheduleDebugResponse> {
-    let server_time = OffsetDateTime::now_utc();
-    let scheduled = {
-        let handles = state.push_handles.lock().expect("push handles lock");
-        handles
-            .iter()
-            .map(|handle| PushScheduleEntry {
-                doc_id: handle.notification.doc_id.clone(),
-                at: handle.notification.at,
-                message: handle.notification.message.clone(),
-                to: handle.notification.to.clone(),
-                scheduled_at: handle.scheduled_at,
-                finished: handle.is_finished(),
-            })
-            .collect()
-    };
-    Json(PushScheduleDebugResponse {
-        server_time,
-        scheduled,
-    })
-}
-
-#[derive(Serialize)]
-pub(crate) struct PublicKeyResponse {
-    #[serde(rename = "publicKey")]
-    public_key: String,
-}
-
-#[derive(Serialize)]
-pub(crate) struct ErrorResponse {
-    error: &'static str,
-}
-
-pub(crate) async fn push_public_key(
-    State(state): State<state::AppState>,
-) -> Result<Json<PublicKeyResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let vapid = match push_service::load_vapid_config(&state.config) {
-        push_service::VapidConfigStatus::Ready(vapid) => vapid,
-        push_service::VapidConfigStatus::Incomplete | push_service::VapidConfigStatus::Missing => {
-            return Err((
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: "Push notifications are not configured.",
-                }),
-            ));
-        }
-    };
-
-    Ok(Json(PublicKeyResponse {
-        public_key: vapid.public_key,
-    }))
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct TestPushRequest {
-    pub(crate) endpoint: String,
-    pub(crate) p256dh: String,
-    pub(crate) auth: String,
-    pub(crate) message: Option<String>,
-}
-
-#[derive(Serialize)]
-pub(crate) struct TestPushResponse {
-    status: &'static str,
-}
-
-pub(crate) async fn push_test(
-    State(state): State<state::AppState>,
-    Json(request): Json<TestPushRequest>,
-) -> Result<Json<TestPushResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let vapid = match push_service::load_vapid_config(&state.config) {
-        push_service::VapidConfigStatus::Ready(vapid) => vapid,
-        push_service::VapidConfigStatus::Incomplete | push_service::VapidConfigStatus::Missing => {
-            return Err((
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: "Push notifications are not configured.",
-                }),
-            ));
-        }
-    };
-
-    if request.endpoint.trim().is_empty()
-        || request.p256dh.trim().is_empty()
-        || request.auth.trim().is_empty()
-    {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "endpoint, p256dh, and auth are required.",
-            }),
-        ));
-    }
-
-    let message = request
-        .message
-        .as_deref()
-        .unwrap_or("Test notification from Mindex")
-        .trim();
-    if message.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: "message must not be empty.",
-            }),
-        ));
-    }
-
-    let sender = WebPushSender::new(vapid).map_err(|err| {
-        eprintln!("push test error: failed to init web-push ({err})");
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "Failed to initialize push sender.",
-            }),
-        )
-    })?;
-
-    let subscription = directives::Subscription {
-        endpoint: request.endpoint,
-        p256dh: request.p256dh,
-        auth: request.auth,
-    };
-
-    if let Err(err) = sender.send(&subscription, message).await {
-        eprintln!("push test error: {err}");
-        return Err((
-            StatusCode::BAD_GATEWAY,
-            Json(ErrorResponse {
-                error: "Failed to send test notification.",
-            }),
-        ));
-    }
-
-    Ok(Json(TestPushResponse { status: "sent" }))
-}
-
-pub(crate) async fn push_subscribe(
-    State(state): State<state::AppState>,
-) -> templates::PushSubscribeTemplate {
-    templates::PushSubscribeTemplate {
-        app_name: state.config.app_name,
-    }
-}
-
-pub(crate) async fn document_list(
-    State(state): State<state::AppState>,
-) -> Result<templates::DocumentListTemplate, (StatusCode, &'static str)> {
-    let state::AppState {
-        config: config::AppConfig { root, app_name, .. },
-        ..
-    } = state;
-    let paths = collect_markdown_paths(&root).map_err(|err| {
-        eprintln!("failed to list markdown files: {err}");
-        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-    })?;
-
-    let mut doc_ids: Vec<String> = paths
-        .into_iter()
-        .filter_map(|path| doc_id_from_path(&root, &path))
-        .collect();
-    doc_ids.sort();
-
-    Ok(templates::DocumentListTemplate {
-        app_name,
-        documents: doc_ids,
-    })
-}
-
-pub(crate) async fn document_new(
-    State(state): State<state::AppState>,
-) -> templates::NewDocumentTemplate {
-    templates::NewDocumentTemplate {
-        app_name: state.config.app_name,
-        doc_id: String::new(),
-        error: String::new(),
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct NewDocumentForm {
-    pub(crate) doc_id: String,
-}
-
-pub(crate) async fn document_create(
-    State(state): State<state::AppState>,
-    Form(form): Form<NewDocumentForm>,
-) -> Result<Redirect, (StatusCode, templates::NewDocumentTemplate)> {
-    let app_name = state.config.app_name.clone();
-    let doc_id = form.doc_id.trim().to_string();
-    if doc_id.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            templates::NewDocumentTemplate {
-                app_name: app_name.clone(),
-                doc_id,
-                error: "Document path is required.".to_string(),
-            },
-        ));
-    }
-
-    let empty = String::new();
-    match create_document(&state.config.root, &doc_id, &empty) {
-        Ok(()) => Ok(Redirect::to(&format!("/edit/{doc_id}"))),
-        Err(DocError::BadPath) => Err((
-            StatusCode::BAD_REQUEST,
-            templates::NewDocumentTemplate {
-                app_name: app_name.clone(),
-                doc_id,
-                error: "Invalid path. Use a relative .md path.".to_string(),
-            },
-        )),
-        Err(DocError::Io(err)) if err.kind() == ErrorKind::AlreadyExists => Err((
-            StatusCode::CONFLICT,
-            templates::NewDocumentTemplate {
-                app_name: app_name.clone(),
-                doc_id,
-                error: "A document already exists at that path.".to_string(),
-            },
-        )),
-        Err(DocError::Io(err)) => {
-            eprintln!("failed to create document {doc_id}: {err}");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                templates::NewDocumentTemplate {
-                    app_name: app_name.clone(),
-                    doc_id,
-                    error: "Internal error.".to_string(),
-                },
-            ))
-        }
-        Err(DocError::NotFound) => Err((
-            StatusCode::BAD_REQUEST,
-            templates::NewDocumentTemplate {
-                app_name: app_name.clone(),
-                doc_id,
-                error: "Invalid path. Use a relative .md path.".to_string(),
-            },
-        )),
-    }
-}
-
-pub(crate) async fn document_search(
-    State(state): State<state::AppState>,
-    Query(query): Query<SearchQuery>,
-) -> Result<templates::SearchTemplate, (StatusCode, &'static str)> {
-    let query = query.q.unwrap_or_default();
-    let trimmed = query.trim();
-    let results = if trimmed.is_empty() {
-        Vec::new()
-    } else {
-        search_documents(&state.config.root, trimmed).map_err(|err| {
-            eprintln!("failed to search documents: {err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-        })?
-    };
-
-    Ok(templates::SearchTemplate {
-        app_name: state.config.app_name,
-        query: trimmed.to_string(),
-        results,
-    })
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct SearchQuery {
-    pub(crate) q: Option<String>,
-}
-
-pub(crate) async fn document_view(
-    State(state): State<state::AppState>,
-    AxumPath(doc_id): AxumPath<String>,
-) -> Result<templates::DocumentTemplate, (StatusCode, &'static str)> {
-    let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
-        DocError::NotFound => (StatusCode::NOT_FOUND, "document not found"),
-        _ => {
-            eprintln!("failed to load document {doc_id}: {err:?}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-        }
-    })?;
-
-    let rendered = render_task_list_markdown(&contents);
-    let mut body = String::new();
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    let parser =
-        Parser::new_ext(&rendered, options).map(|event| rewrite_relative_md_links(event, &doc_id));
-    pulldown_cmark::html::push_html(&mut body, parser);
-
-    Ok(templates::DocumentTemplate {
-        app_name: state.config.app_name,
-        doc_id,
-        content: body,
-    })
-}
-
-pub(crate) async fn document_edit(
-    State(state): State<state::AppState>,
-    AxumPath(doc_id): AxumPath<String>,
-) -> Result<templates::EditTemplate, (StatusCode, &'static str)> {
-    let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
-        DocError::Io(err) => {
-            eprintln!("failed to load document {doc_id}: {err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-        }
-    })?;
-
-    Ok(templates::EditTemplate {
-        app_name: state.config.app_name,
-        doc_id,
-        contents,
-        notice: String::new(),
-    })
-}
-
-pub(crate) async fn document_save(
-    State(state): State<state::AppState>,
-    AxumPath(doc_id): AxumPath<String>,
-    Form(form): Form<EditForm>,
-) -> Result<templates::EditTemplate, (StatusCode, &'static str)> {
-    let path = resolve_doc_path(&state.config.root, &doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
-        DocError::Io(err) => {
-            eprintln!("failed to resolve document {doc_id}: {err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-        }
-    })?;
-
-    let metadata = std::fs::metadata(&path).map_err(|err| match err.kind() {
-        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
-        _ => {
-            eprintln!("failed to stat document {doc_id}: {err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-        }
-    })?;
-    if !metadata.is_file() {
-        return Err((StatusCode::NOT_FOUND, "not found"));
-    }
-
-    let normalized = normalize_newlines(&form.contents);
-    atomic_write(&path, &normalized).map_err(|err| {
-        eprintln!("failed to save document {doc_id}: {err}");
-        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-    })?;
-
-    if let Err(err) = refresh_push_state(&state) {
-        eprintln!("failed to reload push registries after save: {err}");
-    }
-
-    Ok(templates::EditTemplate {
-        app_name: state.config.app_name,
-        doc_id,
-        contents: normalized,
-        notice: "Saved.".to_string(),
-    })
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct ToggleTaskForm {
-    pub(crate) doc_id: String,
-    pub(crate) task_index: usize,
-    pub(crate) checked: bool,
-}
-
-pub(crate) async fn document_toggle_task(
-    State(state): State<state::AppState>,
-    Form(form): Form<ToggleTaskForm>,
-) -> Result<StatusCode, (StatusCode, &'static str)> {
-    let doc_id = form.doc_id.trim();
-    if doc_id.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "doc_id is required"));
-    }
-
-    let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
-        DocError::Io(err) => {
-            eprintln!("failed to resolve document {doc_id}: {err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-        }
-    })?;
-
-    let contents = std::fs::read_to_string(&path).map_err(|err| match err.kind() {
-        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
-        _ => {
-            eprintln!("failed to load document {doc_id}: {err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-        }
-    })?;
-
-    let updated = toggle_task_item(&contents, form.task_index, form.checked)
-        .ok_or((StatusCode::NOT_FOUND, "task not found"))?;
-
-    atomic_write(&path, &updated).map_err(|err| {
-        eprintln!("failed to save document {doc_id}: {err}");
-        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-    })?;
-
-    if let Err(err) = refresh_push_state(&state) {
-        eprintln!("failed to reload push registries after toggle: {err}");
-    }
-
-    Ok(StatusCode::NO_CONTENT)
-}
-
-fn refresh_push_state(state: &state::AppState) -> std::io::Result<()> {
-    let registries = directives::DirectiveRegistries::load(&state.config.root)?;
-    {
-        let mut guard = state.push_registries.lock().expect("push registries lock");
-        *guard = registries.clone();
-    }
-    push_service::restart_scheduler(
-        &state.config,
-        std::sync::Arc::new(registries),
-        std::sync::Arc::clone(&state.push_handles),
-    );
-    Ok(())
-}
-
-pub(crate) fn search_documents(
-    root: &Path,
-    query: &str,
-) -> std::io::Result<Vec<templates::SearchResult>> {
-    let mut results = Vec::new();
-    let needle = query.to_lowercase();
-    for path in collect_markdown_paths(root)? {
-        let doc_id = match doc_id_from_path(root, &path) {
-            Some(doc_id) => doc_id,
-            None => continue,
-        };
-        let contents = std::fs::read_to_string(&path)?;
-        if let Some(snippet) = find_match_snippet(&contents, &needle) {
-            results.push(templates::SearchResult { doc_id, snippet });
-        }
-    }
-    results.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
-    Ok(results)
-}
-
-pub(crate) fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
-    for line in contents.lines() {
-        if line.to_lowercase().contains(needle) {
-            return Some(line.trim().to_string());
-        }
-    }
-    None
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct EditForm {
-    pub(crate) contents: String,
-}
-
 #[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) mod tests {
     use super::*;
+    use crate::documents::rewrite_relative_md_links;
+    use crate::templates;
+    use crate::types::directives;
     use argon2::password_hash::SaltString;
     use argon2::{Argon2, PasswordHasher};
     use axum::body::Body;
     use axum::body::to_bytes;
+    use axum::extract::Form;
+    use axum::extract::Path as AxumPath;
+    use axum::extract::State;
     use axum::http::Request;
     use axum::http::StatusCode;
     use axum::http::header::{COOKIE, LOCATION, SET_COOKIE};
     use base64::{URL_SAFE_NO_PAD, encode_config};
     use jwt_simple::algorithms::MACLike;
     use jwt_simple::prelude::{Claims, Duration as JwtDuration, HS256Key};
+    use pulldown_cmark::{Options, Parser};
     use serde_json::Value as JsonValue;
     use serde_json::from_slice as json_from_slice;
     use time::Duration;
@@ -1118,7 +421,7 @@ message = "Check the daily log."
         let body = to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("read body");
-        let debug: PushScheduleDebugResponse = json_from_slice(&body).expect("parse json");
+        let debug: push::PushScheduleDebugResponse = json_from_slice(&body).expect("parse json");
 
         assert!(debug.server_time.unix_timestamp() > 0);
         assert!(debug.scheduled.is_empty());
@@ -1143,7 +446,7 @@ message = "Check the daily log."
             push_handles: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         };
 
-        let form = EditForm {
+        let form = documents::EditForm {
             contents: r#"/user
 ```toml
 name = "marten"
@@ -1154,7 +457,7 @@ password_hash = "hash"
         };
 
         // When
-        document_save(
+        documents::document_save(
             State(app_state.clone()),
             AxumPath("note.md".to_string()),
             Form(form),
