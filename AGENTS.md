@@ -68,6 +68,8 @@ Use when the task is exploratory/architectural or too large for a single PR.
 ### Feature mode
 - Smallest change that satisfies acceptance criteria.
 - Avoid refactors unless required to implement the feature safely.
+  - Instead, propose appropriate refactors as follow-ups to maintain a high bar for code quality while keeping implementation changes focused and minimal.
+- Make sure the code is easy to test and add relevant tests to ensure the feature works correctly.
 
 ### Refactor/Engineering-excellence mode
 - Must include:
