@@ -1,5 +1,7 @@
 use crate::config;
 
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
 use base64::{STANDARD, STANDARD_NO_PAD, URL_SAFE_NO_PAD, decode_config, encode_config};
 use jwt_simple::algorithms::MACLike;
 use jwt_simple::prelude::{
@@ -23,6 +25,8 @@ pub(crate) struct AuthState {
 pub enum AuthError {
     InvalidKey,
     InvalidToken,
+    InvalidPassword,
+    HashFailed,
     MissingExpiry,
     MissingSubject,
 }
@@ -32,6 +36,8 @@ impl std::fmt::Display for AuthError {
         match self {
             AuthError::InvalidKey => f.write_str("invalid auth key"),
             AuthError::InvalidToken => f.write_str("invalid auth token"),
+            AuthError::InvalidPassword => f.write_str("password cannot be empty"),
+            AuthError::HashFailed => f.write_str("failed to hash password"),
             AuthError::MissingExpiry => f.write_str("auth token missing expiry"),
             AuthError::MissingSubject => f.write_str("auth token missing subject"),
         }
@@ -155,10 +161,27 @@ pub(crate) fn generate_auth_key_with_rng<R: RngCore + CryptoRng>(
     Ok(encoded)
 }
 
+pub fn hash_password(password: &str) -> Result<String, AuthError> {
+    let trimmed = password.trim();
+    if trimmed.is_empty() {
+        return Err(AuthError::InvalidPassword);
+    }
+
+    let mut salt_bytes = [0u8; 16];
+    OsRng.fill_bytes(&mut salt_bytes);
+    let salt = SaltString::encode_b64(&salt_bytes).map_err(|_| AuthError::HashFailed)?;
+    let hash = Argon2::default()
+        .hash_password(trimmed.as_bytes(), &salt)
+        .map_err(|_| AuthError::HashFailed)?;
+    Ok(hash.to_string())
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+    use argon2::PasswordVerifier;
+    use argon2::password_hash::PasswordHash;
 
     struct ZeroRng;
 
@@ -195,5 +218,17 @@ mod tests {
 
         // Then
         assert_eq!(key, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    }
+
+    #[test]
+    fn hash_password__should_return_verifiable_hash() {
+        // When
+        let hash = hash_password("secret").expect("hash password");
+
+        // Then
+        let parsed = PasswordHash::new(&hash).expect("parse hash");
+        Argon2::default()
+            .verify_password("secret".as_bytes(), &parsed)
+            .expect("verify password");
     }
 }

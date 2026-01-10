@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand};
+use std::io::{IsTerminal, Read};
 use std::path::PathBuf;
 use time::Duration;
 
@@ -18,6 +19,10 @@ pub(crate) fn run() -> RunOutcome {
     }
     if let Some(Command::AuthKey) = cli.command {
         let code = run_auth_key();
+        return RunOutcome::Exit(code);
+    }
+    if let Some(Command::HashPassword(args)) = cli.command {
+        let code = run_hash_password(args);
         return RunOutcome::Exit(code);
     }
 
@@ -91,6 +96,13 @@ struct Cli {
 enum Command {
     Init(InitArgs),
     AuthKey,
+    HashPassword(HashPasswordArgs),
+}
+
+#[derive(Args, Debug)]
+struct HashPasswordArgs {
+    #[arg(long)]
+    password: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -139,6 +151,48 @@ fn run_auth_key() -> i32 {
     };
     println!("{secret}");
     0
+}
+
+fn run_hash_password(args: HashPasswordArgs) -> i32 {
+    let password = match read_password(args.password) {
+        Ok(password) => password,
+        Err(err) => {
+            eprintln!("failed to read password: {err}");
+            return 1;
+        }
+    };
+    let hash = match mindex::auth::hash_password(&password) {
+        Ok(hash) => hash,
+        Err(err) => {
+            eprintln!("failed to hash password: {err}");
+            return 1;
+        }
+    };
+    println!("{hash}");
+    0
+}
+
+fn read_password(arg: Option<String>) -> Result<String, &'static str> {
+    if let Some(password) = arg {
+        if password.trim().is_empty() {
+            return Err("password cannot be empty");
+        }
+        return Ok(password);
+    }
+
+    if std::io::stdin().is_terminal() {
+        return Err("password missing (use --password or pipe via stdin)");
+    }
+
+    let mut input = String::new();
+    std::io::stdin()
+        .read_to_string(&mut input)
+        .map_err(|_| "failed to read stdin")?;
+    let password = input.trim_end().to_string();
+    if password.is_empty() {
+        return Err("password cannot be empty");
+    }
+    Ok(password)
 }
 
 fn resolve_auth_config(cli: &Cli) -> Result<Option<mindex::config::AuthConfig>, String> {

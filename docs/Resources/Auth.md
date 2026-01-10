@@ -41,6 +41,24 @@ password_hash = "$argon2id$v=19$m=19456,t=2,p=1$...$..."
 
 Blocks missing `password_hash` are ignored with a warning.
 
+Generate a password hash:
+
+```bash
+mindex hash-password --password "s3cr3t"
+```
+
+Prefer stdin to avoid shell history:
+
+```bash
+printf "%s" "s3cr3t" | mindex hash-password
+```
+
+If you prefer third-party tooling, the `argon2` CLI can also emit PHC strings:
+
+```bash
+printf "%s" "s3cr3t" | argon2 "$(openssl rand -base64 16)" -id -t 2 -m 15 -p 1
+```
+
 ## Login/logout
 
 - `GET /login` renders a login form.

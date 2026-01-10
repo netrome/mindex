@@ -10,6 +10,7 @@
 - [ ] TODO lists
 
 ## Recently done
+- [x] auth: add password hash helper + docs
 - [x] auth: Introduce authentication [./Authentication.md]
   - [x] Config plumbing
   - [x] Refactor: extract directive parsing/registries from push

@@ -61,6 +61,18 @@ password_hash = "$argon2id$v=19$m=19456,t=2,p=1$...$..."
 ```
 ````
 
+Generate a password hash:
+
+```bash
+mindex hash-password --password "s3cr3t"
+```
+
+For better shell hygiene, pipe via stdin:
+
+```bash
+printf "%s" "s3cr3t" | mindex hash-password
+```
+
 Login is at `/login` and logout is `POST /logout`. When auth is enabled, the
 service worker only caches static assets (no document content).
 
