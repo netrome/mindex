@@ -40,6 +40,12 @@ variables:
 - `--vapid-public-key` / `MINDEX_VAPID_PUBLIC_KEY`
 - `--vapid-subject` / `MINDEX_VAPID_SUBJECT`
 
+Generate keys locally with:
+
+```bash
+mindex init --subject "mailto:you@example.com"
+```
+
 If these are not set, the server runs normally but the scheduler is disabled.
 
 To register a device, visit `/push/subscribe` and copy the generated

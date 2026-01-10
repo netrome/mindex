@@ -13,6 +13,19 @@ mod push;
 mod state;
 mod templates;
 
+pub struct VapidCredentials {
+    pub private_key: String,
+    pub public_key: String,
+}
+
+pub fn generate_vapid_credentials() -> Result<VapidCredentials, web_push::WebPushError> {
+    let credentials = push::vapid::generate_vapid_credentials()?;
+    Ok(VapidCredentials {
+        private_key: credentials.private_key,
+        public_key: credentials.public_key,
+    })
+}
+
 pub async fn serve(addr: SocketAddr, config: config::AppConfig) {
     let listener = tokio::net::TcpListener::bind(addr)
         .await

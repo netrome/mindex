@@ -66,7 +66,13 @@ or CLI flags — not stored in documents (keys are operational config, not conte
 
 ### Key generation
 
-Users can generate a key pair with:
+Generate VAPID credentials with:
+
+```bash
+mindex init --subject "mailto:you@example.com"
+```
+
+Or manually generate a key pair with:
 
 ```bash
 openssl ecparam -genkey -name prime256v1 -noout -out vapid_private.pem

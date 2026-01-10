@@ -5,7 +5,7 @@ use crate::types::push::DirectiveRegistries;
 mod directives;
 mod registry;
 mod scheduler;
-mod vapid;
+pub(crate) mod vapid;
 
 use std::sync::Arc;
 use std::sync::Mutex;
