@@ -151,7 +151,7 @@ module instead of each other.
    existing ADR; tests updated.
 4. [x] `/user` parsing update. Acceptance: `password_hash` is required; missing
    hashes emit warnings and the user entry is skipped; tests updated.
-5. [ ] Auth middleware + JWT. Acceptance: protected routes require auth; JWT cookie
+5. [x] Auth middleware + JWT. Acceptance: protected routes require auth; JWT cookie
    validated; API returns 401; HTML routes redirect to `/login`.
 6. [ ] Login/logout UI. Acceptance: minimal login form; success sets cookie; logout
    clears cookie; safe `next` handling.

@@ -5,6 +5,7 @@
   - [x] Config plumbing
   - [x] Refactor: extract directive parsing/registries from push
   - [x] `/user` parsing update (require `password_hash`)
+  - [x] Auth middleware + JWT
 
 ## To do
 - [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.

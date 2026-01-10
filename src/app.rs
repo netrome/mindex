@@ -1,5 +1,6 @@
 use crate::adapters::WebPushSender;
 use crate::assets;
+use crate::auth;
 use crate::config;
 use crate::documents::{
     DocError, atomic_write, collect_markdown_paths, create_document, doc_id_from_path,
@@ -14,12 +15,17 @@ use crate::types::directives;
 
 use axum::Json;
 use axum::Router;
+use axum::body::Body;
 use axum::extract::Form;
 use axum::extract::Path as AxumPath;
 use axum::extract::Query;
 use axum::extract::State;
+use axum::http::HeaderMap;
+use axum::http::Request;
 use axum::http::StatusCode;
-use axum::response::Redirect;
+use axum::http::header::COOKIE;
+use axum::middleware::{self, Next};
+use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::routing::post;
 use pulldown_cmark::Options;
@@ -32,6 +38,8 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 pub fn app(config: config::AppConfig) -> Router {
+    let auth = auth::AuthState::from_config(&config)
+        .unwrap_or_else(|err| panic!("invalid auth configuration: {err}"));
     let push_registries = match directives::DirectiveRegistries::load(&config.root) {
         Ok(registries) => registries,
         Err(err) => {
@@ -43,6 +51,7 @@ pub fn app(config: config::AppConfig) -> Router {
     let push_handles = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let state = state::AppState {
         config,
+        auth,
         push_registries: std::sync::Arc::clone(&push_registries),
         push_handles: std::sync::Arc::clone(&push_handles),
     };
@@ -70,11 +79,82 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/static/icons/icon-192.png", get(assets::icon_192))
         .route("/static/icons/icon-512.png", get(assets::icon_512))
         .route("/health", get(health))
-        .with_state(state)
+        .with_state(state.clone())
+        .layer(middleware::from_fn_with_state(state, auth_middleware))
 }
 
 pub(crate) async fn health() -> &'static str {
     "ok"
+}
+
+#[derive(Serialize)]
+struct AuthErrorResponse {
+    error: &'static str,
+}
+
+async fn auth_middleware(
+    State(state): State<state::AppState>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    let auth = match &state.auth {
+        Some(auth) => auth,
+        None => return next.run(req).await,
+    };
+
+    let path = req.uri().path();
+    if is_auth_bypass_path(path) {
+        return next.run(req).await;
+    }
+
+    if let Some(token) = auth_cookie(req.headers(), auth.cookie_name())
+        && auth.verify_token(token).is_ok()
+    {
+        return next.run(req).await;
+    }
+
+    if path.starts_with("/api/") {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(AuthErrorResponse {
+                error: "unauthorized",
+            }),
+        )
+            .into_response();
+    }
+
+    Redirect::to("/login").into_response()
+}
+
+fn is_auth_bypass_path(path: &str) -> bool {
+    path == "/login"
+        || path == "/logout"
+        || path == "/sw.js"
+        || path == "/health"
+        || path.starts_with("/static/")
+}
+
+fn auth_cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+    for header in headers.get_all(COOKIE).iter() {
+        if let Ok(raw) = header.to_str()
+            && let Some(value) = cookie_from_header(raw, name)
+        {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn cookie_from_header<'a>(header: &'a str, name: &str) -> Option<&'a str> {
+    for part in header.split(';') {
+        let trimmed = part.trim();
+        if let Some((cookie_name, cookie_value)) = trimmed.split_once('=')
+            && cookie_name == name
+        {
+            return Some(cookie_value);
+        }
+    }
+    None
 }
 
 pub(crate) async fn push_registry_debug(
@@ -567,7 +647,13 @@ pub(crate) mod tests {
     use axum::body::to_bytes;
     use axum::http::Request;
     use axum::http::StatusCode;
+    use axum::http::header::{COOKIE, LOCATION};
+    use base64::{URL_SAFE_NO_PAD, encode_config};
+    use jwt_simple::algorithms::MACLike;
+    use jwt_simple::prelude::{Claims, Duration as JwtDuration, HS256Key};
+    use serde_json::Value as JsonValue;
     use serde_json::from_slice as json_from_slice;
+    use time::Duration;
     use tower::ServiceExt;
 
     use askama::Template as _;
@@ -596,6 +682,90 @@ pub(crate) mod tests {
             .await
             .expect("read body");
         assert_eq!(body.as_ref(), b"ok");
+    }
+
+    #[tokio::test]
+    async fn auth_middleware__should_redirect_html_when_missing_cookie() {
+        // Given
+        let root = create_temp_root("auth-redirect");
+        let key_bytes = b"auth-redirect-secret";
+        let app_config = auth_app_config(root.clone(), key_bytes);
+
+        // When
+        let response = app(app_config)
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let location = response.headers().get(LOCATION).expect("location header");
+        assert_eq!(location, "/login");
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn auth_middleware__should_return_json_unauthorized_for_api() {
+        // Given
+        let root = create_temp_root("auth-api-unauthorized");
+        let key_bytes = b"auth-api-secret";
+        let app_config = auth_app_config(root.clone(), key_bytes);
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/debug/push/registry")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let payload: JsonValue = json_from_slice(&body).expect("parse json");
+        assert_eq!(payload["error"], "unauthorized");
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn auth_middleware__should_allow_valid_cookie() {
+        // Given
+        let root = create_temp_root("auth-valid");
+        let key_bytes = b"auth-valid-secret";
+        let app_config = auth_app_config(root.clone(), key_bytes);
+        let issuer = app_config.app_name.clone();
+        let cookie_name = app_config
+            .auth
+            .as_ref()
+            .expect("auth config")
+            .cookie_name
+            .clone();
+        let token = auth_token(key_bytes, &issuer, "marten");
+        let cookie = format!("{cookie_name}={token}");
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/debug/push/registry")
+                    .header(COOKIE, cookie)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[tokio::test]
@@ -720,6 +890,7 @@ message = "Check the daily log."
                 root: root.clone(),
                 ..Default::default()
             },
+            auth: None,
             push_registries: std::sync::Arc::new(std::sync::Mutex::new(
                 directives::DirectiveRegistries::default(),
             )),
@@ -864,6 +1035,29 @@ password_hash = "hash"
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    fn auth_app_config(root: PathBuf, key_bytes: &[u8]) -> config::AppConfig {
+        let key = encode_config(key_bytes, URL_SAFE_NO_PAD);
+        config::AppConfig {
+            root,
+            app_name: "Mindex".to_string(),
+            auth: Some(config::AuthConfig {
+                key,
+                token_ttl: Duration::days(1),
+                cookie_name: "mindex_auth".to_string(),
+                cookie_secure: false,
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn auth_token(key_bytes: &[u8], issuer: &str, subject: &str) -> String {
+        let key = HS256Key::from_bytes(key_bytes);
+        let claims = Claims::create(JwtDuration::from_hours(1))
+            .with_issuer(issuer)
+            .with_subject(subject);
+        key.authenticate(claims).expect("authenticate token")
     }
 
     fn create_temp_root(test_name: &str) -> PathBuf {
