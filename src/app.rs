@@ -13,6 +13,7 @@ use crate::state;
 use crate::templates;
 use crate::types::directives;
 
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::Json;
 use axum::Router;
 use axum::body::Body;
@@ -21,9 +22,10 @@ use axum::extract::Path as AxumPath;
 use axum::extract::Query;
 use axum::extract::State;
 use axum::http::HeaderMap;
+use axum::http::HeaderValue;
 use axum::http::Request;
 use axum::http::StatusCode;
-use axum::http::header::COOKIE;
+use axum::http::header::{COOKIE, SET_COOKIE};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
@@ -62,6 +64,8 @@ pub fn app(config: config::AppConfig) -> Router {
     push_service::maybe_start_scheduler(&state.config, registries_snapshot, push_handles);
     Router::new()
         .route("/", get(document_list))
+        .route("/login", get(login_form).post(login_submit))
+        .route("/logout", post(logout))
         .route("/search", get(document_search))
         .route("/new", get(document_new).post(document_create))
         .route("/edit/{*path}", get(document_edit).post(document_save))
@@ -155,6 +159,142 @@ fn cookie_from_header<'a>(header: &'a str, name: &str) -> Option<&'a str> {
         }
     }
     None
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct LoginQuery {
+    next: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct LoginForm {
+    name: String,
+    password: String,
+    next: Option<String>,
+}
+
+pub(crate) async fn login_form(
+    State(state): State<state::AppState>,
+    Query(query): Query<LoginQuery>,
+) -> Result<templates::LoginTemplate, (StatusCode, &'static str)> {
+    if state.auth.is_none() {
+        return Err((StatusCode::NOT_FOUND, "not found"));
+    }
+    let next = sanitize_next(query.next.as_deref()).unwrap_or_else(|| "/".to_string());
+
+    Ok(templates::LoginTemplate {
+        app_name: state.config.app_name,
+        error: String::new(),
+        next,
+    })
+}
+
+pub(crate) async fn login_submit(
+    State(state): State<state::AppState>,
+    Form(form): Form<LoginForm>,
+) -> Result<Response, (StatusCode, templates::LoginTemplate)> {
+    let auth = state.auth.as_ref().ok_or((
+        StatusCode::NOT_FOUND,
+        templates::LoginTemplate {
+            app_name: state.config.app_name.clone(),
+            error: "Auth is not enabled.".to_string(),
+            next: String::new(),
+        },
+    ))?;
+    let name = form.name.trim();
+    let password = form.password;
+    let next = sanitize_next(form.next.as_deref()).unwrap_or_else(|| "/".to_string());
+
+    if name.is_empty() || password.trim().is_empty() {
+        return Err(login_error(&state.config.app_name, &next));
+    }
+
+    let password_hash = {
+        let registries = state.push_registries.lock().expect("push registries lock");
+        registries
+            .users
+            .get(name)
+            .map(|user| user.password_hash.clone())
+    };
+
+    let Some(password_hash) = password_hash else {
+        return Err(login_error(&state.config.app_name, &next));
+    };
+
+    if !verify_password(&password, &password_hash) {
+        return Err(login_error(&state.config.app_name, &next));
+    }
+
+    let token = match auth.issue_token(name) {
+        Ok(token) => token,
+        Err(err) => {
+            eprintln!("failed to issue auth token: {err}");
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                templates::LoginTemplate {
+                    app_name: state.config.app_name,
+                    error: "Failed to sign in.".to_string(),
+                    next,
+                },
+            ));
+        }
+    };
+
+    let mut response = Redirect::to(&next).into_response();
+    let cookie = auth.auth_cookie(&token);
+    response.headers_mut().append(
+        SET_COOKIE,
+        HeaderValue::from_str(&cookie).expect("auth cookie header"),
+    );
+    Ok(response)
+}
+
+pub(crate) async fn logout(
+    State(state): State<state::AppState>,
+) -> Result<Response, (StatusCode, &'static str)> {
+    let auth = state
+        .auth
+        .as_ref()
+        .ok_or((StatusCode::NOT_FOUND, "not found"))?;
+    let mut response = Redirect::to("/login").into_response();
+    let cookie = auth.clear_cookie();
+    response.headers_mut().append(
+        SET_COOKIE,
+        HeaderValue::from_str(&cookie).expect("logout cookie header"),
+    );
+    Ok(response)
+}
+
+fn verify_password(password: &str, password_hash: &str) -> bool {
+    let hash = match PasswordHash::new(password_hash) {
+        Ok(hash) => hash,
+        Err(_) => return false,
+    };
+    Argon2::default()
+        .verify_password(password.as_bytes(), &hash)
+        .is_ok()
+}
+
+fn sanitize_next(next: Option<&str>) -> Option<String> {
+    let next = next?.trim();
+    if next.is_empty() {
+        return None;
+    }
+    if !next.starts_with('/') || next.starts_with("//") || next.contains("://") {
+        return None;
+    }
+    Some(next.to_string())
+}
+
+fn login_error(app_name: &str, next: &str) -> (StatusCode, templates::LoginTemplate) {
+    (
+        StatusCode::UNAUTHORIZED,
+        templates::LoginTemplate {
+            app_name: app_name.to_string(),
+            error: "Invalid username or password.".to_string(),
+            next: next.to_string(),
+        },
+    )
 }
 
 pub(crate) async fn push_registry_debug(
@@ -643,11 +783,13 @@ pub(crate) struct EditForm {
 #[allow(non_snake_case)]
 pub(crate) mod tests {
     use super::*;
+    use argon2::password_hash::SaltString;
+    use argon2::{Argon2, PasswordHasher};
     use axum::body::Body;
     use axum::body::to_bytes;
     use axum::http::Request;
     use axum::http::StatusCode;
-    use axum::http::header::{COOKIE, LOCATION};
+    use axum::http::header::{COOKIE, LOCATION, SET_COOKIE};
     use base64::{URL_SAFE_NO_PAD, encode_config};
     use jwt_simple::algorithms::MACLike;
     use jwt_simple::prelude::{Claims, Duration as JwtDuration, HS256Key};
@@ -657,7 +799,7 @@ pub(crate) mod tests {
     use tower::ServiceExt;
 
     use askama::Template as _;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     #[tokio::test]
     async fn app__should_return_ok_on_health_endpoint() {
@@ -764,6 +906,110 @@ pub(crate) mod tests {
 
         // Then
         assert_eq!(response.status(), StatusCode::OK);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn login__should_set_cookie_and_redirect() {
+        // Given
+        let root = create_temp_root("login-success");
+        let key_bytes = b"auth-login-secret";
+        let app_config = auth_app_config(root.clone(), key_bytes);
+        let password_hash = hash_password_for_test("secret");
+        write_user_doc(&root, "marten", &password_hash);
+        let form = "name=marten&password=secret&next=%2Fdoc%2Fnote.md";
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/login")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(form))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(
+            response.headers().get(LOCATION).expect("location header"),
+            "/doc/note.md"
+        );
+        let cookie = response.headers().get(SET_COOKIE).expect("set-cookie");
+        let cookie = cookie.to_str().expect("cookie header");
+        assert!(cookie.contains("mindex_auth="));
+        assert!(cookie.contains("HttpOnly"));
+        assert!(cookie.contains("SameSite=Lax"));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn login__should_reject_invalid_credentials() {
+        // Given
+        let root = create_temp_root("login-failure");
+        let key_bytes = b"auth-login-fail";
+        let app_config = auth_app_config(root.clone(), key_bytes);
+        let password_hash = hash_password_for_test("secret");
+        write_user_doc(&root, "marten", &password_hash);
+        let form = "name=marten&password=wrong";
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/login")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(form))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8 body");
+        assert!(body.contains("Invalid username or password."));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn logout__should_clear_cookie() {
+        // Given
+        let root = create_temp_root("logout");
+        let key_bytes = b"auth-logout-secret";
+        let app_config = auth_app_config(root.clone(), key_bytes);
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/logout")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(
+            response.headers().get(LOCATION).expect("location header"),
+            "/login"
+        );
+        let cookie = response.headers().get(SET_COOKIE).expect("set-cookie");
+        let cookie = cookie.to_str().expect("cookie header");
+        assert!(cookie.contains("Max-Age=0"));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
@@ -1058,6 +1304,26 @@ password_hash = "hash"
             .with_issuer(issuer)
             .with_subject(subject);
         key.authenticate(claims).expect("authenticate token")
+    }
+
+    fn hash_password_for_test(password: &str) -> String {
+        let salt = SaltString::encode_b64(b"mindex-tests").expect("salt");
+        Argon2::default()
+            .hash_password(password.as_bytes(), &salt)
+            .expect("hash password")
+            .to_string()
+    }
+
+    fn write_user_doc(root: &Path, name: &str, password_hash: &str) {
+        let contents = format!(
+            r#"/user
+```toml
+name = "{name}"
+password_hash = "{password_hash}"
+```
+"#
+        );
+        std::fs::write(root.join("users.md"), contents).expect("write users.md");
     }
 
     fn create_temp_root(test_name: &str) -> PathBuf {

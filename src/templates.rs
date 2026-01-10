@@ -81,3 +81,11 @@ pub(crate) struct SearchResult {
 pub(crate) struct PushSubscribeTemplate {
     pub(crate) app_name: String,
 }
+
+#[derive(Template, WebTemplate)]
+#[template(path = "login.html")]
+pub(crate) struct LoginTemplate {
+    pub(crate) app_name: String,
+    pub(crate) error: String,
+    pub(crate) next: String,
+}

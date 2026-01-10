@@ -2,7 +2,9 @@ use crate::config;
 
 use base64::{STANDARD, STANDARD_NO_PAD, URL_SAFE_NO_PAD, decode_config};
 use jwt_simple::algorithms::MACLike;
-use jwt_simple::prelude::{HS256Key, NoCustomClaims, VerificationOptions};
+use jwt_simple::prelude::{
+    Claims, Duration as JwtDuration, HS256Key, NoCustomClaims, VerificationOptions,
+};
 
 use std::collections::HashSet;
 
@@ -11,6 +13,8 @@ pub(crate) struct AuthState {
     key: HS256Key,
     issuer: String,
     cookie_name: String,
+    token_ttl: time::Duration,
+    cookie_secure: bool,
 }
 
 #[derive(Debug)]
@@ -45,11 +49,49 @@ impl AuthState {
             key,
             issuer: config.app_name.clone(),
             cookie_name: auth.cookie_name.clone(),
+            token_ttl: auth.token_ttl,
+            cookie_secure: auth.cookie_secure,
         }))
     }
 
     pub(crate) fn cookie_name(&self) -> &str {
         &self.cookie_name
+    }
+
+    pub(crate) fn issue_token(&self, subject: &str) -> Result<String, AuthError> {
+        let ttl_seconds = self.token_ttl.whole_seconds();
+        if ttl_seconds <= 0 {
+            return Err(AuthError::InvalidToken);
+        }
+        let claims = Claims::create(JwtDuration::from_secs(ttl_seconds as u64))
+            .with_subject(subject)
+            .with_issuer(&self.issuer);
+        self.key
+            .authenticate(claims)
+            .map_err(|_| AuthError::InvalidToken)
+    }
+
+    pub(crate) fn auth_cookie(&self, token: &str) -> String {
+        let max_age = self.token_ttl.whole_seconds().max(0);
+        let mut cookie = format!(
+            "{}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}",
+            self.cookie_name
+        );
+        if self.cookie_secure {
+            cookie.push_str("; Secure");
+        }
+        cookie
+    }
+
+    pub(crate) fn clear_cookie(&self) -> String {
+        let mut cookie = format!(
+            "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+            self.cookie_name
+        );
+        if self.cookie_secure {
+            cookie.push_str("; Secure");
+        }
+        cookie
     }
 
     pub(crate) fn verify_token(&self, token: &str) -> Result<(), AuthError> {

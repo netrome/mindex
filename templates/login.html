@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Login - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Documents</a>
+    <a href="/new">New</a>
+    <a href="/search">Search</a>
+    <a href="/push/subscribe">Push</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+        Theme
+    </button>
+</div>
+
+<h1>Login</h1>
+
+{% if !error.is_empty() %}
+<div class="notice">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/login">
+    <input type="hidden" name="next" value="{{ next }}" />
+    <label for="name">Username</label>
+    <input id="name" name="name" type="text" autocomplete="username" required />
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required />
+    <button type="submit">Sign in</button>
+</form>
+{% endblock %}
