@@ -22,6 +22,12 @@ pub(crate) struct ManifestTemplate<'a> {
     pub(crate) app_name: &'a str,
 }
 
+#[derive(Template)]
+#[template(path = "sw.js", escape = "none")]
+pub(crate) struct ServiceWorkerTemplate {
+    pub(crate) auth_enabled: bool,
+}
+
 #[derive(Template, WebTemplate)]
 #[template(path = "document.html")]
 pub(crate) struct DocumentTemplate {

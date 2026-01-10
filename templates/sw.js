@@ -1,11 +1,14 @@
-const CACHE_NAME = 'mindex-v1';
+const AUTH_ENABLED = {{ auth_enabled }};
+const CACHE_NAME = AUTH_ENABLED ? 'mindex-auth-v1' : 'mindex-v1';
 const STATIC_ASSETS = [
-  '/',
   '/static/style.css',
   '/static/theme.js',
   '/static/manifest.json',
   '/sw.js'
 ];
+if (!AUTH_ENABLED) {
+  STATIC_ASSETS.unshift('/');
+}
 
 // Install event - cache static assets
 self.addEventListener('install', event => {
@@ -44,13 +47,13 @@ self.addEventListener('fetch', event => {
   }
 
   const isDocument = request.destination === 'document';
-  const networkFirst = isDocument || url.pathname.startsWith('/doc/');
+  const networkFirst = (isDocument || url.pathname.startsWith('/doc/')) && !AUTH_ENABLED;
 
   if (networkFirst) {
     event.respondWith(
       fetch(request)
         .then(response => {
-          if (response && response.status === 200 && response.type === 'basic') {
+          if (!AUTH_ENABLED && response && response.status === 200 && response.type === 'basic') {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME)
               .then(cache => cache.put(request, responseToCache));
@@ -71,6 +74,31 @@ self.addEventListener('fetch', event => {
           });
         })
     );
+    return;
+  }
+
+  if (AUTH_ENABLED) {
+    if (shouldCache(url.pathname)) {
+      event.respondWith(
+        caches.match(request)
+          .then(cachedResponse => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            return fetch(request).then(response => {
+              if (response && response.status === 200 && response.type === 'basic') {
+                const responseToCache = response.clone();
+                caches.open(CACHE_NAME)
+                  .then(cache => cache.put(request, responseToCache));
+              }
+              return response;
+            });
+          })
+      );
+      return;
+    }
+
+    event.respondWith(fetch(request));
     return;
   }
 
@@ -143,8 +171,12 @@ self.addEventListener('notificationclick', event => {
 
 // Determine if a URL should be cached
 function shouldCache(pathname) {
+  if (AUTH_ENABLED) {
+    return pathname === '/sw.js' || pathname.startsWith('/static/');
+  }
+
   // Cache static assets
-  if (pathname.startsWith('/static/')) {
+  if (pathname === '/sw.js' || pathname.startsWith('/static/')) {
     return true;
   }
 

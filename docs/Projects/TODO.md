@@ -7,6 +7,7 @@
   - [x] `/user` parsing update (require `password_hash`)
   - [x] Auth middleware + JWT
   - [x] Login/logout handlers + cookie issuance
+  - [x] Service worker caching guard for auth
 
 ## To do
 - [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.

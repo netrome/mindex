@@ -155,7 +155,7 @@ module instead of each other.
    validated; API returns 401; HTML routes redirect to `/login`.
 6. [x] Login/logout UI. Acceptance: minimal login form; success sets cookie; logout
    clears cookie; safe `next` handling.
-7. [ ] Service worker changes. Acceptance: when auth enabled, no document caching;
+7. [x] Service worker changes. Acceptance: when auth enabled, no document caching;
    static assets still cached.
 8. [ ] CLI helper for auth secrets. Acceptance: `mindex auth-key` (or similar) prints
    a base64-encoded secret; docs updated with usage.

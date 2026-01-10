@@ -48,13 +48,21 @@ pub(crate) async fn theme_script() -> axum::response::Response {
         .unwrap()
 }
 
-pub(crate) async fn service_worker() -> axum::response::Response {
-    const SW_CONTENT: &str = include_str!("../assets/sw.js");
+pub(crate) async fn service_worker(
+    State(state): State<state::AppState>,
+) -> axum::response::Response {
+    let auth_enabled = state.config.auth.is_some();
+    let rendered = templates::ServiceWorkerTemplate { auth_enabled }
+        .render()
+        .unwrap_or_else(|err| {
+            eprintln!("failed to render service worker: {err}");
+            String::new()
+        });
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "application/javascript")
         .header("cache-control", "no-cache")
-        .body(SW_CONTENT.into())
+        .body(rendered.into())
         .unwrap()
 }
 
