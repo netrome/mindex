@@ -27,8 +27,10 @@ pub(crate) async fn document_list(
 ) -> Result<templates::DocumentListTemplate, (StatusCode, &'static str)> {
     let state::AppState {
         config: config::AppConfig { root, app_name, .. },
+        git_dir,
         ..
     } = state;
+    let git_enabled = git_dir.is_some();
     let paths = collect_markdown_paths(&root).map_err(|err| {
         eprintln!("failed to list markdown files: {err}");
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -43,6 +45,7 @@ pub(crate) async fn document_list(
     Ok(templates::DocumentListTemplate {
         app_name,
         documents: doc_ids,
+        git_enabled,
     })
 }
 
@@ -53,6 +56,7 @@ pub(crate) async fn document_new(
         app_name: state.config.app_name,
         doc_id: String::new(),
         error: String::new(),
+        git_enabled: state.git_dir.is_some(),
     }
 }
 
@@ -66,6 +70,7 @@ pub(crate) async fn document_create(
     Form(form): Form<NewDocumentForm>,
 ) -> Result<Redirect, (StatusCode, templates::NewDocumentTemplate)> {
     let app_name = state.config.app_name.clone();
+    let git_enabled = state.git_dir.is_some();
     let doc_id = form.doc_id.trim().to_string();
     if doc_id.is_empty() {
         return Err((
@@ -74,6 +79,7 @@ pub(crate) async fn document_create(
                 app_name: app_name.clone(),
                 doc_id,
                 error: "Document path is required.".to_string(),
+                git_enabled,
             },
         ));
     }
@@ -87,6 +93,7 @@ pub(crate) async fn document_create(
                 app_name: app_name.clone(),
                 doc_id,
                 error: "Invalid path. Use a relative .md path.".to_string(),
+                git_enabled,
             },
         )),
         Err(DocError::Io(err)) if err.kind() == ErrorKind::AlreadyExists => Err((
@@ -95,6 +102,7 @@ pub(crate) async fn document_create(
                 app_name: app_name.clone(),
                 doc_id,
                 error: "A document already exists at that path.".to_string(),
+                git_enabled,
             },
         )),
         Err(DocError::Io(err)) => {
@@ -105,6 +113,7 @@ pub(crate) async fn document_create(
                     app_name: app_name.clone(),
                     doc_id,
                     error: "Internal error.".to_string(),
+                    git_enabled,
                 },
             ))
         }
@@ -114,6 +123,7 @@ pub(crate) async fn document_create(
                 app_name: app_name.clone(),
                 doc_id,
                 error: "Invalid path. Use a relative .md path.".to_string(),
+                git_enabled,
             },
         )),
     }
@@ -123,6 +133,7 @@ pub(crate) async fn document_search(
     State(state): State<state::AppState>,
     Query(query): Query<SearchQuery>,
 ) -> Result<templates::SearchTemplate, (StatusCode, &'static str)> {
+    let git_enabled = state.git_dir.is_some();
     let query = query.q.unwrap_or_default();
     let trimmed = query.trim();
     let results = if trimmed.is_empty() {
@@ -138,6 +149,7 @@ pub(crate) async fn document_search(
         app_name: state.config.app_name,
         query: trimmed.to_string(),
         results,
+        git_enabled,
     })
 }
 
@@ -150,6 +162,7 @@ pub(crate) async fn document_view(
     State(state): State<state::AppState>,
     AxumPath(doc_id): AxumPath<String>,
 ) -> Result<templates::DocumentTemplate, (StatusCode, &'static str)> {
+    let git_enabled = state.git_dir.is_some();
     let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
         DocError::NotFound => (StatusCode::NOT_FOUND, "document not found"),
         _ => {
@@ -170,6 +183,7 @@ pub(crate) async fn document_view(
         app_name: state.config.app_name,
         doc_id,
         content: body,
+        git_enabled,
     })
 }
 
@@ -177,6 +191,7 @@ pub(crate) async fn document_edit(
     State(state): State<state::AppState>,
     AxumPath(doc_id): AxumPath<String>,
 ) -> Result<templates::EditTemplate, (StatusCode, &'static str)> {
+    let git_enabled = state.git_dir.is_some();
     let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
         DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
         DocError::Io(err) => {
@@ -190,6 +205,7 @@ pub(crate) async fn document_edit(
         doc_id,
         contents,
         notice: String::new(),
+        git_enabled,
     })
 }
 
@@ -198,6 +214,7 @@ pub(crate) async fn document_save(
     AxumPath(doc_id): AxumPath<String>,
     Form(form): Form<EditForm>,
 ) -> Result<templates::EditTemplate, (StatusCode, &'static str)> {
+    let git_enabled = state.git_dir.is_some();
     let path = resolve_doc_path(&state.config.root, &doc_id).map_err(|err| match err {
         DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
         DocError::Io(err) => {
@@ -232,6 +249,7 @@ pub(crate) async fn document_save(
         doc_id,
         contents: normalized,
         notice: "Saved.".to_string(),
+        git_enabled,
     })
 }
 

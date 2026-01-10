@@ -6,6 +6,7 @@ use askama_web::WebTemplate;
 pub(crate) struct DocumentListTemplate {
     pub(crate) app_name: String,
     pub(crate) documents: Vec<String>,
+    pub(crate) git_enabled: bool,
 }
 
 #[derive(Template, WebTemplate)]
@@ -14,6 +15,7 @@ pub(crate) struct NewDocumentTemplate {
     pub(crate) app_name: String,
     pub(crate) doc_id: String,
     pub(crate) error: String,
+    pub(crate) git_enabled: bool,
 }
 
 #[derive(Template)]
@@ -34,6 +36,7 @@ pub(crate) struct DocumentTemplate {
     pub(crate) app_name: String,
     pub(crate) doc_id: String,
     pub(crate) content: String,
+    pub(crate) git_enabled: bool,
 }
 
 #[derive(Template, WebTemplate)]
@@ -43,6 +46,7 @@ pub(crate) struct EditTemplate {
     pub(crate) doc_id: String,
     pub(crate) contents: String,
     pub(crate) notice: String,
+    pub(crate) git_enabled: bool,
 }
 
 mod filters {
@@ -75,6 +79,7 @@ pub(crate) struct SearchTemplate {
     pub(crate) app_name: String,
     pub(crate) query: String,
     pub(crate) results: Vec<SearchResult>,
+    pub(crate) git_enabled: bool,
 }
 
 pub(crate) struct SearchResult {
@@ -86,6 +91,7 @@ pub(crate) struct SearchResult {
 #[template(path = "push_subscribe.html")]
 pub(crate) struct PushSubscribeTemplate {
     pub(crate) app_name: String,
+    pub(crate) git_enabled: bool,
 }
 
 #[derive(Template, WebTemplate)]
@@ -94,4 +100,14 @@ pub(crate) struct LoginTemplate {
     pub(crate) app_name: String,
     pub(crate) error: String,
     pub(crate) next: String,
+    pub(crate) git_enabled: bool,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "git.html")]
+pub(crate) struct GitTemplate {
+    pub(crate) app_name: String,
+    pub(crate) status: String,
+    pub(crate) diff: String,
+    pub(crate) git_enabled: bool,
 }

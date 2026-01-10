@@ -6,6 +6,9 @@
 <div class="nav">
     <a href="/">Documents</a>
     <a href="/new">New</a>
+    {% if git_enabled %}
+    <a href="/git">Git</a>
+    {% endif %}
     <a href="/push/subscribe">Push</a>
     <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
         Theme

@@ -1,6 +1,7 @@
 use crate::assets;
 use crate::auth as auth_service;
 use crate::config;
+use crate::git as git_service;
 use crate::push as push_service;
 use crate::state;
 use crate::types::directives;
@@ -12,11 +13,19 @@ use axum::routing::post;
 
 mod auth;
 mod documents;
+mod git;
 mod push;
 
 pub fn app(config: config::AppConfig) -> Router {
     let auth = auth_service::AuthState::from_config(&config)
         .unwrap_or_else(|err| panic!("invalid auth configuration: {err}"));
+    let git_dir = match git_service::git_dir_within_root(&config.root) {
+        Ok(git_dir) => git_dir,
+        Err(err) => {
+            eprintln!("failed to resolve git directory: {err}");
+            None
+        }
+    };
     let push_registries = match directives::DirectiveRegistries::load(&config.root) {
         Ok(registries) => registries,
         Err(err) => {
@@ -31,6 +40,7 @@ pub fn app(config: config::AppConfig) -> Router {
         auth,
         push_registries: std::sync::Arc::clone(&push_registries),
         push_handles: std::sync::Arc::clone(&push_handles),
+        git_dir,
     };
     let registries_snapshot = {
         let registries = push_registries.lock().expect("push registries lock");
@@ -51,6 +61,7 @@ pub fn app(config: config::AppConfig) -> Router {
             get(documents::document_edit).post(documents::document_save),
         )
         .route("/doc/{*path}", get(documents::document_view))
+        .route("/git", get(git::git_view))
         .route(
             "/api/doc/toggle-task",
             post(documents::document_toggle_task),
@@ -444,6 +455,7 @@ message = "Check the daily log."
                 directives::DirectiveRegistries::default(),
             )),
             push_handles: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            git_dir: None,
         };
 
         let form = documents::EditForm {
@@ -483,6 +495,7 @@ password_hash = "hash"
         let template = templates::DocumentListTemplate {
             app_name: "Mindex".to_string(),
             documents: doc_ids,
+            git_enabled: false,
         };
 
         // When
@@ -513,6 +526,7 @@ password_hash = "hash"
             app_name: "Mindex".to_string(),
             doc_id: "table.md".to_string(),
             content: body,
+            git_enabled: false,
         };
         let html = template.render().unwrap();
 
@@ -532,6 +546,7 @@ password_hash = "hash"
             doc_id: "notes/food.md".to_string(),
             contents: "Line 1\nLine 2".to_string(),
             notice: String::new(),
+            git_enabled: false,
         };
 
         // When
@@ -551,6 +566,7 @@ password_hash = "hash"
             doc_id: "notes/food.md".to_string(),
             contents: "Body".to_string(),
             notice: "Saved.".to_string(),
+            git_enabled: false,
         };
 
         // When
@@ -577,6 +593,27 @@ password_hash = "hash"
                     .body(Body::empty())
                     .unwrap(),
             )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn git_view__should_return_not_found_when_git_unavailable() {
+        // Given
+        let root = create_temp_root("git-missing");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(Request::builder().uri("/git").body(Body::empty()).unwrap())
             .await
             .expect("request failed");
 

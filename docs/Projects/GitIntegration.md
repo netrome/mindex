@@ -105,8 +105,8 @@ Steps:
    - Acceptance: `docs/Projects/GitIntegration.md` and `docs/Resources/Adrs/GitIntegration.md` approved.
 2. [x] **Git availability helper + tests.**
    - Acceptance: detects git presence and `.git` inside root; disables when `.git` is outside root.
-3. [ ] **Diff/status handler + template.**
-   - Acceptance: `/git` renders status + diff or “Git not available.”
+3. [x] **Diff/status handler + template.**
+   - Acceptance: `/git` renders status + diff when enabled; returns not found when git is unavailable.
 4. [ ] **Commit handler + form.**
    - Acceptance: commits staged changes under root; returns success or error; no interactive prompts.
 5. [ ] **Docs update (README or Resources).**

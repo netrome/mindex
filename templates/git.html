@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ app_name }}{% endblock %}
+{% block title %}Git - {{ app_name }}{% endblock %}
 
 {% block content %}
 <div class="nav">
@@ -16,15 +16,9 @@
     </button>
 </div>
 
-<h1>Documents</h1>
+<h1>Git</h1>
 
-{% if documents.is_empty() %}
-    <p>No documents found.</p>
-{% else %}
-    <ul>
-    {% for doc_id in documents %}
-        <li><a href="/doc/{{ doc_id }}">{{ doc_id }}</a></li>
-    {% endfor %}
-    </ul>
-{% endif %}
+<p>{{ status }}</p>
+
+<pre class="git-diff">{{ diff }}</pre>
 {% endblock %}

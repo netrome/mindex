@@ -111,6 +111,7 @@ pub(crate) async fn login_form(
         app_name: state.config.app_name,
         error: String::new(),
         next,
+        git_enabled: state.git_dir.is_some(),
     })
 }
 
@@ -124,6 +125,7 @@ pub(crate) async fn login_submit(
             app_name: state.config.app_name.clone(),
             error: "Auth is not enabled.".to_string(),
             next: String::new(),
+            git_enabled: state.git_dir.is_some(),
         },
     ))?;
     let name = form.name.trim();
@@ -131,7 +133,11 @@ pub(crate) async fn login_submit(
     let next = sanitize_next(form.next.as_deref()).unwrap_or_else(|| "/".to_string());
 
     if name.is_empty() || password.trim().is_empty() {
-        return Err(login_error(&state.config.app_name, &next));
+        return Err(login_error(
+            &state.config.app_name,
+            &next,
+            state.git_dir.is_some(),
+        ));
     }
 
     let password_hash = {
@@ -143,11 +149,19 @@ pub(crate) async fn login_submit(
     };
 
     let Some(password_hash) = password_hash else {
-        return Err(login_error(&state.config.app_name, &next));
+        return Err(login_error(
+            &state.config.app_name,
+            &next,
+            state.git_dir.is_some(),
+        ));
     };
 
     if !verify_password(&password, &password_hash) {
-        return Err(login_error(&state.config.app_name, &next));
+        return Err(login_error(
+            &state.config.app_name,
+            &next,
+            state.git_dir.is_some(),
+        ));
     }
 
     let token = match auth.issue_token(name) {
@@ -160,6 +174,7 @@ pub(crate) async fn login_submit(
                     app_name: state.config.app_name,
                     error: "Failed to sign in.".to_string(),
                     next,
+                    git_enabled: state.git_dir.is_some(),
                 },
             ));
         }
@@ -211,13 +226,18 @@ fn sanitize_next(next: Option<&str>) -> Option<String> {
     Some(next.to_string())
 }
 
-fn login_error(app_name: &str, next: &str) -> (StatusCode, templates::LoginTemplate) {
+fn login_error(
+    app_name: &str,
+    next: &str,
+    git_enabled: bool,
+) -> (StatusCode, templates::LoginTemplate) {
     (
         StatusCode::UNAUTHORIZED,
         templates::LoginTemplate {
             app_name: app_name.to_string(),
             error: "Invalid username or password.".to_string(),
             next: next.to_string(),
+            git_enabled,
         },
     )
 }

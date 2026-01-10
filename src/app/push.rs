@@ -183,6 +183,7 @@ pub(crate) async fn push_subscribe(
 ) -> templates::PushSubscribeTemplate {
     templates::PushSubscribeTemplate {
         app_name: state.config.app_name,
+        git_enabled: state.git_dir.is_some(),
     }
 }
 
