@@ -17,7 +17,6 @@ It’s designed to stay **minimal, simple, and hackable**.
 ## Non-goals
 
 - No database
-- No in-app user accounts - deployments can be protected with basic auth using a reverse proxy
 - No real-time collaboration - git can be used for syncing changes accross devices.
 - No requirements of external systems. The app should be useful directly when provided a directory of `.md` documents.
 
