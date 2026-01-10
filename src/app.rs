@@ -606,6 +606,7 @@ pub(crate) mod tests {
 ```toml
 name = "marten"
 display_name = "Marten"
+password_hash = "hash"
 ```
 
 /subscription
@@ -651,6 +652,7 @@ message = "Check the daily log."
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
+        assert_eq!(user.password_hash, "hash");
 
         let subscriptions = registries
             .subscriptions
@@ -728,6 +730,7 @@ message = "Check the daily log."
             contents: r#"/user
 ```toml
 name = "marten"
+password_hash = "hash"
 ```
 "#
             .to_string(),

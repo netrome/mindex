@@ -149,7 +149,7 @@ module instead of each other.
 3. [x] Refactor: extract directive parsing/registries from push. Acceptance: push and
    auth depend on shared directives module; module layout stays consistent with
    existing ADR; tests updated.
-4. [ ] `/user` parsing update. Acceptance: `password_hash` is required; missing
+4. [x] `/user` parsing update. Acceptance: `password_hash` is required; missing
    hashes emit warnings and the user entry is skipped; tests updated.
 5. [ ] Auth middleware + JWT. Acceptance: protected routes require auth; JWT cookie
    validated; API returns 401; HTML routes redirect to `/login`.

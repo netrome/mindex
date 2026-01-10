@@ -226,6 +226,7 @@ fn handle_directive_block(
 struct UserToml {
     name: String,
     display_name: Option<String>,
+    password_hash: Option<String>,
 }
 
 fn parse_user_block(
@@ -259,6 +260,23 @@ fn parse_user_block(
         return;
     }
 
+    let display_name = parsed
+        .display_name
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    let password_hash = parsed.password_hash.unwrap_or_default();
+    let password_hash = password_hash.trim();
+    if password_hash.is_empty() {
+        push_warning(
+            warnings,
+            doc_id,
+            block_line,
+            "invalid /user block: password_hash is missing",
+        );
+        return;
+    }
+
     if registries.users.contains_key(name) {
         push_warning(
             warnings,
@@ -269,16 +287,12 @@ fn parse_user_block(
         return;
     }
 
-    let display_name = parsed
-        .display_name
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-
     registries.users.insert(
         name.to_string(),
         User {
             name: name.to_string(),
             display_name,
+            password_hash: password_hash.to_string(),
         },
     );
 }
@@ -454,6 +468,7 @@ mod tests {
 ```toml
 name = "marten"
 display_name = "Marten"
+password_hash = "hash"
 ```
 
 /subscription
@@ -479,6 +494,7 @@ message = "Check the daily log."
         // Then
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
+        assert_eq!(user.password_hash, "hash");
 
         let subscriptions = registries
             .subscriptions
@@ -507,6 +523,12 @@ message = "Check the daily log."
         let contents = r#"/user
 ```toml
 name = ""
+password_hash = "hash"
+```
+
+/user
+```toml
+name = "nohash"
 ```
 
 /notify
@@ -524,7 +546,12 @@ name = ""
         }));
         assert!(warnings.iter().any(|warning| {
             warning.doc_id == "note.md"
-                && warning.line == 6
+                && warning.line == 8
+                && warning.message == "invalid /user block: password_hash is missing"
+        }));
+        assert!(warnings.iter().any(|warning| {
+            warning.doc_id == "note.md"
+                && warning.line == 12
                 && warning.message == "missing toml block after /notify"
         }));
     }
@@ -536,6 +563,7 @@ name = ""
         let contents = r#"/user
 ```toml
 name = ""
+password_hash = "hash"
 ```
 
 /notify
@@ -565,12 +593,14 @@ message = "Nope"
 ```toml
 name = "marten"
 display_name = "First"
+password_hash = "hash-1"
 ```
 
 /user
 ```toml
 name = "marten"
 display_name = "Second"
+password_hash = "hash-2"
 ```
 "#;
         std::fs::write(root.join("dup.md"), contents).expect("write dup.md");
@@ -581,6 +611,7 @@ display_name = "Second"
         // Then
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("First"));
+        assert_eq!(user.password_hash, "hash-1");
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
@@ -595,6 +626,7 @@ display_name = "Second"
         let contents = r#"/user
 ```toml
 name = "real"
+password_hash = "hash"
 ```
 "#;
         let target = root.join("real.md");

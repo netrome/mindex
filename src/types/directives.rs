@@ -13,6 +13,7 @@ pub struct DirectiveRegistries {
 pub struct User {
     pub name: String,
     pub display_name: Option<String>,
+    pub password_hash: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
