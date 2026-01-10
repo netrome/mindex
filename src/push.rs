@@ -1,9 +1,7 @@
 use crate::adapters::{TokioTimeProvider, WebPushSender};
 use crate::config;
-use crate::types::push::DirectiveRegistries;
+use crate::types::directives::DirectiveRegistries;
 
-mod directives;
-mod registry;
 mod scheduler;
 pub(crate) mod vapid;
 

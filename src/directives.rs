@@ -1,8 +1,33 @@
-use crate::types::push::{DirectiveRegistries, Notification, Subscription, User};
+use crate::documents::{collect_markdown_paths, doc_id_from_path};
+use crate::types::directives::{DirectiveRegistries, Notification, Subscription, User};
 
 use serde::Deserialize;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
+
+use std::path::Path;
+
+impl DirectiveRegistries {
+    pub fn load(root: &Path) -> std::io::Result<Self> {
+        let mut registries = DirectiveRegistries::default();
+        let paths = collect_markdown_paths(root)?;
+        for path in paths {
+            let doc_id = match doc_id_from_path(root, &path) {
+                Some(doc_id) => doc_id,
+                None => continue,
+            };
+            let contents = std::fs::read_to_string(&path)?;
+            let warnings = parse_document(&doc_id, &contents, &mut registries);
+            for warning in warnings {
+                eprintln!(
+                    "push directive warning: {}:{}: {}",
+                    warning.doc_id, warning.line, warning.message
+                );
+            }
+        }
+        Ok(registries)
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 struct PendingDirective {
@@ -34,13 +59,13 @@ impl DirectiveKind {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct DirectiveWarning {
-    pub(crate) doc_id: String,
-    pub(crate) line: usize,
-    pub(crate) message: String,
+struct DirectiveWarning {
+    doc_id: String,
+    line: usize,
+    message: String,
 }
 
-pub(super) fn parse_document(
+fn parse_document(
     doc_id: &str,
     contents: &str,
     registries: &mut DirectiveRegistries,

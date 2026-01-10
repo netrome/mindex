@@ -6,7 +6,8 @@ use time::OffsetDateTime;
 
 use crate::ports::push::PushSender;
 use crate::ports::time::TimeProvider;
-use crate::types::push::{Subscription, VapidConfig};
+use crate::types::directives::Subscription;
+use crate::types::push::VapidConfig;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioTimeProvider;

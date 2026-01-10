@@ -146,7 +146,7 @@ module instead of each other.
    with decision, consequences, and dependency rationale.
 2. [x] Config plumbing. Acceptance: auth config loads, validation rejects missing
    `auth-key` when auth is enabled, default behavior unchanged.
-3. [ ] Refactor: extract directive parsing/registries from push. Acceptance: push and
+3. [x] Refactor: extract directive parsing/registries from push. Acceptance: push and
    auth depend on shared directives module; module layout stays consistent with
    existing ADR; tests updated.
 4. [ ] `/user` parsing update. Acceptance: `password_hash` is required; missing

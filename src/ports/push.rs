@@ -1,4 +1,4 @@
-use crate::types::push::Subscription;
+use crate::types::directives::Subscription;
 
 pub trait PushSender: Clone + Send + Sync + 'static {
     type Error: std::fmt::Display + Send + Sync + 'static;

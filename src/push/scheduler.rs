@@ -1,6 +1,6 @@
 use crate::ports::push::PushSender;
 use crate::ports::time::TimeProvider;
-use crate::types::push::{DirectiveRegistries, Notification};
+use crate::types::directives::{DirectiveRegistries, Notification};
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -123,7 +123,7 @@ async fn run_notification<T, S>(
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
-    use crate::types::push::Subscription;
+    use crate::types::directives::Subscription;
     use std::future::Future;
     use std::pin::Pin;
     use std::sync::Mutex;

@@ -10,7 +10,7 @@ use crate::ports::push::PushSender;
 use crate::push as push_service;
 use crate::state;
 use crate::templates;
-use crate::types::push;
+use crate::types::directives;
 
 use axum::Json;
 use axum::Router;
@@ -32,11 +32,11 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 pub fn app(config: config::AppConfig) -> Router {
-    let push_registries = match push::DirectiveRegistries::load(&config.root) {
+    let push_registries = match directives::DirectiveRegistries::load(&config.root) {
         Ok(registries) => registries,
         Err(err) => {
             eprintln!("failed to load push directive registries: {err}");
-            push::DirectiveRegistries::default()
+            directives::DirectiveRegistries::default()
         }
     };
     let push_registries = std::sync::Arc::new(std::sync::Mutex::new(push_registries));
@@ -79,7 +79,7 @@ pub(crate) async fn health() -> &'static str {
 
 pub(crate) async fn push_registry_debug(
     State(state): State<state::AppState>,
-) -> Json<push::DirectiveRegistries> {
+) -> Json<directives::DirectiveRegistries> {
     let registries = state
         .push_registries
         .lock()
@@ -224,7 +224,7 @@ pub(crate) async fn push_test(
         )
     })?;
 
-    let subscription = push::Subscription {
+    let subscription = directives::Subscription {
         endpoint: request.endpoint,
         p256dh: request.p256dh,
         auth: request.auth,
@@ -512,7 +512,7 @@ pub(crate) async fn document_toggle_task(
 }
 
 fn refresh_push_state(state: &state::AppState) -> std::io::Result<()> {
-    let registries = push::DirectiveRegistries::load(&state.config.root)?;
+    let registries = directives::DirectiveRegistries::load(&state.config.root)?;
     {
         let mut guard = state.push_registries.lock().expect("push registries lock");
         *guard = registries.clone();
@@ -646,7 +646,8 @@ message = "Check the daily log."
         let body = to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("read body");
-        let registries: push::DirectiveRegistries = json_from_slice(&body).expect("parse json");
+        let registries: directives::DirectiveRegistries =
+            json_from_slice(&body).expect("parse json");
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
@@ -718,7 +719,7 @@ message = "Check the daily log."
                 ..Default::default()
             },
             push_registries: std::sync::Arc::new(std::sync::Mutex::new(
-                push::DirectiveRegistries::default(),
+                directives::DirectiveRegistries::default(),
             )),
             push_handles: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         };
