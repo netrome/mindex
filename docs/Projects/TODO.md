@@ -9,9 +9,9 @@
 - [ ] Chat boxes
 - [ ] Git integration
 - [ ] TODO lists
-- [ ] refactor: Move CLI subcommand handling out of `main.rs`
 
 ## Recently done
+- [x] refactor: Move CLI subcommand handling out of `main.rs`
 - [x] refactor: Centralize VAPID key generation helpers for CLI init
 - [x] feat: VAPID credential generation
   - Currently it's inconvenient to have to go to a third party generator to get VAPID credentials. It would be better if the application could generate them.
