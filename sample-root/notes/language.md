@@ -37,4 +37,5 @@
 ```toml
 name = "marten"
 display_name = "Marten"
+password_hash = "$argon2id$v=19$m=19456,t=2,p=1$DFuJJk2XHlk2N+5sRvWDxA$uFqOZWF8gf4VilC6W5rnu91yZecAXSdPea/5xMJeD5U"
 ```
