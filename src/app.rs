@@ -575,7 +575,11 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn app__should_return_ok_on_health_endpoint() {
-        let response = app(config::AppConfig::default())
+        // Given
+        let app = app(config::AppConfig::default());
+
+        // When
+        let response = app
             .oneshot(
                 Request::builder()
                     .uri("/health")
@@ -585,6 +589,7 @@ pub(crate) mod tests {
             .await
             .expect("request failed");
 
+        // Then
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = to_bytes(response.into_body(), usize::MAX)
@@ -595,6 +600,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn push_registry_debug__should_return_loaded_directives() {
+        // Given
         let root = create_temp_root("push-registry");
         let contents = r#"/user
 ```toml
@@ -623,6 +629,7 @@ message = "Check the daily log."
             ..Default::default()
         };
 
+        // When
         let response = app(app_config)
             .oneshot(
                 Request::builder()
@@ -633,6 +640,7 @@ message = "Check the daily log."
             .await
             .expect("request failed");
 
+        // Then
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = to_bytes(response.into_body(), usize::MAX)
@@ -667,12 +675,14 @@ message = "Check the daily log."
 
     #[tokio::test]
     async fn push_schedule_debug__should_return_server_time_and_entries() {
+        // Given
         let root = create_temp_root("push-schedule");
         let app_config = config::AppConfig {
             root: root.clone(),
             ..Default::default()
         };
 
+        // When
         let response = app(app_config)
             .oneshot(
                 Request::builder()
@@ -683,6 +693,7 @@ message = "Check the daily log."
             .await
             .expect("request failed");
 
+        // Then
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = to_bytes(response.into_body(), usize::MAX)
@@ -698,6 +709,7 @@ message = "Check the daily log."
 
     #[tokio::test]
     async fn document_save__should_refresh_push_registries() {
+        // Given
         let root = create_temp_root("push-refresh");
         std::fs::write(root.join("note.md"), "Initial").expect("write note.md");
         let app_state = state::AppState {
@@ -720,6 +732,7 @@ name = "marten"
             .to_string(),
         };
 
+        // When
         document_save(
             State(app_state.clone()),
             AxumPath("note.md".to_string()),
@@ -728,6 +741,7 @@ name = "marten"
         .await
         .expect("save note.md");
 
+        // Then
         let registries = app_state
             .push_registries
             .lock()
@@ -740,18 +754,24 @@ name = "marten"
 
     #[test]
     fn render_document_list__should_include_links() {
+        // Given
         let doc_ids = vec!["notes/a.md".to_string(), "b.md".to_string()];
         let template = templates::DocumentListTemplate {
             app_name: "Mindex".to_string(),
             documents: doc_ids,
         };
+
+        // When
         let html = template.render().unwrap();
+
+        // Then
         assert!(html.contains(r#"<a href="/doc/notes/a.md">notes/a.md</a>"#));
         assert!(html.contains(r#"<a href="/doc/b.md">b.md</a>"#));
     }
 
     #[test]
     fn render_markdown_document__should_render_tables() {
+        // Given
         let markdown = "\
 | A | B |
 | --- | --- |
@@ -760,16 +780,19 @@ name = "marten"
         let mut body = String::new();
         let mut options = Options::empty();
         options.insert(Options::ENABLE_TABLES);
+
+        // When
         let parser = Parser::new_ext(markdown, options)
             .map(|event| rewrite_relative_md_links(event, "table.md"));
         pulldown_cmark::html::push_html(&mut body, parser);
-
         let template = templates::DocumentTemplate {
             app_name: "Mindex".to_string(),
             doc_id: "table.md".to_string(),
             content: body,
         };
         let html = template.render().unwrap();
+
+        // Then
         assert!(html.contains("<table>"));
         assert!(html.contains("<thead>"));
         assert!(html.contains("<tbody>"));
@@ -779,13 +802,18 @@ name = "marten"
 
     #[test]
     fn render_edit_form__should_include_action_and_contents() {
+        // Given
         let template = templates::EditTemplate {
             app_name: "Mindex".to_string(),
             doc_id: "notes/food.md".to_string(),
             contents: "Line 1\nLine 2".to_string(),
             notice: String::new(),
         };
+
+        // When
         let html = template.render().unwrap();
+
+        // Then
         assert!(html.contains(r#"action="/edit/notes/food.md""#));
         assert!(html.contains(r#"name="contents""#));
         assert!(html.contains("Line 1\nLine 2"));
@@ -793,24 +821,31 @@ name = "marten"
 
     #[test]
     fn render_edit_form__should_include_notice_when_present() {
+        // Given
         let template = templates::EditTemplate {
             app_name: "Mindex".to_string(),
             doc_id: "notes/food.md".to_string(),
             contents: "Body".to_string(),
             notice: "Saved.".to_string(),
         };
+
+        // When
         let html = template.render().unwrap();
+
+        // Then
         assert!(html.contains("Saved."));
     }
 
     #[tokio::test]
     async fn view_document__should_return_not_found_for_missing_doc() {
+        // Given
         let root = create_temp_root("missing-doc");
         let app_config = config::AppConfig {
             root: root.clone(),
             ..Default::default()
         };
 
+        // When
         let response = app(app_config)
             .oneshot(
                 Request::builder()
@@ -821,6 +856,7 @@ name = "marten"
             .await
             .expect("request failed");
 
+        // Then
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         std::fs::remove_dir_all(&root).expect("cleanup");

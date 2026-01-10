@@ -447,6 +447,7 @@ mod tests {
 
     #[test]
     fn rewrite_relative_md_links__should_rewrite_relative_md_links() {
+        // Given
         let markdown = "\
 [B](b.md)
 [Up](../c.md)
@@ -459,10 +460,13 @@ mod tests {
         let mut body = String::new();
         let mut options = Options::empty();
         options.insert(Options::ENABLE_TABLES);
+
+        // When
         let parser = Parser::new_ext(markdown, options)
             .map(|event| rewrite_relative_md_links(event, "notes/a.md"));
         pulldown_cmark::html::push_html(&mut body, parser);
 
+        // Then
         assert!(body.contains(r#"href="/doc/notes/b.md""#));
         assert!(body.contains(r#"href="/doc/c.md""#));
         assert!(body.contains(r#"href="/doc/notes/d.md""#));
@@ -474,12 +478,19 @@ mod tests {
 
     #[test]
     fn normalize_newlines__should_convert_crlf_to_lf() {
-        let normalized = normalize_newlines("a\r\nb\rc");
+        // Given
+        let contents = "a\r\nb\rc";
+
+        // When
+        let normalized = normalize_newlines(contents);
+
+        // Then
         assert_eq!(normalized, "a\nb\nc");
     }
 
     #[test]
     fn collect_markdown_paths__should_ignore_non_md_files_and_symlinks() {
+        // Given
         let root = create_temp_root("collect");
         std::fs::write(root.join("a.md"), "# A").expect("write a.md");
         std::fs::write(root.join("b.txt"), "B").expect("write b.txt");
@@ -492,6 +503,7 @@ mod tests {
             symlink(root.join("a.md"), root.join("link.md")).expect("create symlink");
         }
 
+        // When
         let mut doc_ids: Vec<String> = collect_markdown_paths(&root)
             .expect("collect paths")
             .into_iter()
@@ -499,6 +511,7 @@ mod tests {
             .collect();
         doc_ids.sort();
 
+        // Then
         assert_eq!(doc_ids, vec!["a.md".to_string(), "notes/c.md".to_string()]);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
@@ -506,19 +519,27 @@ mod tests {
 
     #[test]
     fn create_document__should_create_file_and_parent_dirs() {
+        // Given
         let root = create_temp_root("create");
+
+        // When
         create_document(&root, "notes/new.md", "# New\n").expect("create document");
 
+        // Then
         let contents = std::fs::read_to_string(root.join("notes/new.md")).expect("read file");
         assert_eq!(contents, "# New\n");
     }
 
     #[test]
     fn create_document__should_reject_duplicate_paths() {
+        // Given
         let root = create_temp_root("create-existing");
         std::fs::write(root.join("a.md"), "A").expect("write a.md");
 
+        // When
         let err = create_document(&root, "a.md", "B").expect_err("should fail");
+
+        // Then
         match err {
             DocError::Io(err) => assert_eq!(err.kind(), ErrorKind::AlreadyExists),
             _ => panic!("expected already exists error"),
@@ -527,8 +548,13 @@ mod tests {
 
     #[test]
     fn create_document__should_reject_parent_traversal() {
+        // Given
         let root = create_temp_root("create-bad-path");
+
+        // When
         let err = create_document(&root, "../outside.md", "oops").expect_err("should fail");
+
+        // Then
         assert!(matches!(err, DocError::BadPath));
     }
 
@@ -537,16 +563,21 @@ mod tests {
     fn create_document__should_reject_symlinked_parent() {
         use std::os::unix::fs::symlink;
 
+        // Given
         let root = create_temp_root("create-symlink");
         let outside = create_temp_root("create-symlink-outside");
         symlink(&outside, root.join("link")).expect("create symlink");
 
+        // When
         let err = create_document(&root, "link/escape.md", "oops").expect_err("should fail");
+
+        // Then
         assert!(matches!(err, DocError::BadPath));
     }
 
     #[test]
     fn render_task_list_markdown__should_inject_checkboxes_and_skip_fences() {
+        // Given
         let contents = "\
 - [ ] one
 * [x] two
@@ -555,7 +586,11 @@ mod tests {
 - [ ] nope
 ```
 ";
+
+        // When
         let rendered = render_task_list_markdown(contents);
+
+        // Then
         assert_eq!(rendered.matches("todo-checkbox").count(), 3);
         assert!(rendered.contains("data-task-index=\"0\""));
         assert!(rendered.contains("data-task-index=\"1\""));
@@ -567,24 +602,34 @@ mod tests {
 
     #[test]
     fn toggle_task_item__should_update_target() {
+        // Given
         let contents = "\
 - [ ] one
 - [x] two
 ";
+
+        // When
         let updated = toggle_task_item(contents, 1, false).expect("updated");
+
+        // Then
         assert!(updated.contains("- [ ] one"));
         assert!(updated.contains("- [ ] two"));
     }
 
     #[test]
     fn toggle_task_item__should_ignore_tasks_inside_fences() {
+        // Given
         let contents = "\
 ```
 - [ ] nope
 ```
 - [ ] yes
 ";
+
+        // When
         let updated = toggle_task_item(contents, 0, true).expect("updated");
+
+        // Then
         assert!(updated.contains("```"));
         assert!(updated.contains("- [ ] nope"));
         assert!(updated.contains("- [x] yes"));
@@ -592,8 +637,13 @@ mod tests {
 
     #[test]
     fn toggle_task_item__should_return_none_for_missing_index() {
+        // Given
         let contents = "- [ ] one\n";
+
+        // When
         let updated = toggle_task_item(contents, 3, true);
+
+        // Then
         assert!(updated.is_none());
     }
 

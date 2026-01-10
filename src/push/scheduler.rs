@@ -227,33 +227,48 @@ mod tests {
 
     #[test]
     fn compute_delay__should_return_none_for_past() {
+        // Given
         let now = OffsetDateTime::parse("2025-01-12T09:30:00Z", &Rfc3339).expect("parse now");
         let time = TestTime::new(now);
         let at = now - time::Duration::seconds(5);
 
-        assert!(compute_delay(&time, at).is_none());
+        // When
+        let delay = compute_delay(&time, at);
+
+        // Then
+        assert!(delay.is_none());
     }
 
     #[test]
     fn compute_delay__should_return_none_for_now() {
+        // Given
         let now = OffsetDateTime::parse("2025-01-12T09:30:00Z", &Rfc3339).expect("parse now");
         let time = TestTime::new(now);
 
-        assert!(compute_delay(&time, now).is_none());
+        // When
+        let delay = compute_delay(&time, now);
+
+        // Then
+        assert!(delay.is_none());
     }
 
     #[test]
     fn compute_delay__should_return_duration_for_future() {
+        // Given
         let now = OffsetDateTime::parse("2025-01-12T09:30:00Z", &Rfc3339).expect("parse now");
         let time = TestTime::new(now);
         let at = now + time::Duration::milliseconds(1500);
 
+        // When
         let delay = compute_delay(&time, at).expect("delay");
+
+        // Then
         assert_eq!(delay, Duration::from_millis(1500));
     }
 
     #[tokio::test]
     async fn scheduler__should_wait_and_send() {
+        // Given
         let now = OffsetDateTime::parse("2025-01-12T09:30:00Z", &Rfc3339).expect("parse now");
         let time = TestTime::new(now);
         let sender = TestSender::default();
@@ -274,10 +289,12 @@ mod tests {
         );
         registries.notifications.push(notification);
 
+        // When
         let scheduler = PushScheduler::new(time.clone(), sender.clone());
         let handles = scheduler.spawn_all(Arc::new(registries));
-
         tokio::task::yield_now().await;
+
+        // Then
         assert_eq!(sender.sent.lock().expect("sent lock").len(), 0);
         assert_eq!(handles.len(), 1);
         assert_eq!(handles[0].notification.doc_id, "note.md");
@@ -285,11 +302,13 @@ mod tests {
         assert!(!handles[0].is_finished());
         assert_eq!(time.sleep_durations(), vec![Duration::from_secs(30)]);
 
+        // When
         time.trigger_all();
         for handle in handles {
             handle.join().await.expect("join handle");
         }
 
+        // Then
         let sent = sender.sent.lock().expect("sent lock");
         assert_eq!(sent.len(), 1);
         assert_eq!(sent[0].0, "https://push.example/123");
@@ -298,6 +317,7 @@ mod tests {
 
     #[tokio::test]
     async fn scheduler__should_send_immediately_for_past_notification() {
+        // Given
         let now = OffsetDateTime::parse("2025-01-12T09:30:00Z", &Rfc3339).expect("parse now");
         let time = TestTime::new(now);
         let sender = TestSender::default();
@@ -318,13 +338,14 @@ mod tests {
         );
         registries.notifications.push(notification);
 
+        // When
         let scheduler = PushScheduler::new(time.clone(), sender.clone());
         let handles = scheduler.spawn_all(Arc::new(registries));
-
         for handle in handles {
             handle.join().await.expect("join handle");
         }
 
+        // Then
         assert!(time.sleep_durations().is_empty());
         let sent = sender.sent.lock().expect("sent lock");
         assert_eq!(sent.len(), 1);

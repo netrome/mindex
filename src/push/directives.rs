@@ -423,6 +423,7 @@ mod tests {
 
     #[test]
     fn load_directive_registries__should_load_directives() {
+        // Given
         let root = create_temp_root("load-directives");
         let contents = r#"/user
 ```toml
@@ -447,8 +448,10 @@ message = "Check the daily log."
 "#;
         std::fs::write(root.join("note.md"), contents).expect("write note.md");
 
+        // When
         let registries = DirectiveRegistries::load(&root).expect("load registries");
 
+        // Then
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
 
@@ -475,6 +478,7 @@ message = "Check the daily log."
 
     #[test]
     fn parse_document__should_collect_warnings() {
+        // Given
         let contents = r#"/user
 ```toml
 name = ""
@@ -483,8 +487,11 @@ name = ""
 /notify
 "#;
         let mut registries = DirectiveRegistries::default();
+
+        // When
         let warnings = parse_document("note.md", contents, &mut registries);
 
+        // Then
         assert!(warnings.iter().any(|warning| {
             warning.doc_id == "note.md"
                 && warning.line == 2
@@ -499,6 +506,7 @@ name = ""
 
     #[test]
     fn load_directive_registries__should_ignore_invalid_blocks() {
+        // Given
         let root = create_temp_root("invalid-blocks");
         let contents = r#"/user
 ```toml
@@ -514,8 +522,10 @@ message = "Nope"
 "#;
         std::fs::write(root.join("bad.md"), contents).expect("write bad.md");
 
+        // When
         let registries = DirectiveRegistries::load(&root).expect("load registries");
 
+        // Then
         assert!(registries.users.is_empty());
         assert!(registries.notifications.is_empty());
 
@@ -524,6 +534,7 @@ message = "Nope"
 
     #[test]
     fn load_directive_registries__should_ignore_duplicate_users() {
+        // Given
         let root = create_temp_root("duplicate-users");
         let contents = r#"/user
 ```toml
@@ -539,8 +550,10 @@ display_name = "Second"
 "#;
         std::fs::write(root.join("dup.md"), contents).expect("write dup.md");
 
+        // When
         let registries = DirectiveRegistries::load(&root).expect("load registries");
 
+        // Then
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("First"));
 
@@ -552,6 +565,7 @@ display_name = "Second"
     fn load_directive_registries__should_ignore_symlinked_markdown() {
         use std::os::unix::fs::symlink;
 
+        // Given
         let root = create_temp_root("symlink");
         let contents = r#"/user
 ```toml
@@ -562,8 +576,10 @@ name = "real"
         std::fs::write(&target, contents).expect("write real.md");
         symlink(&target, root.join("link.md")).expect("create symlink");
 
+        // When
         let registries = DirectiveRegistries::load(&root).expect("load registries");
 
+        // Then
         assert_eq!(registries.users.len(), 1);
         assert!(registries.users.contains_key("real"));
 

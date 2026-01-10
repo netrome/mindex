@@ -3,7 +3,6 @@
 ## In progress
 
 ## To do
-- [ ] refactor: Update tests to use //given //when //then sections
 - [ ] refactor: Break out endpoints from `app.rs` to keep the main file focused on only the top-level functionality.
 - [ ] Math notation
 - [ ] Chat boxes
@@ -11,6 +10,7 @@
 - [ ] TODO lists
 
 ## Recently done
+- [x] refactor: Update tests to use //given //when //then sections
 - [x] refactor: Move CLI subcommand handling out of `main.rs`
 - [x] refactor: Centralize VAPID key generation helpers for CLI init
 - [x] feat: VAPID credential generation
