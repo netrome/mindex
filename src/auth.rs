@@ -103,6 +103,10 @@ impl AuthState {
     }
 
     pub(crate) fn verify_token(&self, token: &str) -> Result<(), AuthError> {
+        self.subject_from_token(token).map(|_| ())
+    }
+
+    pub(crate) fn subject_from_token(&self, token: &str) -> Result<String, AuthError> {
         let mut options = VerificationOptions::default();
         let mut issuers = HashSet::new();
         issuers.insert(self.issuer.clone());
@@ -122,7 +126,7 @@ impl AuthState {
             return Err(AuthError::MissingSubject);
         }
 
-        Ok(())
+        Ok(subject)
     }
 }
 

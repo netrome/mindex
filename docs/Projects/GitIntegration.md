@@ -107,7 +107,7 @@ Steps:
    - Acceptance: detects git presence and `.git` inside root; disables when `.git` is outside root.
 3. [x] **Diff/status handler + template.**
    - Acceptance: `/git` renders status + diff when enabled; returns not found when git is unavailable.
-4. [ ] **Commit handler + form.**
+4. [x] **Commit handler + form.**
    - Acceptance: commits staged changes under root; returns success or error; no interactive prompts.
-5. [ ] **Docs update (README or Resources).**
+5. [x] **Docs update (README or Resources).**
    - Acceptance: mention git integration behavior and limitations (repo root requirement).

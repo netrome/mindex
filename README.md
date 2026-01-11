@@ -13,6 +13,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 - Edit and save Markdown from the browser
 - Mobile-friendly UI
 - Optional in-app authentication with a signed cookie
+- Optional git diff + commit UI (when the root is a git repo)
 - Single binary. I.e. static assets (CSS/JS/icons) are embedded directly in the app.
 
 ## Non-goals
@@ -49,14 +50,15 @@ Run with auth enabled:
 cargo run -- --root ./sample-root --auth-key "<base64-secret>"
 ```
 
-Users are defined via `/user` directive blocks in any markdown file. A PHC
-`password_hash` (Argon2id recommended) is required:
+Users are defined via `/user` directive blocks in any markdown file. An `email`
+and a PHC `password_hash` (Argon2id recommended) are required:
 
 ````text
 /user
 ```toml
 name = "marten"
 display_name = "Marten"
+email = "marten@example.com"
 password_hash = "$argon2id$v=19$m=19456,t=2,p=1$...$..."
 ```
 ````
@@ -77,6 +79,15 @@ Login is at `/login` and logout is `POST /logout`. When auth is enabled, the
 service worker only caches static assets (no document content).
 
 For more details, see `docs/Resources/Auth.md`.
+
+## Git integration (optional)
+
+When the configured root contains a `.git` directory (or file that resolves
+within the root), Mindex exposes `/git` to show a plain `git diff` and a minimal
+commit form that stages all changes under the root.
+
+If the root is a subdirectory of a larger repo (i.e., `.git` lives above it),
+git integration is disabled to preserve filesystem safety invariants.
 
 ## Push notifications (optional)
 

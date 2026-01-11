@@ -62,6 +62,7 @@ pub fn app(config: config::AppConfig) -> Router {
         )
         .route("/doc/{*path}", get(documents::document_view))
         .route("/git", get(git::git_view))
+        .route("/git/commit", post(git::git_commit))
         .route(
             "/api/doc/toggle-task",
             post(documents::document_toggle_task),
@@ -231,7 +232,7 @@ pub(crate) mod tests {
         let key_bytes = b"auth-login-secret";
         let app_config = auth_app_config(root.clone(), key_bytes);
         let password_hash = hash_password_for_test("secret");
-        write_user_doc(&root, "marten", &password_hash);
+        write_user_doc(&root, "marten", "marten@example.com", &password_hash);
         let form = "name=marten&password=secret&next=%2Fdoc%2Fnote.md";
 
         // When
@@ -269,7 +270,7 @@ pub(crate) mod tests {
         let key_bytes = b"auth-login-fail";
         let app_config = auth_app_config(root.clone(), key_bytes);
         let password_hash = hash_password_for_test("secret");
-        write_user_doc(&root, "marten", &password_hash);
+        write_user_doc(&root, "marten", "marten@example.com", &password_hash);
         let form = "name=marten&password=wrong";
 
         // When
@@ -336,6 +337,7 @@ pub(crate) mod tests {
 ```toml
 name = "marten"
 display_name = "Marten"
+email = "marten@example.com"
 password_hash = "hash"
 ```
 
@@ -382,6 +384,7 @@ message = "Check the daily log."
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
+        assert_eq!(user.email, "marten@example.com");
         assert_eq!(user.password_hash, "hash");
 
         let subscriptions = registries
@@ -462,6 +465,7 @@ message = "Check the daily log."
             contents: r#"/user
 ```toml
 name = "marten"
+email = "marten@example.com"
 password_hash = "hash"
 ```
 "#
@@ -654,11 +658,12 @@ password_hash = "hash"
             .to_string()
     }
 
-    fn write_user_doc(root: &Path, name: &str, password_hash: &str) {
+    fn write_user_doc(root: &Path, name: &str, email: &str, password_hash: &str) {
         let contents = format!(
             r#"/user
 ```toml
 name = "{name}"
+email = "{email}"
 password_hash = "{password_hash}"
 ```
 "#

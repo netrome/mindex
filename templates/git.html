@@ -18,7 +18,20 @@
 
 <h1>Git</h1>
 
+{% if !error.is_empty() %}
+<div class="notice">{{ error }}</div>
+{% endif %}
+{% if !notice.is_empty() %}
+<div class="notice">{{ notice }}</div>
+{% endif %}
+
 <p>{{ status }}</p>
+
+<form method="post" action="/git/commit">
+    <label for="message">Commit message</label>
+    <textarea id="message" name="message" rows="4" required>{{ message }}</textarea>
+    <button type="submit">Commit changes</button>
+</form>
 
 <pre class="git-diff">{{ diff }}</pre>
 {% endblock %}

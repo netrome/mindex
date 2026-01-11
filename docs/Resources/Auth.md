@@ -27,19 +27,20 @@ Optional settings:
 
 ## Users
 
-Users are defined in `/user` directive blocks in any markdown file. A PHC
-`password_hash` is required (Argon2id recommended).
+Users are defined in `/user` directive blocks in any markdown file. An `email`
+and a PHC `password_hash` are required (Argon2id recommended).
 
 ````text
 /user
 ```toml
 name = "marten"
 display_name = "Marten"
+email = "marten@example.com"
 password_hash = "$argon2id$v=19$m=19456,t=2,p=1$...$..."
 ```
 ````
 
-Blocks missing `password_hash` are ignored with a warning.
+Blocks missing `email` or `password_hash` are ignored with a warning.
 
 Generate a password hash:
 

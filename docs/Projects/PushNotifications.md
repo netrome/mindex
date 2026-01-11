@@ -103,12 +103,14 @@ Directive line followed by a TOML code block:
 ```toml
 name = "marten"
 display_name = "Marten"
+email = "marten@example.com"
+password_hash = "$argon2id$v=19$m=19456,t=2,p=1$...$..."
 ```
 ````
 
 Rules:
 - `name` is the unique username. Later duplicates are ignored with a warning.
-- User registry is informational only (no auth).
+- `email` and `password_hash` are required; missing fields are ignored with a warning.
 
 ### Subscription blocks (in any markdown file)
 Store a subscription per device. Multiple blocks for the same user are allowed.

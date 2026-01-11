@@ -63,7 +63,7 @@ fn is_auth_bypass_path(path: &str) -> bool {
         || path.starts_with("/static/")
 }
 
-fn auth_cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+pub(crate) fn auth_cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     for header in headers.get_all(COOKIE).iter() {
         if let Ok(raw) = header.to_str()
             && let Some(value) = cookie_from_header(raw, name)

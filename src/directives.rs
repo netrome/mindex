@@ -226,6 +226,7 @@ fn handle_directive_block(
 struct UserToml {
     name: String,
     display_name: Option<String>,
+    email: Option<String>,
     password_hash: Option<String>,
 }
 
@@ -265,6 +266,18 @@ fn parse_user_block(
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
 
+    let email = parsed.email.unwrap_or_default();
+    let email = email.trim();
+    if email.is_empty() {
+        push_warning(
+            warnings,
+            doc_id,
+            block_line,
+            "invalid /user block: email is missing",
+        );
+        return;
+    }
+
     let password_hash = parsed.password_hash.unwrap_or_default();
     let password_hash = password_hash.trim();
     if password_hash.is_empty() {
@@ -292,6 +305,7 @@ fn parse_user_block(
         User {
             name: name.to_string(),
             display_name,
+            email: email.to_string(),
             password_hash: password_hash.to_string(),
         },
     );
@@ -468,6 +482,7 @@ mod tests {
 ```toml
 name = "marten"
 display_name = "Marten"
+email = "marten@example.com"
 password_hash = "hash"
 ```
 
@@ -494,6 +509,7 @@ message = "Check the daily log."
         // Then
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
+        assert_eq!(user.email, "marten@example.com");
         assert_eq!(user.password_hash, "hash");
 
         let subscriptions = registries
@@ -529,6 +545,13 @@ password_hash = "hash"
 /user
 ```toml
 name = "nohash"
+email = "nohash@example.com"
+```
+
+/user
+```toml
+name = "noemail"
+password_hash = "hash"
 ```
 
 /notify
@@ -551,7 +574,12 @@ name = "nohash"
         }));
         assert!(warnings.iter().any(|warning| {
             warning.doc_id == "note.md"
-                && warning.line == 12
+                && warning.line == 14
+                && warning.message == "invalid /user block: email is missing"
+        }));
+        assert!(warnings.iter().any(|warning| {
+            warning.doc_id == "note.md"
+                && warning.line == 19
                 && warning.message == "missing toml block after /notify"
         }));
     }
@@ -563,6 +591,7 @@ name = "nohash"
         let contents = r#"/user
 ```toml
 name = ""
+email = "missing@example.com"
 password_hash = "hash"
 ```
 
@@ -593,6 +622,7 @@ message = "Nope"
 ```toml
 name = "marten"
 display_name = "First"
+email = "first@example.com"
 password_hash = "hash-1"
 ```
 
@@ -600,6 +630,7 @@ password_hash = "hash-1"
 ```toml
 name = "marten"
 display_name = "Second"
+email = "second@example.com"
 password_hash = "hash-2"
 ```
 "#;
@@ -611,6 +642,7 @@ password_hash = "hash-2"
         // Then
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("First"));
+        assert_eq!(user.email, "first@example.com");
         assert_eq!(user.password_hash, "hash-1");
 
         std::fs::remove_dir_all(&root).expect("cleanup");
@@ -626,6 +658,7 @@ password_hash = "hash-2"
         let contents = r#"/user
 ```toml
 name = "real"
+email = "real@example.com"
 password_hash = "hash"
 ```
 "#;

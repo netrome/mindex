@@ -109,5 +109,8 @@ pub(crate) struct GitTemplate {
     pub(crate) app_name: String,
     pub(crate) status: String,
     pub(crate) diff: String,
+    pub(crate) message: String,
+    pub(crate) error: String,
+    pub(crate) notice: String,
     pub(crate) git_enabled: bool,
 }

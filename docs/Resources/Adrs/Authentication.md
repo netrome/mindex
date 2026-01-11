@@ -12,9 +12,9 @@ existing filesystem safety invariants.
 ## Decision
 - Add optional in-app authentication guarded by a signed JWT stored in an
   HttpOnly cookie.
-- Store user credentials in existing `/user` directive blocks as a
-  `password_hash` (PHC string). Blocks missing a hash are invalid and ignored
-  with a warning.
+- Store user credentials in existing `/user` directive blocks with required
+  `email` and `password_hash` (PHC string). Blocks missing either field are
+  invalid and ignored with a warning.
 - Use a dedicated auth signing key configured via CLI/env; do not reuse VAPID keys.
   The key is a base64-encoded HMAC secret used to sign HS256 JWTs.
 - Make `Secure` cookies configurable to support TLS termination at a reverse proxy
@@ -26,4 +26,4 @@ existing filesystem safety invariants.
 - Adds a minimal password hashing dependency (Argon2id recommended).
 - Token revocation is limited to expiry or key rotation.
 - Service worker caching must avoid persisting sensitive content when auth is enabled.
-- Existing `/user` blocks without `password_hash` will no longer be accepted.
+- Existing `/user` blocks without `email` or `password_hash` will no longer be accepted.

@@ -43,7 +43,8 @@ Pros: minimal, no document changes, no user registry changes.
 Cons: no per-user identity, no easy revocation beyond rotating the secret.
 
 ### Option B: Per-user credentials in `/user` blocks (recommended)
-Extend `/user` TOML blocks to include a required `password_hash` (PHC string).
+Extend `/user` TOML blocks to include required `email` and `password_hash`
+(PHC string).
 Login with username/password issues a signed JWT cookie with `sub = username`.
 Pros: aligns with file-backed philosophy; reuses user registry; supports per-user
 identity for future features (audit, push ownership, etc.).
@@ -56,7 +57,7 @@ Pros: no hashing dependency; minimal logic.
 Cons: poor UX; tokens are bearer secrets; no user identity; easy to leak.
 
 ## Recommendation
-Option B: extend `/user` blocks with a required `password_hash`, add a simple
+Option B: extend `/user` blocks with required `email` and `password_hash`, add a simple
 login page, and issue stateless JWTs stored in an HttpOnly cookie. This keeps
 the system file-backed and minimal while enabling PWA-friendly auth.
 
@@ -70,14 +71,16 @@ Extend existing `/user` directive blocks:
 ```toml
 name = "marten"
 display_name = "Marten"
+email = "marten@example.com"
 password_hash = "$argon2id$v=19$m=19456,t=2,p=1$...$..."
 ```
 ````
 
 Rules:
-- `password_hash` is required; blocks missing it are ignored with a warning.
+- `email` and `password_hash` are required; blocks missing either are ignored
+  with a warning.
 - Hash format is PHC (Argon2id recommended).
-- Existing `/user` blocks without `password_hash` will be treated as invalid.
+- Existing `/user` blocks without `email` or `password_hash` will be treated as invalid.
 
 ### Configuration
 Add optional auth config (exact names TBD in implementation):
@@ -149,8 +152,8 @@ module instead of each other.
 3. [x] Refactor: extract directive parsing/registries from push. Acceptance: push and
    auth depend on shared directives module; module layout stays consistent with
    existing ADR; tests updated.
-4. [x] `/user` parsing update. Acceptance: `password_hash` is required; missing
-   hashes emit warnings and the user entry is skipped; tests updated.
+4. [x] `/user` parsing update. Acceptance: `email` and `password_hash` are
+   required; missing fields emit warnings and the user entry is skipped; tests updated.
 5. [x] Auth middleware + JWT. Acceptance: protected routes require auth; JWT cookie
    validated; API returns 401; HTML routes redirect to `/login`.
 6. [x] Login/logout UI. Acceptance: minimal login form; success sets cookie; logout
