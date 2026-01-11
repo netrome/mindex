@@ -25,9 +25,9 @@ Changes here should be deliberate and usually come with an ADR.
 
 ## Security model
 
-- Mindex assumes a trusted environment and is typically deployed behind a reverse proxy.
-- Authentication/authorization is not handled inside the app unless explicitly added via ADR.
-- If raw HTML is allowed in Markdown rendering, this must be called out clearly as part of the threat model.
+- Mindex is intended to run behind a reverse proxy and therefore is not concerned with any transport layer secyrity.
+- Every user is assumed to have read+write access to the underlying repository/knowledge base outside of the application.
+- When auth is enabled, mindex should not leak any documents to non-authenticated users.
 
 ## Dependencies
 
