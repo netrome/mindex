@@ -3,7 +3,7 @@
 ## In progress
 
 ## To do
-- [ ] Math notation
+- [x] Math notation
 - [ ] Code syntax highligting
 - [ ] Emojis
 - [ ] Code execution/scripting

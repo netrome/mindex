@@ -4,6 +4,7 @@ use crate::documents::{
     load_document, normalize_newlines, render_task_list_markdown, resolve_doc_path,
     rewrite_relative_md_links, toggle_task_item,
 };
+use crate::math::{MathStyle, render_math};
 use crate::state;
 use crate::templates;
 
@@ -13,6 +14,7 @@ use axum::extract::Query;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Redirect;
+use pulldown_cmark::Event;
 use pulldown_cmark::Options;
 use pulldown_cmark::Parser;
 use serde::Deserialize;
@@ -175,8 +177,21 @@ pub(crate) async fn document_view(
     let mut body = String::new();
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
-    let parser =
-        Parser::new_ext(&rendered, options).map(|event| rewrite_relative_md_links(event, &doc_id));
+    options.insert(Options::ENABLE_MATH);
+    let parser = Parser::new_ext(&rendered, options).map(|event| {
+        let event = rewrite_relative_md_links(event, &doc_id);
+        match event {
+            Event::InlineMath(latex) => {
+                let html = render_math(&latex, MathStyle::Inline).into_html();
+                Event::Html(html.into())
+            }
+            Event::DisplayMath(latex) => {
+                let html = render_math(&latex, MathStyle::Display).into_html();
+                Event::Html(html.into())
+            }
+            other => other,
+        }
+    });
     pulldown_cmark::html::push_html(&mut body, parser);
 
     Ok(templates::DocumentTemplate {

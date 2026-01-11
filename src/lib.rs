@@ -6,6 +6,7 @@ mod adapters;
 pub mod auth;
 mod directives;
 mod documents;
+mod math;
 mod ports;
 mod types;
 

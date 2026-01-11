@@ -107,7 +107,7 @@ pub(crate) mod tests {
     use base64::{URL_SAFE_NO_PAD, encode_config};
     use jwt_simple::algorithms::MACLike;
     use jwt_simple::prelude::{Claims, Duration as JwtDuration, HS256Key};
-    use pulldown_cmark::{Options, Parser};
+    use pulldown_cmark::{Event, Options, Parser};
     use serde_json::Value as JsonValue;
     use serde_json::from_slice as json_from_slice;
     use time::Duration;
@@ -540,6 +540,57 @@ password_hash = "hash"
         assert!(html.contains("<tbody>"));
         assert!(html.contains("<td>1</td>"));
         assert!(html.contains("<td>2</td>"));
+    }
+
+    #[test]
+    fn render_markdown_document__should_render_inline_math() {
+        // Given
+        let markdown = "The equation $x^2$ is simple.";
+        let mut body = String::new();
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_MATH);
+
+        // When
+        let parser = Parser::new_ext(markdown, options).map(|event| match event {
+            Event::InlineMath(latex) => {
+                let html =
+                    crate::math::render_math(&latex, crate::math::MathStyle::Inline).into_html();
+                Event::Html(html.into())
+            }
+            other => other,
+        });
+        pulldown_cmark::html::push_html(&mut body, parser);
+
+        // Then
+        assert!(body.contains("<math"));
+        assert!(body.contains("</math>"));
+        // Should not contain the raw dollar signs
+        assert!(!body.contains("$x^2$"));
+    }
+
+    #[test]
+    fn render_markdown_document__should_render_display_math() {
+        // Given
+        let markdown = "$$\\frac{a}{b}$$";
+        let mut body = String::new();
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_MATH);
+
+        // When
+        let parser = Parser::new_ext(markdown, options).map(|event| match event {
+            Event::DisplayMath(latex) => {
+                let html =
+                    crate::math::render_math(&latex, crate::math::MathStyle::Display).into_html();
+                Event::Html(html.into())
+            }
+            other => other,
+        });
+        pulldown_cmark::html::push_html(&mut body, parser);
+
+        // Then
+        assert!(body.contains("<math"));
+        assert!(body.contains(r#"display="block""#));
+        assert!(body.contains("<mfrac>"));
     }
 
     #[test]

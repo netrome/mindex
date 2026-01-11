@@ -9,6 +9,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 
 - Browse a directory tree of `.md` documents
 - Render Markdown documents for reading
+- Math expressions via LaTeX syntax (`$...$` for inline, `$$...$$` for display)
 - Full-text search across documents
 - Edit and save Markdown from the browser
 - Mobile-friendly UI

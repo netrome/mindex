@@ -1,7 +1,7 @@
 # Math Expression Rendering
 
 ## Status
-Design
+Implemented
 
 ## Goal
 Enable rendering of LaTeX-style math expressions in markdown documents.
@@ -112,28 +112,28 @@ If `latex2mathml` proves insufficient, we can later upgrade to `pulldown-latex` 
 
 ## Implementation plan
 
-### Task 1: Enable math parsing in pulldown-cmark
+### Task 1: Enable math parsing in pulldown-cmark ✅
 - Add `Options::ENABLE_MATH` to the parser options
 - Verify math events are emitted correctly
 - **Acceptance criteria**: Parser emits `InlineMath`/`DisplayMath` events for `$...$` and `$$...$$`
 
-### Task 2: Add `latex2mathml` dependency and convert math events
+### Task 2: Add `latex2mathml` dependency and convert math events ✅
 - Add `latex2mathml` to Cargo.toml
 - Create a custom event handler that converts math events to MathML HTML
 - Integrate into the existing parser pipeline
 - **Acceptance criteria**: Math expressions render as MathML in HTML output
 
-### Task 3: Add CSS for math styling (if needed)
+### Task 3: Add CSS for math styling (if needed) ✅
 - MathML is mostly self-styled, but may need minor CSS tweaks
 - Consider display math centering and margins
 - **Acceptance criteria**: Math renders cleanly in light/dark themes
 
-### Task 4: Handle conversion errors gracefully
+### Task 4: Handle conversion errors gracefully ✅
 - If `latex2mathml` fails to parse, show the raw LaTeX in a `<code>` block with error styling
 - Log a warning but don't fail the whole document
 - **Acceptance criteria**: Invalid LaTeX doesn't break page rendering
 
-### Task 5: Add tests
+### Task 5: Add tests ✅
 - Unit tests for math event handling
 - Integration test with sample document containing math
 - **Acceptance criteria**: Tests cover inline math, display math, and error cases
@@ -143,42 +143,25 @@ If `latex2mathml` proves insufficient, we can later upgrade to `pulldown-latex` 
 - Note browser compatibility requirements (if any)
 - **Acceptance criteria**: README or docs mention math support
 
-## Example implementation sketch
+## Implementation
 
-```rust
-use latex2mathml::{latex_to_mathml, DisplayStyle};
-use pulldown_cmark::{Event, Options, Parser};
+The implementation consists of:
 
-fn render_markdown(contents: &str, doc_id: &str) -> String {
-    let mut body = String::new();
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_MATH);
-    
-    let parser = Parser::new_ext(contents, options).map(|event| {
-        match event {
-            Event::InlineMath(latex) => {
-                match latex_to_mathml(&latex, DisplayStyle::Inline) {
-                    Ok(mathml) => Event::Html(mathml.into()),
-                    Err(_) => Event::Code(latex), // fallback
-                }
-            }
-            Event::DisplayMath(latex) => {
-                match latex_to_mathml(&latex, DisplayStyle::Block) {
-                    Ok(mathml) => Event::Html(mathml.into()),
-                    Err(_) => Event::Html(
-                        format!("<pre><code>{}</code></pre>", html_escape(&latex)).into()
-                    ),
-                }
-            }
-            other => rewrite_relative_md_links(other, doc_id),
-        }
-    });
-    
-    pulldown_cmark::html::push_html(&mut body, parser);
-    body
-}
-```
+1. **`src/math.rs`** - Abstraction layer for math rendering
+   - `MathStyle` enum (`Inline`/`Display`)
+   - `MathResult` enum (`MathMl`/`Fallback`)
+   - `render_math()` function that wraps `latex2mathml`
+   - This abstraction makes it easy to swap to `pulldown-latex` if needed
+
+2. **`src/app/documents.rs`** - Integration into document rendering
+   - `Options::ENABLE_MATH` added to parser options
+   - `Event::InlineMath` and `Event::DisplayMath` mapped to HTML via `render_math()`
+
+3. **`assets/style.css`** - CSS for math display
+   - Display math centered with margins
+   - Error fallback styling with `.math-error` class
+
+4. **`Cargo.toml`** - Added `latex2mathml = "0.2"` dependency
 
 ## Risks and limitations
 
