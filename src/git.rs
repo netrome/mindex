@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use gix::bstr::{BStr, BString, ByteSlice};
 use gix::status::UntrackedFiles;
-use gix::status::index_worktree::iter::Item as WorktreeItem;
+use gix::status::index_worktree::Item as WorktreeItem;
 use gix::status::plumbing::index_as_worktree::{Change as WorktreeChange, EntryStatus};
 use imara_diff::intern::InternedInput;
 use imara_diff::{Algorithm, UnifiedDiffBuilder, diff};
@@ -172,11 +172,11 @@ pub(crate) fn git_commit_all(
 
     let commit_id = match author {
         Some(author) => {
-            let time = gix::date::Time::now_local_or_utc();
+            let time = gix::date::Time::now_local_or_utc().to_string();
             let signature = gix::actor::SignatureRef {
                 name: author.name.as_str().into(),
                 email: author.email.as_str().into(),
-                time,
+                time: time.as_str(),
             };
             repo.commit_as(signature, signature, "HEAD", message, tree_id, parents)
         }
@@ -270,7 +270,7 @@ fn stage_worktree_changes(
             } => {
                 let path: &BStr = rela_path.as_ref();
                 match status {
-                    EntryStatus::Conflict(_) => {
+                    EntryStatus::Conflict { .. } => {
                         return Err(GitError::new("conflicts are not supported"));
                     }
                     EntryStatus::NeedsUpdate(stat) => {
@@ -304,7 +304,7 @@ fn stage_worktree_changes(
                             upserts.insert(path.to_owned(), staged);
                             removals.remove(path);
                         }
-                        WorktreeChange::Type => match stage_from_path(repo, root, path)? {
+                        WorktreeChange::Type { .. } => match stage_from_path(repo, root, path)? {
                             Some(staged) => {
                                 upserts.insert(path.to_owned(), staged);
                                 removals.remove(path);
@@ -677,7 +677,7 @@ fn diff_for_item(
                 let old = blob_bytes(repo, entry.id)?;
                 (Some(old), None)
             }
-            WorktreeChange::Modification { .. } | WorktreeChange::Type => {
+            WorktreeChange::Modification { .. } | WorktreeChange::Type { .. } => {
                 let old = blob_bytes(repo, entry.id)?;
                 let new = read_worktree_bytes(root, rela_path)?;
                 (Some(old), new)
