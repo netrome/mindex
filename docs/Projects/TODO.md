@@ -4,6 +4,8 @@
 
 ## To do
 - [x] Math notation
+- [ ] Drag/rearrange TODO items
+  - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting
 - [ ] Emojis
 - [ ] Code execution/scripting
