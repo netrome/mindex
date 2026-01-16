@@ -94,6 +94,22 @@ Push/pull requires the `git` CLI, a configured upstream, and either:
   `--git-allowed-remote-root <path>` (repeatable) or
   `MINDEX_GIT_ALLOWED_REMOTE_ROOT` (comma-separated).
 
+Push/pull always targets the branch's configured upstream (`@{u}`). If you have
+multiple remotes, set the upstream on the branch you care about:
+
+```bash
+git branch --set-upstream-to origin/main
+# or during push:
+git push -u origin main
+```
+
+SSH setup notes:
+- Ensure `ssh-agent` is running and your key is loaded (e.g., `ssh-add ~/.ssh/id_ed25519`).
+- The Mindex process must inherit `SSH_AUTH_SOCK` so git can reach the agent.
+- Host keys are stored in `.git/mindex_known_hosts` and new keys are accepted
+  automatically on first connect (non-interactive). To pre-seed host keys, copy
+  entries into that file before using push/pull.
+
 If the root is a subdirectory of a larger repo (i.e., `.git` lives above it),
 git integration is disabled to preserve filesystem safety invariants.
 

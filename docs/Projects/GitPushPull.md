@@ -1,7 +1,7 @@
 # Git Push/Pull and Git Library Choice
 
 ## Status
-Accepted
+Implemented
 
 ## Goal
 Add minimal git push/pull support while preserving filesystem safety invariants and keeping the git integration maintainable.
@@ -130,7 +130,7 @@ This decision would supersede the current `docs/Resources/Adrs/GitIntegration.md
   - Acceptance: status/diff/commit features match current behavior; tests updated.
 - [x] **Add push/pull endpoints + UI**
   - Acceptance: `/git/push` and `/git/pull` work for upstream-configured branches; errors are clear and non-interactive.
-- [ ] **Credential handling + config isolation**
+- [x] **Credential handling + config isolation**
   - Acceptance: push/pull works with SSH via ssh-agent and local remotes under the allowlist; no reads from global/system config; no external helpers.
-- [ ] **Docs + TODO update**
+- [x] **Docs + TODO update**
   - Acceptance: README/Resources updated; `docs/Projects/TODO.md` item checked off with any follow-ups listed.

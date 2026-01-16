@@ -3,9 +3,6 @@
 ## In progress
 
 ## To do
-- [ ] Git push/pull support
-  - [x] Swap gix for git CLI
-  - [x] Add push/pull endpoints + UI
 - [ ] Drag/rearrange TODO items
   - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting
@@ -15,6 +12,9 @@
 - [ ] Remote terminal
 
 ## Recently done
+- [x] Git push/pull support
+  - [x] Swap gix for git CLI
+  - [x] Add push/pull endpoints + UI
 - [x] Math notation
 - [x] Bump gix to 0.77 and fix compile errors
 - [x] Git integration
