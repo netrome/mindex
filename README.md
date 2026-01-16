@@ -110,6 +110,13 @@ SSH setup notes:
   automatically on first connect (non-interactive). To pre-seed host keys, copy
   entries into that file before using push/pull.
 
+Troubleshooting:
+- If push/pull fails with auth errors, verify `ssh-agent` is running and that
+  `SSH_AUTH_SOCK` is visible to the Mindex process (systemd services often need
+  explicit environment propagation).
+- If you see host key warnings, ensure the server key is present in
+  `.git/mindex_known_hosts` or delete the entry and retry to re‑accept.
+
 If the root is a subdirectory of a larger repo (i.e., `.git` lives above it),
 git integration is disabled to preserve filesystem safety invariants.
 
