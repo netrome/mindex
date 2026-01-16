@@ -1,7 +1,7 @@
 # Git Push/Pull via git CLI
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 Mindex's git integration currently uses `gix` for diff/status/commit. The product

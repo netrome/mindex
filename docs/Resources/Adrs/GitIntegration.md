@@ -1,7 +1,7 @@
 # Git Integration via Embedded Git Library and Root-Scoped Operations
 
 ## Status
-Accepted
+Superseded by GitPushPull.md
 
 ## Context
 Users want to view diffs and commit changes from Mindex (especially on mobile).

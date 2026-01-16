@@ -1,7 +1,7 @@
 # Git Push/Pull and Git Library Choice
 
 ## Status
-Proposed
+Accepted
 
 ## Goal
 Add minimal git push/pull support while preserving filesystem safety invariants and keeping the git integration maintainable.
@@ -116,13 +116,13 @@ This decision would supersede the current `docs/Resources/Adrs/GitIntegration.md
 - Do we need to support SSH remotes, or can we start with HTTPS-only?
 
 ## Task breakdown (PR-sized)
-1) **ADR draft + decision**
-   - Acceptance: `docs/Resources/Adrs/GitPushPull.md` approved and marked Accepted or Rejected.
-2) **Swap `gix` for `git` CLI with parity tests**
-   - Acceptance: status/diff/commit features match current behavior; tests updated.
-3) **Add push/pull endpoints + UI**
-   - Acceptance: `/git/push` and `/git/pull` work for upstream-configured branches; errors are clear and non-interactive.
-4) **Credential handling + config isolation**
-   - Acceptance: push/pull works with request-provided HTTPS credentials; no reads from global/system config; no external helpers.
-5) **Docs + TODO update**
-   - Acceptance: README/Resources updated; `docs/Projects/TODO.md` item checked off with any follow-ups listed.
+- [x] **ADR draft + decision**
+  - Acceptance: `docs/Resources/Adrs/GitPushPull.md` approved and marked Accepted or Rejected.
+- [x] **Swap `gix` for `git` CLI with parity tests**
+  - Acceptance: status/diff/commit features match current behavior; tests updated.
+- [ ] **Add push/pull endpoints + UI**
+  - Acceptance: `/git/push` and `/git/pull` work for upstream-configured branches; errors are clear and non-interactive.
+- [ ] **Credential handling + config isolation**
+  - Acceptance: push/pull works with request-provided HTTPS credentials; no reads from global/system config; no external helpers.
+- [ ] **Docs + TODO update**
+  - Acceptance: README/Resources updated; `docs/Projects/TODO.md` item checked off with any follow-ups listed.

@@ -4,6 +4,7 @@
 
 ## To do
 - [ ] Git push/pull support
+  - [x] Swap gix for git CLI
 - [ ] Drag/rearrange TODO items
   - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting
