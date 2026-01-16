@@ -17,11 +17,23 @@ environment to read repo-local config only, disable hooks and external helpers,
 and avoid interactive prompts (e.g., `-C <root>`, `GIT_CONFIG_NOSYSTEM=1`,
 `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_TERMINAL_PROMPT=0`).
 
+For push/pull credentials:
+- SSH is supported via `ssh-agent` (use `SSH_AUTH_SOCK`) with non-interactive
+  SSH (`BatchMode=yes`), and repo-scoped host key handling (explicit host key or
+  a repo-local `known_hosts` file).
+- Local path/file remotes are allowed only when the resolved path is within an
+  explicit operator-configured allowlist; otherwise they are rejected.
+- Restrict protocols to `ssh` and `file`, and validate local remotes against
+  the allowlist before invoking git.
+
 ## Consequences
 - Adds a runtime dependency on `git`.
 - Requires rewriting existing git integration and tests.
 - Increases responsibility for environment hardening (config isolation, no
   hooks, no credential helpers, no interactive prompts).
+- Introduces a new configuration surface (allowlist of local remote roots) and
+  requires an invariant update before implementation to permit bounded
+  read/write outside the configured root.
 - Keeps implementation minimal and aligns behavior with standard git usage.
 - Supersedes the existing `docs/Resources/Adrs/GitIntegration.md` decision if
   accepted.

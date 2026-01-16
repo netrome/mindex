@@ -23,6 +23,9 @@ Add minimal git push/pull support while preserving filesystem safety invariants 
 - No branch selection UI, no merge UI, and no interactive prompts.
 - Fast-forward only for pull; surface errors when merge/conflicts would be required.
 - Preserve existing diff/status/commit behavior.
+- Support SSH remotes using `ssh-agent` when available.
+- Allow SSH and local path/file remotes **only** when the remote path resolves
+  within an explicit allowlist configured by the operator.
 
 ## Options (max 3)
 
@@ -101,7 +104,7 @@ This decision would supersede the current `docs/Resources/Adrs/GitIntegration.md
 
 ### Credentials
 - No credential storage in Mindex.
-- Support HTTPS credentials provided in the request (token or username/password).
+- Support SSH remotes via `ssh-agent` (use `SSH_AUTH_SOCK`).
 - Optionally allow credentials embedded in the repo's remote URL.
 - No interactive prompts; errors are surfaced to the user.
 
@@ -110,10 +113,15 @@ This decision would supersede the current `docs/Resources/Adrs/GitIntegration.md
 - No hooks or external helpers.
 - Disable interactive prompts (`GIT_TERMINAL_PROMPT=0`).
 - Prefer `-c` overrides for `core.hooksPath` and `credential.helper` when invoking git.
+- Restrict allowed protocols (`GIT_ALLOW_PROTOCOL=ssh:file`) and validate local
+  path/file remotes resolve within the allowlist before invoking git.
+- For SSH: use non-interactive mode (`BatchMode=yes`) and a repo-scoped
+  `known_hosts` file (or an explicit host key provided in the request) to avoid
+  reads from `~/.ssh`.
 
 ## Open questions
-- Are we allowed to read system trust stores or `~/.ssh` for HTTPS/SSH auth, or must all credentials live within the repo/request?
-- Do we need to support SSH remotes, or can we start with HTTPS-only?
+- Confirm config: `--git-allowed-remote-root <path>` (repeatable) and
+  `MINDEX_GIT_ALLOWED_REMOTE_ROOT` (comma-separated).
 
 ## Task breakdown (PR-sized)
 - [x] **ADR draft + decision**
@@ -123,6 +131,6 @@ This decision would supersede the current `docs/Resources/Adrs/GitIntegration.md
 - [ ] **Add push/pull endpoints + UI**
   - Acceptance: `/git/push` and `/git/pull` work for upstream-configured branches; errors are clear and non-interactive.
 - [ ] **Credential handling + config isolation**
-  - Acceptance: push/pull works with request-provided HTTPS credentials; no reads from global/system config; no external helpers.
+  - Acceptance: push/pull works with SSH via ssh-agent and local remotes under the allowlist; no reads from global/system config; no external helpers.
 - [ ] **Docs + TODO update**
   - Acceptance: README/Resources updated; `docs/Projects/TODO.md` item checked off with any follow-ups listed.
