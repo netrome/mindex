@@ -61,6 +61,50 @@ pub(crate) async fn git_commit(
     )
 }
 
+pub(crate) async fn git_push(
+    State(state): State<state::AppState>,
+) -> Result<templates::GitTemplate, (StatusCode, &'static str)> {
+    let git_dir = match state.git_dir.as_ref() {
+        Some(git_dir) => git_dir,
+        None => return Err((StatusCode::NOT_FOUND, "not found")),
+    };
+
+    let notice = match git::git_push(
+        &state.config.root,
+        git_dir,
+        &state.config.git_allowed_remote_roots,
+    ) {
+        Ok(message) => message,
+        Err(err) => {
+            return git_template(&state, String::new(), err.to_string(), String::new());
+        }
+    };
+
+    git_template(&state, String::new(), String::new(), notice)
+}
+
+pub(crate) async fn git_pull(
+    State(state): State<state::AppState>,
+) -> Result<templates::GitTemplate, (StatusCode, &'static str)> {
+    let git_dir = match state.git_dir.as_ref() {
+        Some(git_dir) => git_dir,
+        None => return Err((StatusCode::NOT_FOUND, "not found")),
+    };
+
+    let notice = match git::git_pull(
+        &state.config.root,
+        git_dir,
+        &state.config.git_allowed_remote_roots,
+    ) {
+        Ok(message) => message,
+        Err(err) => {
+            return git_template(&state, String::new(), err.to_string(), String::new());
+        }
+    };
+
+    git_template(&state, String::new(), String::new(), notice)
+}
+
 fn git_template(
     state: &state::AppState,
     message: String,

@@ -16,6 +16,8 @@ Changes here should be deliberate and usually come with an ADR.
 - Symlink policy:
   - Either do not follow symlinks, or if symlinks are followed they must resolve within root.
   - Whatever the implementation is, it must be consistent and tested.
+- Git push/pull may access local remotes outside the root **only** when the
+  resolved remote path is within an operator-configured allowlist.
 
 ## Editing semantics
 

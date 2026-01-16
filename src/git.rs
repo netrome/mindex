@@ -78,6 +78,12 @@ pub(crate) struct GitAuthor {
     pub(crate) email: String,
 }
 
+#[derive(Clone, Debug)]
+enum RemoteKind {
+    Ssh,
+    Local(PathBuf),
+}
+
 #[derive(Debug)]
 pub(crate) struct GitError(String);
 
@@ -132,6 +138,224 @@ pub(crate) fn git_commit_all(
     let id = git_rev_parse_head(root)?;
 
     Ok(GitCommit { id })
+}
+
+pub(crate) fn git_push(
+    root: &Path,
+    git_dir: &Path,
+    allowed_local_roots: &[PathBuf],
+) -> Result<String, GitError> {
+    let upstream = git_upstream(root)?;
+    let remote_kind = classify_remote(&upstream.remote_url, root)?;
+    ensure_remote_allowed(&remote_kind, allowed_local_roots)?;
+
+    let mut cmd = git_command(root)?;
+    if matches!(remote_kind, RemoteKind::Ssh) {
+        cmd.env("GIT_SSH_COMMAND", ssh_command(git_dir));
+    }
+    cmd.args([
+        "push",
+        &upstream.remote,
+        &format!("HEAD:refs/heads/{}", upstream.branch),
+    ]);
+    run_command_checked("git push", cmd, None)?;
+
+    Ok(format!(
+        "Pushed to {}/{}.",
+        upstream.remote, upstream.branch
+    ))
+}
+
+pub(crate) fn git_pull(
+    root: &Path,
+    git_dir: &Path,
+    allowed_local_roots: &[PathBuf],
+) -> Result<String, GitError> {
+    let upstream = git_upstream(root)?;
+    let remote_kind = classify_remote(&upstream.remote_url, root)?;
+    ensure_remote_allowed(&remote_kind, allowed_local_roots)?;
+
+    let mut cmd = git_command(root)?;
+    if matches!(remote_kind, RemoteKind::Ssh) {
+        cmd.env("GIT_SSH_COMMAND", ssh_command(git_dir));
+    }
+    cmd.args(["pull", "--ff-only", &upstream.remote, &upstream.branch]);
+    run_command_checked("git pull --ff-only", cmd, None)?;
+
+    Ok(format!(
+        "Pulled from {}/{}.",
+        upstream.remote, upstream.branch
+    ))
+}
+
+struct GitUpstream {
+    remote: String,
+    branch: String,
+    remote_url: String,
+}
+
+fn git_upstream(root: &Path) -> Result<GitUpstream, GitError> {
+    let mut cmd = git_command(root)?;
+    cmd.args(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
+    let output = run_command_checked("git rev-parse @{u}", cmd, None)?;
+    let upstream = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if upstream.is_empty() {
+        return Err(GitError::new("git upstream is not configured"));
+    }
+    let mut parts = upstream.splitn(2, '/');
+    let remote = parts.next().unwrap_or_default();
+    let branch = parts.next().unwrap_or_default();
+    if remote.is_empty() || branch.is_empty() {
+        return Err(GitError::new("git upstream is not configured"));
+    }
+
+    let remote_url = git_remote_url(root, remote)?;
+
+    Ok(GitUpstream {
+        remote: remote.to_string(),
+        branch: branch.to_string(),
+        remote_url,
+    })
+}
+
+fn git_remote_url(root: &Path, remote: &str) -> Result<String, GitError> {
+    let mut cmd = git_command(root)?;
+    cmd.args(["config", "--get", &format!("remote.{remote}.url")]);
+    let output = run_command_checked("git config remote url", cmd, None)?;
+    let url = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if url.is_empty() {
+        return Err(GitError::new("git remote url is not configured"));
+    }
+    Ok(url)
+}
+
+fn classify_remote(remote_url: &str, root: &Path) -> Result<RemoteKind, GitError> {
+    let trimmed = remote_url.trim();
+    if trimmed.is_empty() {
+        return Err(GitError::new("git remote url is empty"));
+    }
+
+    if let Some((scheme, rest)) = trimmed.split_once("://") {
+        let scheme = scheme.to_ascii_lowercase();
+        return match scheme.as_str() {
+            "ssh" => Ok(RemoteKind::Ssh),
+            "file" => Ok(RemoteKind::Local(resolve_file_url(rest, root)?)),
+            _ => Err(GitError::new(format!(
+                "unsupported git remote protocol '{scheme}'"
+            ))),
+        };
+    }
+
+    if is_windows_drive_path(trimmed) {
+        return Ok(RemoteKind::Local(resolve_local_path(trimmed, root)?));
+    }
+
+    if trimmed.starts_with('/') || trimmed.starts_with("./") || trimmed.starts_with("../") {
+        return Ok(RemoteKind::Local(resolve_local_path(trimmed, root)?));
+    }
+
+    if trimmed.starts_with("~") {
+        return Ok(RemoteKind::Local(resolve_tilde_path(trimmed, root)?));
+    }
+
+    if trimmed.contains(':') {
+        return Ok(RemoteKind::Ssh);
+    }
+
+    Ok(RemoteKind::Local(resolve_local_path(trimmed, root)?))
+}
+
+fn resolve_file_url(rest: &str, root: &Path) -> Result<PathBuf, GitError> {
+    let path = if rest.starts_with('/') {
+        rest.to_string()
+    } else if let Some((host, tail)) = rest.split_once('/') {
+        if !host.is_empty() && host != "localhost" {
+            return Err(GitError::new(format!(
+                "unsupported file remote host '{host}'"
+            )));
+        }
+        format!("/{tail}")
+    } else {
+        if rest == "localhost" || rest.is_empty() {
+            return Err(GitError::new("file remote missing path"));
+        }
+        rest.to_string()
+    };
+    if path.starts_with('/') {
+        Ok(PathBuf::from(path))
+    } else {
+        Ok(root.join(path))
+    }
+}
+
+fn resolve_local_path(value: &str, root: &Path) -> Result<PathBuf, GitError> {
+    let path = PathBuf::from(value);
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        Ok(root.join(path))
+    }
+}
+
+fn resolve_tilde_path(value: &str, root: &Path) -> Result<PathBuf, GitError> {
+    if let Some(stripped) = value.strip_prefix("~/") {
+        let home = std::env::var("HOME")
+            .map_err(|_| GitError::new("unable to expand '~' in git remote path"))?;
+        return Ok(PathBuf::from(home).join(stripped));
+    }
+    if value == "~" {
+        let home = std::env::var("HOME")
+            .map_err(|_| GitError::new("unable to expand '~' in git remote path"))?;
+        return Ok(PathBuf::from(home));
+    }
+    resolve_local_path(value, root)
+}
+
+fn ensure_remote_allowed(
+    remote: &RemoteKind,
+    allowed_local_roots: &[PathBuf],
+) -> Result<(), GitError> {
+    let RemoteKind::Local(path) = remote else {
+        return Ok(());
+    };
+    if allowed_local_roots.is_empty() {
+        return Err(GitError::new(
+            "local git remotes are not allowed (configure --git-allowed-remote-root)",
+        ));
+    }
+    let resolved = std::fs::canonicalize(path).map_err(|err| {
+        GitError::new(format!(
+            "failed to resolve local git remote '{}': {err}",
+            path.display()
+        ))
+    })?;
+    if allowed_local_roots
+        .iter()
+        .any(|allowed| resolved.starts_with(allowed))
+    {
+        Ok(())
+    } else {
+        Err(GitError::new(format!(
+            "local git remote '{}' is not in allowed roots",
+            resolved.display()
+        )))
+    }
+}
+
+fn ssh_command(git_dir: &Path) -> String {
+    let known_hosts = git_dir.join("mindex_known_hosts");
+    let known_hosts = shell_quote(&known_hosts.to_string_lossy());
+    let global_known_hosts = shell_quote(null_device());
+    let null_config = shell_quote(null_device());
+    format!(
+        "ssh -F {} -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile={} -o GlobalKnownHostsFile={}",
+        null_config, known_hosts, global_known_hosts
+    )
 }
 
 fn git_add_all(root: &Path) -> Result<(), GitError> {
@@ -246,6 +470,7 @@ fn git_command(root: &Path) -> Result<Command, GitError> {
     cmd.env("GIT_CONFIG_SYSTEM", null_device());
     cmd.env("GIT_CONFIG_GLOBAL", null_device());
     cmd.env("GIT_TERMINAL_PROMPT", "0");
+    cmd.env("GIT_ALLOW_PROTOCOL", "ssh:file");
     Ok(cmd)
 }
 
@@ -262,7 +487,9 @@ fn run_command(context: &str, mut cmd: Command, input: Option<&[u8]>) -> Result<
         .spawn()
         .map_err(|err| GitError::new(format!("{context}: {err}")))?;
 
-    if let Some(input) = input && let Some(stdin) = child.stdin.as_mut() {
+    if let Some(input) = input
+        && let Some(stdin) = child.stdin.as_mut()
+    {
         stdin
             .write_all(input)
             .map_err(|err| GitError::new(format!("{context}: {err}")))?;
@@ -312,6 +539,24 @@ fn has_non_empty_lines(bytes: &[u8]) -> bool {
 
 fn null_device() -> &'static str {
     if cfg!(windows) { "NUL" } else { "/dev/null" }
+}
+
+fn shell_quote(value: &str) -> String {
+    let mut quoted = String::from("'");
+    for ch in value.chars() {
+        if ch == '\'' {
+            quoted.push_str("'\\''");
+        } else {
+            quoted.push(ch);
+        }
+    }
+    quoted.push('\'');
+    quoted
+}
+
+fn is_windows_drive_path(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic()
 }
 
 fn parse_gitdir_path(dot_git: &Path) -> std::io::Result<Option<PathBuf>> {

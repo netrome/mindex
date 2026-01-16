@@ -84,8 +84,15 @@ For more details, see `docs/Resources/Auth.md`.
 ## Git integration (optional)
 
 When the configured root contains a `.git` directory (or file that resolves
-within the root), Mindex exposes `/git` to show a plain `git diff` and a minimal
-commit form that stages all changes under the root.
+within the root), Mindex exposes `/git` to show a plain `git diff`, a minimal
+commit form (stages all changes under the root), and push/pull controls.
+
+Push/pull requires the `git` CLI, a configured upstream, and either:
+- an SSH remote (uses `ssh-agent`, non-interactive; stores host keys under
+  `.git/mindex_known_hosts`), or
+- a local path/file remote that resolves within an allowlist configured via
+  `--git-allowed-remote-root <path>` (repeatable) or
+  `MINDEX_GIT_ALLOWED_REMOTE_ROOT` (comma-separated).
 
 If the root is a subdirectory of a larger repo (i.e., `.git` lives above it),
 git integration is disabled to preserve filesystem safety invariants.

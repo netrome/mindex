@@ -5,6 +5,7 @@
 ## To do
 - [ ] Git push/pull support
   - [x] Swap gix for git CLI
+  - [x] Add push/pull endpoints + UI
 - [ ] Drag/rearrange TODO items
   - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting

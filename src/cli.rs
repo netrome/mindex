@@ -46,6 +46,13 @@ pub(crate) fn run() -> RunOutcome {
             return RunOutcome::Exit(2);
         }
     };
+    let git_allowed_remote_roots = match resolve_git_allowed_remote_roots(&cli) {
+        Ok(roots) => roots,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return RunOutcome::Exit(2);
+        }
+    };
 
     RunOutcome::Serve(mindex::config::AppConfig {
         root,
@@ -56,6 +63,7 @@ pub(crate) fn run() -> RunOutcome {
         vapid_public_key: cli.vapid_public_key,
         vapid_subject: cli.vapid_subject,
         auth,
+        git_allowed_remote_roots,
     })
 }
 
@@ -90,6 +98,13 @@ struct Cli {
     auth_cookie_name: Option<String>,
     #[arg(long, env = "MINDEX_AUTH_COOKIE_SECURE")]
     auth_cookie_secure: bool,
+    #[arg(
+        long,
+        env = "MINDEX_GIT_ALLOWED_REMOTE_ROOT",
+        value_delimiter = ',',
+        value_name = "PATH"
+    )]
+    git_allowed_remote_root: Vec<PathBuf>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -238,6 +253,28 @@ fn resolve_auth_config(cli: &Cli) -> Result<Option<mindex::config::AuthConfig>, 
     }))
 }
 
+fn resolve_git_allowed_remote_roots(cli: &Cli) -> Result<Vec<PathBuf>, String> {
+    let mut roots = Vec::new();
+    for path in &cli.git_allowed_remote_root {
+        let resolved = std::fs::canonicalize(path).map_err(|err| {
+            format!(
+                "failed to resolve git allowed remote root '{}': {err}",
+                path.display()
+            )
+        })?;
+        if !resolved.is_dir() {
+            return Err(format!(
+                "git allowed remote root '{}' is not a directory",
+                resolved.display()
+            ));
+        }
+        if !roots.contains(&resolved) {
+            roots.push(resolved);
+        }
+    }
+    Ok(roots)
+}
+
 fn default_auth_token_ttl() -> Duration {
     Duration::days(14)
 }
@@ -293,6 +330,7 @@ mod tests {
             auth_token_ttl: None,
             auth_cookie_name: None,
             auth_cookie_secure: false,
+            git_allowed_remote_root: Vec::new(),
         }
     }
 
@@ -351,5 +389,36 @@ mod tests {
         assert_eq!(config.token_ttl, default_auth_token_ttl());
         assert_eq!(config.cookie_name, DEFAULT_AUTH_COOKIE_NAME);
         assert!(!config.cookie_secure);
+    }
+
+    #[test]
+    fn resolve_git_allowed_remote_roots__should_deduplicate_and_require_dirs() {
+        // Given
+        let temp_root = create_temp_dir("git-allowed");
+        let mut cli = base_cli();
+        cli.git_allowed_remote_root = vec![temp_root.clone(), temp_root.clone()];
+
+        // When
+        let roots = resolve_git_allowed_remote_roots(&cli).expect("resolve git roots");
+
+        // Then
+        assert_eq!(roots.len(), 1);
+        assert_eq!(
+            roots[0],
+            std::fs::canonicalize(&temp_root).expect("canonicalize")
+        );
+
+        std::fs::remove_dir_all(&temp_root).expect("cleanup");
+    }
+
+    fn create_temp_dir(name: &str) -> PathBuf {
+        let mut root = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        root.push(format!("mindex-cli-{}-{}", name, nanos));
+        std::fs::create_dir_all(&root).expect("create temp dir");
+        root
     }
 }

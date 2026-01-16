@@ -63,6 +63,8 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/doc/{*path}", get(documents::document_view))
         .route("/git", get(git::git_view))
         .route("/git/commit", post(git::git_commit))
+        .route("/git/push", post(git::git_push))
+        .route("/git/pull", post(git::git_pull))
         .route(
             "/api/doc/toggle-task",
             post(documents::document_toggle_task),

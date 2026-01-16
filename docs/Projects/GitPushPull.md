@@ -119,16 +119,16 @@ This decision would supersede the current `docs/Resources/Adrs/GitIntegration.md
   `known_hosts` file (or an explicit host key provided in the request) to avoid
   reads from `~/.ssh`.
 
-## Open questions
-- Confirm config: `--git-allowed-remote-root <path>` (repeatable) and
-  `MINDEX_GIT_ALLOWED_REMOTE_ROOT` (comma-separated).
+## Config
+- `--git-allowed-remote-root <path>` (repeatable)
+- `MINDEX_GIT_ALLOWED_REMOTE_ROOT` (comma-separated)
 
 ## Task breakdown (PR-sized)
 - [x] **ADR draft + decision**
   - Acceptance: `docs/Resources/Adrs/GitPushPull.md` approved and marked Accepted or Rejected.
 - [x] **Swap `gix` for `git` CLI with parity tests**
   - Acceptance: status/diff/commit features match current behavior; tests updated.
-- [ ] **Add push/pull endpoints + UI**
+- [x] **Add push/pull endpoints + UI**
   - Acceptance: `/git/push` and `/git/pull` work for upstream-configured branches; errors are clear and non-interactive.
 - [ ] **Credential handling + config isolation**
   - Acceptance: push/pull works with SSH via ssh-agent and local remotes under the allowlist; no reads from global/system config; no external helpers.

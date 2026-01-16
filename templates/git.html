@@ -27,6 +27,15 @@
 
 <p>{{ status }}</p>
 
+<div class="git-actions">
+    <form method="post" action="/git/pull">
+        <button type="submit">Pull (fast-forward)</button>
+    </form>
+    <form method="post" action="/git/push">
+        <button type="submit">Push</button>
+    </form>
+</div>
+
 <form method="post" action="/git/commit">
     <label for="message">Commit message</label>
     <textarea id="message" name="message" rows="4" required>{{ message }}</textarea>

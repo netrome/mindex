@@ -11,6 +11,7 @@ pub struct AppConfig {
     pub vapid_public_key: Option<String>,
     pub vapid_subject: Option<String>,
     pub auth: Option<AuthConfig>,
+    pub git_allowed_remote_roots: Vec<PathBuf>,
 }
 
 #[derive(Clone)]
@@ -33,6 +34,7 @@ impl Default for AppConfig {
             vapid_public_key: None,
             vapid_subject: None,
             auth: None,
+            git_allowed_remote_roots: Vec::new(),
         }
     }
 }
