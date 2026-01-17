@@ -10,6 +10,11 @@
 - [ ] Code execution/scripting
 - [ ] Chat boxes
 - [ ] Remote terminal
+- [ ] Stuff
+- [ ] Things
+- [ ] Derp
++
+
 
 ## Recently done
 - [x] Easy TODO input
