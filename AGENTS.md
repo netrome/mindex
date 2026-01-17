@@ -53,6 +53,10 @@ Optimize for: simplicity, hackability, minimal dependencies, and long-term maint
   - Never treat Archive as current requirements.
 
 ## Work modes
+### Conversation mode
+Use when discussing the system more open-ended.
+
+- Provide helpful responses.
 
 ### Design mode
 Use when the task is exploratory/architectural or too large for a single PR.
