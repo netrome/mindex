@@ -3,6 +3,7 @@
 ## In progress
 
 ## To do
+- [ ] Easy TODO input
 - [ ] Drag/rearrange TODO items
   - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting
