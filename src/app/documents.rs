@@ -1,10 +1,11 @@
 use crate::config;
 use crate::documents::{
-    DocError, atomic_write, collect_markdown_paths, create_document, doc_id_from_path,
-    load_document, normalize_newlines, render_task_list_markdown, resolve_doc_path,
-    rewrite_relative_md_links, toggle_task_item,
+    DocError, atomic_write, collect_markdown_paths, collect_mentions, create_document,
+    doc_id_from_path, load_document, normalize_newlines, render_task_list_markdown,
+    resolve_doc_path, rewrite_relative_md_links, toggle_task_item,
 };
 use crate::math::{MathStyle, render_math};
+use crate::push as push_service;
 use crate::state;
 use crate::templates;
 
@@ -250,6 +251,7 @@ pub(crate) async fn document_save(
     }
 
     let normalized = normalize_newlines(&form.contents);
+    let mentions = collect_mentions(&normalized);
     atomic_write(&path, &normalized).map_err(|err| {
         eprintln!("failed to save document {doc_id}: {err}");
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -257,6 +259,14 @@ pub(crate) async fn document_save(
 
     if let Err(err) = refresh_push_state(&state) {
         eprintln!("failed to reload push registries after save: {err}");
+    }
+    if !mentions.is_empty() {
+        let registries_snapshot = state
+            .push_registries
+            .lock()
+            .expect("push registries lock")
+            .clone();
+        push_service::send_mentions(&state.config, &registries_snapshot, &doc_id, &mentions).await;
     }
 
     Ok(templates::EditTemplate {

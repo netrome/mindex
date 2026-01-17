@@ -1,5 +1,6 @@
 use pulldown_cmark::Event;
 use pulldown_cmark::Tag;
+use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::io::Write as _;
@@ -132,6 +133,31 @@ pub(crate) fn render_task_list_markdown(contents: &str) -> String {
     output
 }
 
+pub(crate) fn collect_mentions(contents: &str) -> Vec<(String, String)> {
+    let mut mentions = Vec::new();
+    let mut in_fence = false;
+
+    for line in contents.lines() {
+        if is_fence_line(line) {
+            in_fence = !in_fence;
+            continue;
+        }
+
+        if in_fence {
+            continue;
+        }
+
+        let mut seen = HashSet::new();
+        for user in extract_mentions_from_line(line) {
+            if seen.insert(user.clone()) {
+                mentions.push((user, line.to_string()));
+            }
+        }
+    }
+
+    mentions
+}
+
 pub(crate) fn toggle_task_item(contents: &str, task_index: usize, checked: bool) -> Option<String> {
     let mut output = String::with_capacity(contents.len());
     let mut in_fence = false;
@@ -241,6 +267,47 @@ fn parse_task_line(line: &str) -> Option<TaskLineParts<'_>> {
         suffix: &line[after..],
         checked: status != b' ',
     })
+}
+
+fn extract_mentions_from_line(line: &str) -> Vec<String> {
+    let bytes = line.as_bytes();
+    let mut mentions = Vec::new();
+    let mut idx = 0usize;
+
+    while idx < bytes.len() {
+        if bytes[idx] == b'@' && is_mention_boundary(bytes, idx) {
+            let start = idx + 1;
+            if start < bytes.len() && is_username_start(bytes[start]) {
+                let mut end = start + 1;
+                while end < bytes.len() && is_username_char(bytes[end]) {
+                    end += 1;
+                }
+                if let Some(user) = line.get(start..end) {
+                    mentions.push(user.to_string());
+                }
+                idx = end;
+                continue;
+            }
+        }
+        idx += 1;
+    }
+
+    mentions
+}
+
+fn is_mention_boundary(bytes: &[u8], at: usize) -> bool {
+    if at == 0 {
+        return true;
+    }
+    !is_username_char(bytes[at - 1])
+}
+
+fn is_username_start(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
+}
+
+fn is_username_char(byte: u8) -> bool {
+    is_username_start(byte) || byte == b'-'
 }
 
 fn is_fence_line(line: &str) -> bool {
@@ -598,6 +665,49 @@ mod tests {
         assert!(rendered.contains("data-task-index=\"1\" checked"));
         assert!(rendered.contains("data-task-index=\"2\" checked"));
         assert!(rendered.contains("```md\n- [ ] nope\n```"));
+    }
+
+    #[test]
+    fn collect_mentions__should_find_mentions_and_skip_fences() {
+        // Given
+        let contents = "\
+Ping @marten about the @roadmap.
+```md
+@ignored
+```
+Follow up with @marten and @marten again.
+Edge: email@example.com and @not+valid and @ok-name.
+";
+
+        // When
+        let mentions = collect_mentions(contents);
+
+        // Then
+        assert_eq!(
+            mentions,
+            vec![
+                (
+                    "marten".to_string(),
+                    "Ping @marten about the @roadmap.".to_string()
+                ),
+                (
+                    "roadmap".to_string(),
+                    "Ping @marten about the @roadmap.".to_string()
+                ),
+                (
+                    "marten".to_string(),
+                    "Follow up with @marten and @marten again.".to_string()
+                ),
+                (
+                    "not".to_string(),
+                    "Edge: email@example.com and @not+valid and @ok-name.".to_string()
+                ),
+                (
+                    "ok-name".to_string(),
+                    "Edge: email@example.com and @not+valid and @ok-name.".to_string()
+                ),
+            ]
+        );
     }
 
     #[test]
