@@ -109,7 +109,6 @@ pub(crate) fn render_task_list_markdown(contents: &str, doc_id: &str) -> String 
         let (line, ending) = split_line_ending(segment);
         if is_fence_line(line) {
             if in_task_list {
-                output.push_str(&render_task_list_form(doc_id, list_index));
                 list_index += 1;
                 in_task_list = false;
             }
@@ -134,18 +133,19 @@ pub(crate) fn render_task_list_markdown(contents: &str, doc_id: &str) -> String 
             continue;
         }
 
-        if in_task_list {
-            output.push_str(&render_task_list_form(doc_id, list_index));
+        if in_task_list && !in_fence {
+            if is_task_list_marker(line) {
+                output.push_str(&render_task_list_form(doc_id, list_index));
+                list_index += 1;
+                in_task_list = false;
+                continue;
+            }
             list_index += 1;
             in_task_list = false;
         }
 
         output.push_str(line);
         output.push_str(ending);
-    }
-
-    if in_task_list {
-        output.push_str(&render_task_list_form(doc_id, list_index));
     }
 
     output
@@ -309,6 +309,10 @@ fn render_task_list_form(doc_id: &str, list_index: usize) -> String {
 <button type=\"submit\">Add</button>\
 </form>"
     )
+}
+
+fn is_task_list_marker(line: &str) -> bool {
+    line.trim() == "+"
 }
 
 fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
@@ -774,6 +778,7 @@ mod tests {
 - [ ] one
 * [x] two
 + [X] three
++
 ```md
 - [ ] nope
 ```
@@ -790,13 +795,14 @@ mod tests {
         assert!(rendered.contains("data-task-index=\"1\" checked"));
         assert!(rendered.contains("data-task-index=\"2\" checked"));
         assert_eq!(rendered.matches("todo-quick-add").count(), 1);
+        assert!(!rendered.contains("+\n"));
         assert!(rendered.contains("```md\n- [ ] nope\n```"));
     }
 
     #[test]
     fn render_task_list_markdown__should_render_per_list_forms() {
         // Given
-        let contents = "- [ ] One\n\n- [ ] Two\n- [ ] Three\n";
+        let contents = "- [ ] One\n+\n\n- [ ] Two\n- [ ] Three\n+\n";
 
         // When
         let rendered = render_task_list_markdown(contents, "todo.md");
