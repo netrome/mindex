@@ -98,14 +98,21 @@ pub(crate) fn create_document(root: &Path, doc_id: &str, contents: &str) -> Resu
     atomic_write(&target, contents).map_err(DocError::Io)
 }
 
-pub(crate) fn render_task_list_markdown(contents: &str) -> String {
+pub(crate) fn render_task_list_markdown(contents: &str, doc_id: &str) -> String {
     let mut output = String::with_capacity(contents.len());
     let mut in_fence = false;
     let mut task_index = 0usize;
+    let mut in_task_list = false;
+    let mut list_index = 0usize;
 
     for segment in contents.split_inclusive('\n') {
         let (line, ending) = split_line_ending(segment);
         if is_fence_line(line) {
+            if in_task_list {
+                output.push_str(&render_task_list_form(doc_id, list_index));
+                list_index += 1;
+                in_task_list = false;
+            }
             in_fence = !in_fence;
             output.push_str(line);
             output.push_str(ending);
@@ -123,11 +130,22 @@ pub(crate) fn render_task_list_markdown(contents: &str) -> String {
             output.push_str(parts.suffix);
             output.push_str(ending);
             task_index += 1;
+            in_task_list = true;
             continue;
+        }
+
+        if in_task_list {
+            output.push_str(&render_task_list_form(doc_id, list_index));
+            list_index += 1;
+            in_task_list = false;
         }
 
         output.push_str(line);
         output.push_str(ending);
+    }
+
+    if in_task_list {
+        output.push_str(&render_task_list_form(doc_id, list_index));
     }
 
     output
@@ -198,7 +216,7 @@ pub(crate) fn toggle_task_item(contents: &str, task_index: usize, checked: bool)
     if updated { Some(output) } else { None }
 }
 
-pub(crate) fn add_task_item(contents: &str, text: &str) -> String {
+pub(crate) fn add_task_item_in_list(contents: &str, list_index: usize, text: &str) -> String {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return contents.to_string();
@@ -209,19 +227,52 @@ pub(crate) fn add_task_item(contents: &str, text: &str) -> String {
     let mut last_task_end: Option<usize> = None;
     let mut last_task_ending = "";
     let mut offset = 0usize;
+    let mut current_list = 0usize;
+    let mut in_task_list = false;
+    let mut found_list = false;
 
     for segment in contents.split_inclusive('\n') {
         let (line, ending) = split_line_ending(segment);
         if is_fence_line(line) {
+            if in_task_list {
+                if current_list == list_index {
+                    found_list = true;
+                    break;
+                }
+                current_list += 1;
+                in_task_list = false;
+                last_task_end = None;
+                last_task_ending = "";
+            }
             in_fence = !in_fence;
         }
 
         if !in_fence && parse_task_line(line).is_some() {
+            if !in_task_list {
+                in_task_list = true;
+            }
             last_task_end = Some(offset + line.len() + ending.len());
             last_task_ending = ending;
+        } else if in_task_list {
+            if current_list == list_index {
+                found_list = true;
+                break;
+            }
+            current_list += 1;
+            in_task_list = false;
+            last_task_end = None;
+            last_task_ending = "";
         }
 
         offset += segment.len();
+    }
+
+    if in_task_list && current_list == list_index {
+        found_list = true;
+    }
+
+    if list_index > 0 && !found_list {
+        return contents.to_string();
     }
 
     if let Some(insert_at) = last_task_end {
@@ -246,6 +297,18 @@ pub(crate) fn add_task_item(contents: &str, text: &str) -> String {
     }
     output.push_str(&new_line);
     output
+}
+
+fn render_task_list_form(doc_id: &str, list_index: usize) -> String {
+    format!(
+        "<form class=\"todo-quick-add\" method=\"post\" action=\"/api/doc/add-task\">\
+<input type=\"hidden\" name=\"doc_id\" value=\"{doc_id}\" />\
+<input type=\"hidden\" name=\"list_index\" value=\"{list_index}\" />\
+<label>Add TODO</label>\
+<input name=\"text\" type=\"text\" placeholder=\"Buy milk\" autocomplete=\"off\" required />\
+<button type=\"submit\">Add</button>\
+</form>"
+    )
 }
 
 fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
@@ -717,7 +780,7 @@ mod tests {
 ";
 
         // When
-        let rendered = render_task_list_markdown(contents);
+        let rendered = render_task_list_markdown(contents, "notes.md");
 
         // Then
         assert_eq!(rendered.matches("todo-checkbox").count(), 3);
@@ -726,7 +789,22 @@ mod tests {
         assert!(rendered.contains("data-task-index=\"2\""));
         assert!(rendered.contains("data-task-index=\"1\" checked"));
         assert!(rendered.contains("data-task-index=\"2\" checked"));
+        assert_eq!(rendered.matches("todo-quick-add").count(), 1);
         assert!(rendered.contains("```md\n- [ ] nope\n```"));
+    }
+
+    #[test]
+    fn render_task_list_markdown__should_render_per_list_forms() {
+        // Given
+        let contents = "- [ ] One\n\n- [ ] Two\n- [ ] Three\n";
+
+        // When
+        let rendered = render_task_list_markdown(contents, "todo.md");
+
+        // Then
+        assert_eq!(rendered.matches("todo-quick-add").count(), 2);
+        assert!(rendered.contains("name=\"list_index\" value=\"0\""));
+        assert!(rendered.contains("name=\"list_index\" value=\"1\""));
     }
 
     #[test]
@@ -820,39 +898,63 @@ Edge: email@example.com and @not+valid and @ok-name.
     }
 
     #[test]
-    fn add_task_item__should_insert_after_last_task() {
+    fn add_task_item_in_list__should_insert_after_last_task() {
         // Given
         let contents = "- [ ] One\n- [x] Two\nNotes\n";
 
         // When
-        let updated = add_task_item(contents, "Three");
+        let updated = add_task_item_in_list(contents, 0, "Three");
 
         // Then
         assert_eq!(updated, "- [ ] One\n- [x] Two\n- [ ] Three\nNotes\n");
     }
 
     #[test]
-    fn add_task_item__should_append_when_no_tasks() {
+    fn add_task_item_in_list__should_append_when_no_tasks() {
         // Given
         let contents = "Notes\n";
 
         // When
-        let updated = add_task_item(contents, "New task");
+        let updated = add_task_item_in_list(contents, 0, "New task");
 
         // Then
         assert_eq!(updated, "Notes\n- [ ] New task");
     }
 
     #[test]
-    fn add_task_item__should_ignore_fenced_tasks() {
+    fn add_task_item_in_list__should_ignore_fenced_tasks() {
         // Given
         let contents = "```\n- [ ] Nope\n```\n";
 
         // When
-        let updated = add_task_item(contents, "Yep");
+        let updated = add_task_item_in_list(contents, 0, "Yep");
 
         // Then
         assert_eq!(updated, "```\n- [ ] Nope\n```\n- [ ] Yep");
+    }
+
+    #[test]
+    fn add_task_item_in_list__should_target_list_index() {
+        // Given
+        let contents = "- [ ] One\n\n- [ ] Two\n- [ ] Three\n";
+
+        // When
+        let updated = add_task_item_in_list(contents, 1, "Four");
+
+        // Then
+        assert_eq!(updated, "- [ ] One\n\n- [ ] Two\n- [ ] Three\n- [ ] Four\n");
+    }
+
+    #[test]
+    fn add_task_item_in_list__should_noop_when_list_missing() {
+        // Given
+        let contents = "- [ ] One\n";
+
+        // When
+        let updated = add_task_item_in_list(contents, 2, "Two");
+
+        // Then
+        assert_eq!(updated, contents);
     }
 
     fn create_temp_root(test_name: &str) -> PathBuf {

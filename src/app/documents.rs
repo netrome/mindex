@@ -1,6 +1,6 @@
 use crate::config;
 use crate::documents::{
-    DocError, add_task_item, atomic_write, collect_markdown_paths, collect_mentions,
+    DocError, add_task_item_in_list, atomic_write, collect_markdown_paths, collect_mentions,
     create_document, doc_id_from_path, load_document, normalize_newlines,
     render_task_list_markdown, resolve_doc_path, rewrite_relative_md_links, toggle_task_item,
 };
@@ -174,7 +174,7 @@ pub(crate) async fn document_view(
         }
     })?;
 
-    let rendered = render_task_list_markdown(&contents);
+    let rendered = render_task_list_markdown(&contents, &doc_id);
     let mut body = String::new();
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
@@ -328,6 +328,7 @@ pub(crate) async fn document_toggle_task(
 #[derive(Debug, Deserialize)]
 pub(crate) struct AddTaskForm {
     pub(crate) doc_id: String,
+    pub(crate) list_index: usize,
     pub(crate) text: String,
 }
 
@@ -360,7 +361,7 @@ pub(crate) async fn document_add_task(
         }
     })?;
 
-    let updated = add_task_item(&contents, text);
+    let updated = add_task_item_in_list(&contents, form.list_index, text);
     atomic_write(&path, &updated).map_err(|err| {
         eprintln!("failed to save document {doc_id}: {err}");
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")

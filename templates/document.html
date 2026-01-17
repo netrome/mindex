@@ -18,18 +18,4 @@
 </div>
 
 {{ content|safe }}
-
-<form class="todo-quick-add" method="post" action="/api/doc/add-task">
-    <input type="hidden" name="doc_id" value="{{ doc_id }}" />
-    <label for="todo-new-task">Add TODO</label>
-    <input
-        id="todo-new-task"
-        name="text"
-        type="text"
-        placeholder="Buy milk"
-        autocomplete="off"
-        required
-    />
-    <button type="submit">Add</button>
-</form>
 {% endblock %}
