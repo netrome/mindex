@@ -3,6 +3,9 @@
 ## In progress
 
 ## To do
+- [ ] @username tagging/notifications
+  - Acceptance criteria: When saving a document with an `@<username>` tag,
+    send a notification to the user with the contents of the line with the tag.
 - [ ] Drag/rearrange TODO items
   - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting
