@@ -1,8 +1,8 @@
 use crate::config;
 use crate::documents::{
-    DocError, atomic_write, collect_markdown_paths, collect_mentions, create_document,
-    doc_id_from_path, load_document, normalize_newlines, render_task_list_markdown,
-    resolve_doc_path, rewrite_relative_md_links, toggle_task_item,
+    DocError, add_task_item, atomic_write, collect_markdown_paths, collect_mentions,
+    create_document, doc_id_from_path, load_document, normalize_newlines,
+    render_task_list_markdown, resolve_doc_path, rewrite_relative_md_links, toggle_task_item,
 };
 use crate::math::{MathStyle, render_math};
 use crate::push as push_service;
@@ -323,6 +323,54 @@ pub(crate) async fn document_toggle_task(
     }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct AddTaskForm {
+    pub(crate) doc_id: String,
+    pub(crate) text: String,
+}
+
+pub(crate) async fn document_add_task(
+    State(state): State<state::AppState>,
+    Form(form): Form<AddTaskForm>,
+) -> Result<Redirect, (StatusCode, &'static str)> {
+    let doc_id = form.doc_id.trim();
+    if doc_id.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "doc_id is required"));
+    }
+    let text = form.text.trim();
+    if text.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "text is required"));
+    }
+
+    let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let contents = std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let updated = add_task_item(&contents, text);
+    atomic_write(&path, &updated).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after add task: {err}");
+    }
+
+    Ok(Redirect::to(&format!("/doc/{doc_id}")))
 }
 
 pub(crate) fn search_documents(

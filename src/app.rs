@@ -69,6 +69,7 @@ pub fn app(config: config::AppConfig) -> Router {
             "/api/doc/toggle-task",
             post(documents::document_toggle_task),
         )
+        .route("/api/doc/add-task", post(documents::document_add_task))
         .route("/push/subscribe", get(push::push_subscribe))
         .route("/api/push/public-key", get(push::push_public_key))
         .route("/api/push/test", post(push::push_test))

@@ -3,7 +3,6 @@
 ## In progress
 
 ## To do
-- [ ] Easy TODO input
 - [ ] Drag/rearrange TODO items
   - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting
@@ -13,6 +12,7 @@
 - [ ] Remote terminal
 
 ## Recently done
+- [x] Easy TODO input
 - [x] JS structure refactor (feature modules + app.js entrypoint)
 - [x] @username tagging/notifications
   - Acceptance criteria: When saving a document with an `@<username>` tag,

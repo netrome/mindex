@@ -198,6 +198,56 @@ pub(crate) fn toggle_task_item(contents: &str, task_index: usize, checked: bool)
     if updated { Some(output) } else { None }
 }
 
+pub(crate) fn add_task_item(contents: &str, text: &str) -> String {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return contents.to_string();
+    }
+
+    let new_line = format!("- [ ] {}", trimmed);
+    let mut in_fence = false;
+    let mut last_task_end: Option<usize> = None;
+    let mut last_task_ending = "";
+    let mut offset = 0usize;
+
+    for segment in contents.split_inclusive('\n') {
+        let (line, ending) = split_line_ending(segment);
+        if is_fence_line(line) {
+            in_fence = !in_fence;
+        }
+
+        if !in_fence && parse_task_line(line).is_some() {
+            last_task_end = Some(offset + line.len() + ending.len());
+            last_task_ending = ending;
+        }
+
+        offset += segment.len();
+    }
+
+    if let Some(insert_at) = last_task_end {
+        let mut output = String::with_capacity(contents.len() + new_line.len() + 2);
+        let (prefix, suffix) = contents.split_at(insert_at);
+        output.push_str(prefix);
+        if last_task_ending.is_empty() {
+            output.push_str(detect_line_ending(contents));
+            output.push_str(&new_line);
+        } else {
+            output.push_str(&new_line);
+            output.push_str(last_task_ending);
+        }
+        output.push_str(suffix);
+        return output;
+    }
+
+    let mut output = String::with_capacity(contents.len() + new_line.len() + 2);
+    output.push_str(contents);
+    if !contents.is_empty() && !contents.ends_with('\n') && !contents.ends_with('\r') {
+        output.push_str(detect_line_ending(contents));
+    }
+    output.push_str(&new_line);
+    output
+}
+
 fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
     if doc_id.is_empty() {
         return None;
@@ -326,6 +376,18 @@ fn split_line_ending(segment: &str) -> (&str, &str) {
         return (without_cr, "\r");
     }
     (segment, "")
+}
+
+fn detect_line_ending(contents: &str) -> &'static str {
+    if contents.contains("\r\n") {
+        "\r\n"
+    } else if contents.contains('\n') {
+        "\n"
+    } else if contents.contains('\r') {
+        "\r"
+    } else {
+        "\n"
+    }
 }
 
 fn ensure_parent_dirs(root: &Path, doc_path: &Path) -> Result<(), DocError> {
@@ -755,6 +817,42 @@ Edge: email@example.com and @not+valid and @ok-name.
 
         // Then
         assert!(updated.is_none());
+    }
+
+    #[test]
+    fn add_task_item__should_insert_after_last_task() {
+        // Given
+        let contents = "- [ ] One\n- [x] Two\nNotes\n";
+
+        // When
+        let updated = add_task_item(contents, "Three");
+
+        // Then
+        assert_eq!(updated, "- [ ] One\n- [x] Two\n- [ ] Three\nNotes\n");
+    }
+
+    #[test]
+    fn add_task_item__should_append_when_no_tasks() {
+        // Given
+        let contents = "Notes\n";
+
+        // When
+        let updated = add_task_item(contents, "New task");
+
+        // Then
+        assert_eq!(updated, "Notes\n- [ ] New task");
+    }
+
+    #[test]
+    fn add_task_item__should_ignore_fenced_tasks() {
+        // Given
+        let contents = "```\n- [ ] Nope\n```\n";
+
+        // When
+        let updated = add_task_item(contents, "Yep");
+
+        // Then
+        assert_eq!(updated, "```\n- [ ] Nope\n```\n- [ ] Yep");
     }
 
     fn create_temp_root(test_name: &str) -> PathBuf {
