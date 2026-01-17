@@ -1,7 +1,7 @@
 # JS Structure Refactor
 
 ## Status
-Proposed
+Implemented
 
 ## Goal
 Keep client-side JavaScript organized as small features are added (e.g., TODO reorder, quick add) while preserving Mindex’s minimal, server-rendered, progressive-enhancement model.

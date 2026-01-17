@@ -76,6 +76,19 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/api/debug/push/schedule", get(push::push_schedule_debug))
         .route("/static/style.css", get(assets::stylesheet))
         .route("/static/theme.js", get(assets::theme_script))
+        .route("/static/app.js", get(assets::app_script))
+        .route(
+            "/static/features/todo_toggle.js",
+            get(assets::todo_toggle_script),
+        )
+        .route(
+            "/static/features/push_subscribe.js",
+            get(assets::push_subscribe_script),
+        )
+        .route(
+            "/static/features/sw_register.js",
+            get(assets::sw_register_script),
+        )
         .route("/static/manifest.json", get(assets::manifest))
         .route("/sw.js", get(assets::service_worker))
         .route("/static/icons/icon-192.png", get(assets::icon_192))

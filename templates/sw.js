@@ -3,6 +3,10 @@ const CACHE_NAME = AUTH_ENABLED ? 'mindex-auth-v1' : 'mindex-v1';
 const STATIC_ASSETS = [
   '/static/style.css',
   '/static/theme.js',
+  '/static/app.js',
+  '/static/features/todo_toggle.js',
+  '/static/features/push_subscribe.js',
+  '/static/features/sw_register.js',
   '/static/manifest.json',
   '/sw.js'
 ];

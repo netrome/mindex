@@ -1,0 +1,206 @@
+export const initPushSubscribe = () => {
+    const statusEl = document.getElementById("status");
+    const subscribeButton = document.getElementById("subscribe-button");
+    const copyButton = document.getElementById("copy-button");
+    const usernameInput = document.getElementById("username");
+    const output = document.getElementById("subscription-block");
+    const testMessageInput = document.getElementById("test-message");
+    const testButton = document.getElementById("test-button");
+
+    if (
+        !statusEl ||
+        !subscribeButton ||
+        !copyButton ||
+        !usernameInput ||
+        !output ||
+        !testMessageInput ||
+        !testButton
+    ) {
+        return;
+    }
+
+    let currentSubscription = null;
+
+    const setStatus = (message) => {
+        statusEl.textContent = message;
+    };
+
+    const setOutput = (block) => {
+        output.value = block;
+        copyButton.disabled = block.trim().length === 0;
+    };
+
+    const urlBase64ToUint8Array = (base64String) => {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding)
+            .replace(/-/g, "+")
+            .replace(/_/g, "/");
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    };
+
+    const fetchPublicKey = async () => {
+        const response = await fetch("/api/push/public-key");
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            const message = payload.error || "Push notifications are not configured.";
+            throw new Error(message);
+        }
+        const payload = await response.json();
+        return payload.publicKey;
+    };
+
+    const arrayBufferToBase64Url = (buffer) => {
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i += 1) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+        return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    };
+
+    const extractKeys = (subscription) => {
+        if (subscription.keys && subscription.keys.p256dh && subscription.keys.auth) {
+            return {
+                p256dh: subscription.keys.p256dh,
+                auth: subscription.keys.auth,
+            };
+        }
+        const p256dhBuffer = subscription.getKey("p256dh");
+        const authBuffer = subscription.getKey("auth");
+        if (!p256dhBuffer || !authBuffer) {
+            return null;
+        }
+        return {
+            p256dh: arrayBufferToBase64Url(p256dhBuffer),
+            auth: arrayBufferToBase64Url(authBuffer),
+        };
+    };
+
+    const buildBlock = (username, subscription) => {
+        const user = username.trim() || "your-username";
+        const keys = extractKeys(subscription);
+        if (!keys) {
+            return "";
+        }
+        return [
+            "/subscription",
+            "```toml",
+            `user = "${user}"`,
+            `endpoint = "${subscription.endpoint}"`,
+            `p256dh = "${keys.p256dh}"`,
+            `auth = "${keys.auth}"`,
+            "```",
+            "",
+        ].join("\n");
+    };
+
+    const ensureReady = async () => {
+        if (!("serviceWorker" in navigator)) {
+            throw new Error("Service workers are not supported in this browser.");
+        }
+        if (!("PushManager" in window)) {
+            throw new Error("Push notifications are not supported in this browser.");
+        }
+        const registration = await navigator.serviceWorker.ready;
+        if (!registration) {
+            throw new Error("Service worker is not ready yet.");
+        }
+        return registration;
+    };
+
+    const subscribe = async () => {
+        setStatus("Checking push support...");
+        setOutput("");
+
+        const registration = await ensureReady();
+        const publicKey = await fetchPublicKey();
+
+        setStatus("Requesting notification permission...");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+            throw new Error("Permission denied.");
+        }
+
+        setStatus("Creating subscription...");
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+
+        currentSubscription = subscription;
+        const block = buildBlock(usernameInput.value, subscription);
+        if (!block) {
+            throw new Error("Failed to read subscription keys.");
+        }
+        setOutput(block);
+        setStatus("Paste the block into any document and save.");
+    };
+
+    subscribeButton.addEventListener("click", async () => {
+        subscribeButton.disabled = true;
+        try {
+            await subscribe();
+        } catch (err) {
+            setStatus(err.message || "Failed to create subscription.");
+        } finally {
+            subscribeButton.disabled = false;
+        }
+    });
+
+    copyButton.addEventListener("click", async () => {
+        if (!output.value) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(output.value);
+            setStatus("Copied to clipboard.");
+        } catch (err) {
+            setStatus("Copy failed. Select the text manually.");
+        }
+    });
+
+    testButton.addEventListener("click", async () => {
+        if (!currentSubscription) {
+            setStatus("Create a subscription first.");
+            return;
+        }
+        const message =
+            testMessageInput.value.trim() || "Test notification from Mindex";
+        testButton.disabled = true;
+        try {
+            const keys = extractKeys(currentSubscription);
+            if (!keys) {
+                throw new Error("Failed to read subscription keys.");
+            }
+            const response = await fetch("/api/push/test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    endpoint: currentSubscription.endpoint,
+                    p256dh: keys.p256dh,
+                    auth: keys.auth,
+                    message,
+                }),
+            });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                const error = payload.error || "Failed to send test notification.";
+                throw new Error(error);
+            }
+            setStatus("Test notification sent.");
+        } catch (err) {
+            setStatus(err.message || "Failed to send test notification.");
+        } finally {
+            testButton.disabled = false;
+        }
+    });
+
+    copyButton.disabled = true;
+    setStatus("Ready.");
+};

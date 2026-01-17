@@ -13,6 +13,7 @@
 - [ ] Remote terminal
 
 ## Recently done
+- [x] JS structure refactor (feature modules + app.js entrypoint)
 - [x] @username tagging/notifications
   - Acceptance criteria: When saving a document with an `@<username>` tag,
     send a notification to the user with the contents of the line with the tag.

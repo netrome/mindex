@@ -48,6 +48,46 @@ pub(crate) async fn theme_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn app_script() -> axum::response::Response {
+    const APP_JS_CONTENT: &str = include_str!("../assets/app.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(APP_JS_CONTENT.into())
+        .unwrap()
+}
+
+pub(crate) async fn todo_toggle_script() -> axum::response::Response {
+    const TODO_TOGGLE_JS_CONTENT: &str = include_str!("../assets/features/todo_toggle.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(TODO_TOGGLE_JS_CONTENT.into())
+        .unwrap()
+}
+
+pub(crate) async fn push_subscribe_script() -> axum::response::Response {
+    const PUSH_SUBSCRIBE_JS_CONTENT: &str = include_str!("../assets/features/push_subscribe.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(PUSH_SUBSCRIBE_JS_CONTENT.into())
+        .unwrap()
+}
+
+pub(crate) async fn sw_register_script() -> axum::response::Response {
+    const SW_REGISTER_JS_CONTENT: &str = include_str!("../assets/features/sw_register.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(SW_REGISTER_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn service_worker(
     State(state): State<state::AppState>,
 ) -> axum::response::Response {
