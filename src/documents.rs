@@ -305,7 +305,7 @@ fn render_task_list_form(doc_id: &str, list_index: usize) -> String {
 <input type=\"hidden\" name=\"doc_id\" value=\"{doc_id}\" />\
 <input type=\"hidden\" name=\"list_index\" value=\"{list_index}\" />\
 <label>+</label>\
-<input name=\"text\" type=\"text\" placeholder=\"Buy milk\" autocomplete=\"off\" required />\
+<input name=\"text\" type=\"text\" placeholder=\"\" autocomplete=\"off\" required />\
 <button type=\"submit\">Add</button>\
 </form>"
     )
