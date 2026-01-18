@@ -20,7 +20,7 @@
 
 <h1>Reorder {{ doc_id }}</h1>
 
-<div class="notice" data-reorder-notice>Drag and drop blocks or lines to reorder.</div>
+<div class="notice" data-reorder-notice>Drag the handle to reorder blocks or lines.</div>
 
 <div class="reorder-toolbar">
     <span class="reorder-toolbar-label">Mode</span>
@@ -45,10 +45,17 @@
         {% for block in blocks %}
         <div
             class="reorder-row reorder-row-block{% if block.is_blank %} is-blank{% endif %}"
-            draggable="true"
             data-start-line="{{ block.start }}"
             data-end-line="{{ block.end }}"
         >
+            <button
+                type="button"
+                class="reorder-row-handle"
+                draggable="true"
+                aria-label="Drag to reorder"
+            >
+                ::
+            </button>
             <div class="reorder-row-meta">
                 <span class="reorder-row-range">
                     {{ block.start + 1 }}{% if block.end != block.start %}-{{ block.end + 1 }}{% endif %}
@@ -63,10 +70,17 @@
         {% for line in lines %}
         <div
             class="reorder-row reorder-row-line"
-            draggable="true"
             data-start-line="{{ line.index }}"
             data-end-line="{{ line.index }}"
         >
+            <button
+                type="button"
+                class="reorder-row-handle"
+                draggable="true"
+                aria-label="Drag to reorder"
+            >
+                ::
+            </button>
             <span class="reorder-row-range">{{ line.index + 1 }}</span>
             <span class="reorder-row-text-inline">{{ line.text }}</span>
         </div>

@@ -308,7 +308,7 @@ button:hover {
 
 .reorder-row {
     display: grid;
-    grid-template-columns: 4rem 1fr;
+    grid-template-columns: 2.25rem 4rem 1fr;
     gap: 0.75rem;
     align-items: start;
     padding: 0.45rem 0.75rem;
@@ -317,6 +317,30 @@ button:hover {
     font-size: 0.9em;
     min-height: 1.35em;
     background-color: var(--bg);
+}
+
+.reorder-row-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--snippet);
+    font: inherit;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    -webkit-touch-callout: none;
+}
+
+.reorder-row-handle:active,
+.reorder-row.is-dragging .reorder-row-handle {
+    cursor: grabbing;
 }
 
 .reorder-row:last-child {

@@ -73,13 +73,59 @@ export const initReorder = () => {
         dropPosition = null;
     };
 
-    const getDropInfo = (event) => {
-        const row = event.target.closest(".reorder-row");
+    const endDrag = () => {
+        if (dragState && dragState.row) {
+            dragState.row.classList.remove("is-dragging");
+        }
+        dragState = null;
+        clearDropIndicator();
+    };
+
+    const buildDragState = (row, extra = {}) => {
+        const startLine = Number.parseInt(row.dataset.startLine, 10);
+        const endLine = Number.parseInt(row.dataset.endLine, 10);
+        if (!Number.isFinite(startLine) || !Number.isFinite(endLine)) {
+            return null;
+        }
+        return {
+            startLine,
+            endLine,
+            mode: getActiveMode(page),
+            row,
+            ...extra,
+        };
+    };
+
+    const isNoopMove = (drag, insertBeforeLine) =>
+        insertBeforeLine >= drag.startLine &&
+        insertBeforeLine <= drag.endLine + 1;
+
+    const applyReorder = async (drag, insertBeforeLine) => {
+        if (!drag || isNoopMove(drag, insertBeforeLine)) {
+            return;
+        }
+        try {
+            await postReorder(docId, {
+                startLine: drag.startLine,
+                endLine: drag.endLine,
+                insertBeforeLine,
+                mode: drag.mode,
+            });
+            const url = new URL(window.location.href);
+            url.searchParams.set("mode", drag.mode);
+            window.location.assign(url);
+        } catch (err) {
+            console.error(err);
+            setNotice("Failed to reorder. Please reload and try again.");
+        }
+    };
+
+    const getDropInfoForRow = (row, clientY) => {
         if (!row || !row.dataset.startLine || !row.dataset.endLine) {
             return { insertBeforeLine: lineCount, row: null, position: null };
         }
         const rect = row.getBoundingClientRect();
-        const after = event.clientY > rect.top + rect.height / 2;
+        const after = clientY > rect.top + rect.height / 2;
         const mode = getActiveMode(page);
         if (!after) {
             return {
@@ -108,14 +154,48 @@ export const initReorder = () => {
         return { insertBeforeLine: lineCount, row, position: "after" };
     };
 
-    document.querySelectorAll(".reorder-row").forEach((row) => {
-        row.addEventListener("dragstart", (event) => {
-            const startLine = Number.parseInt(row.dataset.startLine, 10);
-            const endLine = Number.parseInt(row.dataset.endLine, 10);
-            if (!Number.isFinite(startLine) || !Number.isFinite(endLine)) {
+    const getDropInfoFromPoint = (clientX, clientY) => {
+        const element = document.elementFromPoint(clientX, clientY);
+        if (!element) {
+            return {
+                insertBeforeLine: lineCount,
+                row: null,
+                position: null,
+                isOverList: false,
+            };
+        }
+        const row = element.closest(".reorder-row");
+        if (row) {
+            return { ...getDropInfoForRow(row, clientY), isOverList: true };
+        }
+        const list = element.closest(".reorder-list");
+        if (list) {
+            return {
+                insertBeforeLine: lineCount,
+                row: null,
+                position: null,
+                isOverList: true,
+            };
+        }
+        return {
+            insertBeforeLine: lineCount,
+            row: null,
+            position: null,
+            isOverList: false,
+        };
+    };
+
+    document.querySelectorAll(".reorder-row-handle").forEach((handle) => {
+        handle.addEventListener("dragstart", (event) => {
+            const row = handle.closest(".reorder-row");
+            if (!row) {
                 return;
             }
-            dragState = { startLine, endLine, mode: getActiveMode(page) };
+            const nextState = buildDragState(row);
+            if (!nextState) {
+                return;
+            }
+            dragState = { ...nextState, type: "native" };
             row.classList.add("is-dragging");
             if (event.dataTransfer) {
                 event.dataTransfer.effectAllowed = "move";
@@ -123,20 +203,96 @@ export const initReorder = () => {
             }
         });
 
-        row.addEventListener("dragend", () => {
-            row.classList.remove("is-dragging");
-            dragState = null;
-            clearDropIndicator();
+        handle.addEventListener("dragend", () => {
+            endDrag();
         });
+
+        handle.addEventListener("pointerdown", (event) => {
+            if (event.pointerType === "mouse" || dragState) {
+                return;
+            }
+            const row = handle.closest(".reorder-row");
+            if (!row) {
+                return;
+            }
+            const nextState = buildDragState(row, {
+                type: "pointer",
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                hasMoved: false,
+            });
+            if (!nextState) {
+                return;
+            }
+            dragState = nextState;
+            if (handle.setPointerCapture) {
+                handle.setPointerCapture(event.pointerId);
+            }
+            event.preventDefault();
+        });
+
+        handle.addEventListener("pointermove", (event) => {
+            if (
+                !dragState ||
+                dragState.type !== "pointer" ||
+                dragState.pointerId !== event.pointerId
+            ) {
+                return;
+            }
+            const dx = event.clientX - dragState.startX;
+            const dy = event.clientY - dragState.startY;
+            if (!dragState.hasMoved && Math.hypot(dx, dy) < 4) {
+                return;
+            }
+            if (!dragState.hasMoved) {
+                dragState.hasMoved = true;
+                dragState.row.classList.add("is-dragging");
+            }
+            const info = getDropInfoFromPoint(event.clientX, event.clientY);
+            if (!info.row) {
+                clearDropIndicator();
+            } else if (dropTarget !== info.row || dropPosition !== info.position) {
+                clearDropIndicator();
+                dropTarget = info.row;
+                dropPosition = info.position;
+                dropTarget.classList.add(
+                    dropPosition === "after" ? "drop-after" : "drop-before"
+                );
+            }
+            event.preventDefault();
+        });
+
+        const finishPointerDrag = async (event) => {
+            if (
+                !dragState ||
+                dragState.type !== "pointer" ||
+                dragState.pointerId !== event.pointerId
+            ) {
+                return;
+            }
+            const currentDrag = dragState;
+            const info = getDropInfoFromPoint(event.clientX, event.clientY);
+            endDrag();
+            if (!currentDrag.hasMoved || !info.isOverList) {
+                return;
+            }
+            await applyReorder(currentDrag, info.insertBeforeLine);
+            event.preventDefault();
+        };
+
+        handle.addEventListener("pointerup", finishPointerDrag);
+        handle.addEventListener("pointercancel", finishPointerDrag);
     });
 
     document.querySelectorAll(".reorder-list").forEach((list) => {
         list.addEventListener("dragover", (event) => {
             event.preventDefault();
-            if (!dragState) {
+            if (!dragState || dragState.type === "pointer") {
                 return;
             }
-            const info = getDropInfo(event);
+            const row = event.target.closest(".reorder-row");
+            const info = getDropInfoForRow(row, event.clientY);
             if (!info.row) {
                 clearDropIndicator();
                 return;
@@ -159,26 +315,14 @@ export const initReorder = () => {
 
         list.addEventListener("drop", async (event) => {
             event.preventDefault();
-            if (!dragState) {
+            if (!dragState || dragState.type === "pointer") {
                 return;
             }
             const currentDrag = dragState;
-            const info = getDropInfo(event);
-            clearDropIndicator();
-            try {
-                await postReorder(docId, {
-                    startLine: currentDrag.startLine,
-                    endLine: currentDrag.endLine,
-                    insertBeforeLine: info.insertBeforeLine,
-                    mode: currentDrag.mode,
-                });
-                const url = new URL(window.location.href);
-                url.searchParams.set("mode", currentDrag.mode);
-                window.location.assign(url);
-            } catch (err) {
-                console.error(err);
-                setNotice("Failed to reorder. Please reload and try again.");
-            }
+            const row = event.target.closest(".reorder-row");
+            const info = getDropInfoForRow(row, event.clientY);
+            endDrag();
+            await applyReorder(currentDrag, info.insertBeforeLine);
         });
     });
 };
