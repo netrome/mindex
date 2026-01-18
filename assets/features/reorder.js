@@ -162,17 +162,18 @@ export const initReorder = () => {
             if (!dragState) {
                 return;
             }
+            const currentDrag = dragState;
             const info = getDropInfo(event);
             clearDropIndicator();
             try {
                 await postReorder(docId, {
-                    startLine: dragState.startLine,
-                    endLine: dragState.endLine,
+                    startLine: currentDrag.startLine,
+                    endLine: currentDrag.endLine,
                     insertBeforeLine: info.insertBeforeLine,
-                    mode: dragState.mode,
+                    mode: currentDrag.mode,
                 });
                 const url = new URL(window.location.href);
-                url.searchParams.set("mode", dragState.mode);
+                url.searchParams.set("mode", currentDrag.mode);
                 window.location.assign(url);
             } catch (err) {
                 console.error(err);
