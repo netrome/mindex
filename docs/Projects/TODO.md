@@ -6,6 +6,10 @@
 - [ ] Drag/rearrange TODO items
   - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting
+- [ ] Public pages
+- [ ] Custom styling of pages
+  - Allow embed ad-hoc styles on a page to "pimp it up".
+- [ ] Image uploads
 - [ ] Emojis
 - [ ] Code execution/scripting
 - [ ] Chat boxes
