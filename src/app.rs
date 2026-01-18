@@ -783,6 +783,41 @@ password_hash = "hash"
     }
 
     #[tokio::test]
+    async fn document_reorder_range__should_reject_non_block_range_in_block_mode() {
+        // Given
+        let root = create_temp_root("reorder-block-range");
+        let contents = "\
+Heading
+text line 1
+text line 2
+";
+        std::fs::write(root.join("note.md"), contents).expect("write note.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "doc_id=note.md&start_line=1&end_line=1&insert_before_line=0&mode=block";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/doc/reorder-range")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
     async fn git_view__should_return_not_found_when_git_unavailable() {
         // Given
         let root = create_temp_root("git-missing");

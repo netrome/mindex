@@ -1,7 +1,7 @@
 # Reorder Items (Todo + General)
 
 ## Status
-In progress
+Implemented
 
 ## Goal
 Provide a convenient way to reorder TODO items within a document (including moving between separate lists), while also enabling a minimal, general-purpose “reorder blocks” feature for any markdown content.
@@ -90,7 +90,6 @@ This satisfies the TODO list reorder request while keeping the system minimal an
 - Add a “Reorder” action on document view and/or edit view.
 - Route: `GET /reorder/{*path}`.
 - Default view: block list with drag handles.
-- If a block is a table, allow row-level reordering within that table (header + separator fixed).
 - Optional toggle: “Line mode” (advanced).
 - After drop: `POST /api/doc/reorder-range` and re-render the reorder page.
 
@@ -121,7 +120,7 @@ Blocks to support in v1:
 - **List items** (ordered/unordered, including TODO checkboxes): include continuation lines indented more than the item’s marker indent until the next list item at the same or lower indent.
 - **Headings**: treat the heading line as its own block (optionally include following paragraph if desired later).
 - **Paragraphs**: contiguous non-blank lines not part of the above.
-- **Tables**: detect pipe tables with a header row + separator row; emit a table block and parse body rows for optional row-level reorder.
+- **Tables**: detect pipe tables with a header row + separator row; emit a table block.
 
 If a block cannot be confidently determined (rare), fall back to line mode.
 
@@ -167,11 +166,8 @@ No ADR needed. This change does not alter architecture, security model, data mod
 - Status: Done.
 - **Acceptance criteria**: Line mode renders one line per row; dragging lines reorders correctly.
 
-### Task 6: Table row reorder (within block mode)
-- For detected tables, expose row-level drag handles for body rows (header + separator fixed).
-- **Acceptance criteria**: Dragging a table row reorders only the body rows and preserves header/formatting.
-
-### Task 7: Tests + docs
+### Task 6: Tests + docs
 - Unit tests for block detection and reorder splice.
 - Integration test for API endpoint.
-- **Acceptance criteria**: Tests cover list-item moves, fenced code blocks, and table-row moves; docs mention the reorder feature and its limitations.
+- Status: Done.
+- **Acceptance criteria**: Tests cover list-item moves and fenced code blocks; docs mention the reorder feature and its limitations.

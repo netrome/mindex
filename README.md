@@ -12,6 +12,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 - Math expressions via LaTeX syntax (`$...$` for inline, `$$...$$` for display)
 - Full-text search across documents
 - Edit and save Markdown from the browser
+- Reorder mode (`/reorder/<doc>.md`) with block/line drag + drop
 - Mobile-friendly UI
 - Optional in-app authentication with a signed cookie
 - Optional git diff + commit UI (when the root is a git repo)

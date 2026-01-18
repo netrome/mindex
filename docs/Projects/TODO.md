@@ -1,8 +1,6 @@
 # TODO
 
 ## In progress
-- [ ] Drag/rearrange TODO items (reorder mode read-only page shipped)
-  - Could be general to allow any type of block/collection to be draggable.
 
 ## To do
 - [ ] Code syntax highligting
@@ -21,6 +19,8 @@
 
 
 ## Recently done
+- [x] Drag/rearrange TODO items
+  - Reorder mode with block/line drag + drop.
 - [x] Easy TODO input
 - [x] JS structure refactor (feature modules + app.js entrypoint)
 - [x] @username tagging/notifications
