@@ -51,7 +51,7 @@ Cons:
 Verdict: Minimal and general, but risky for correctness when users select partial structures.
 
 ### Option 3: Reorder mode (block-based, lightweight scanner)
-A dedicated reorder page renders **blocks** (list items, fenced code blocks, paragraphs, headings). Dragging moves whole blocks. Server splices by block line ranges, validated against the current content.
+A dedicated reorder page renders **blocks** (list items, fenced code blocks, paragraphs, headings, tables). Dragging moves whole blocks. Server splices by block line ranges, validated against the current content.
 
 Pros:
 - Still general and file-backed.
@@ -88,8 +88,9 @@ This satisfies the TODO list reorder request while keeping the system minimal an
 
 ## Proposed UX
 - Add a “Reorder” action on document view and/or edit view.
-- Route: `GET /reorder/{*path}` (or `/doc/{*path}/reorder` if preferred).
+- Route: `GET /doc/{*path}/reorder`.
 - Default view: block list with drag handles.
+- If a block is a table, allow row-level reordering within that table (header + separator fixed).
 - Optional toggle: “Line mode” (advanced).
 - After drop: `POST /api/doc/reorder-range` and re-render the reorder page.
 
@@ -120,6 +121,7 @@ Blocks to support in v1:
 - **List items** (ordered/unordered, including TODO checkboxes): include continuation lines indented more than the item’s marker indent until the next list item at the same or lower indent.
 - **Headings**: treat the heading line as its own block (optionally include following paragraph if desired later).
 - **Paragraphs**: contiguous non-blank lines not part of the above.
+- **Tables**: detect pipe tables with a header row + separator row; emit a table block and parse body rows for optional row-level reorder.
 
 If a block cannot be confidently determined (rare), fall back to line mode.
 
@@ -127,6 +129,7 @@ If a block cannot be confidently determined (rare), fall back to line mode.
 - Reordering across documents.
 - WYSIWYG drag in the rendered markdown view.
 - Rich multi-select or multi-block drag in v1.
+- Reordering table columns.
 - Markdown AST parsing or heavy dependencies.
 
 ## Risks and mitigations
@@ -140,7 +143,7 @@ No ADR needed. This change does not alter architecture, security model, data mod
 ## Task breakdown (PR-sized)
 
 ### Task 1: Reorder page (read-only UI)
-- Add `GET /reorder/{*path}` handler and template rendering a block list.
+- Add `GET /doc/{*path}/reorder` handler and template rendering a block list.
 - **Acceptance criteria**: A document can be opened in “Reorder” mode and shows draggable blocks with start/end line data.
 
 ### Task 2: Block scanner + reorder splice
@@ -159,7 +162,11 @@ No ADR needed. This change does not alter architecture, security model, data mod
 - Add a toggle to switch the reorder view into line mode (each line as a draggable block).
 - **Acceptance criteria**: Line mode renders one line per row; dragging lines reorders correctly.
 
-### Task 6: Tests + docs
+### Task 6: Table row reorder (within block mode)
+- For detected tables, expose row-level drag handles for body rows (header + separator fixed).
+- **Acceptance criteria**: Dragging a table row reorders only the body rows and preserves header/formatting.
+
+### Task 7: Tests + docs
 - Unit tests for block detection and reorder splice.
 - Integration test for API endpoint.
-- **Acceptance criteria**: Tests cover list-item moves and fenced code blocks; docs mention the reorder feature and its limitations.
+- **Acceptance criteria**: Tests cover list-item moves, fenced code blocks, and table-row moves; docs mention the reorder feature and its limitations.
