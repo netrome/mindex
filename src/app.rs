@@ -60,6 +60,7 @@ pub fn app(config: config::AppConfig) -> Router {
             "/edit/{*path}",
             get(documents::document_edit).post(documents::document_save),
         )
+        .route("/reorder/{*path}", get(documents::document_reorder))
         .route("/doc/{*path}", get(documents::document_view))
         .route("/git", get(git::git_view))
         .route("/git/commit", post(git::git_commit))
@@ -647,6 +648,35 @@ password_hash = "hash"
         assert!(html.contains("Saved."));
     }
 
+    #[test]
+    fn render_reorder_page__should_render_line_entries() {
+        // Given
+        let template = templates::ReorderTemplate {
+            app_name: "Mindex".to_string(),
+            doc_id: "notes/food.md".to_string(),
+            lines: vec![
+                templates::ReorderLine {
+                    index: 0,
+                    text: "First line".to_string(),
+                },
+                templates::ReorderLine {
+                    index: 1,
+                    text: String::new(),
+                },
+            ],
+            git_enabled: false,
+        };
+
+        // When
+        let html = template.render().unwrap();
+
+        // Then
+        assert!(html.contains("Reorder notes/food.md"));
+        assert!(html.contains(r#"data-start-line="0""#));
+        assert!(html.contains(r#"data-end-line="0""#));
+        assert!(html.contains("First line"));
+    }
+
     #[tokio::test]
     async fn view_document__should_return_not_found_for_missing_doc() {
         // Given
@@ -669,6 +699,39 @@ password_hash = "hash"
 
         // Then
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn view_document_reorder__should_render_reorder_page() {
+        // Given
+        let root = create_temp_root("reorder-view");
+        std::fs::write(root.join("note.md"), "Line 1\nLine 2").expect("write note.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/reorder/note.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(body.contains("Reorder note.md"));
+        assert!(body.contains(r#"data-start-line="0""#));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

@@ -252,6 +252,50 @@ button:hover {
     font-size: 0.9rem;
 }
 
+.reorder-page {
+    margin-top: 1rem;
+}
+
+.reorder-empty {
+    padding: 1rem;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    color: var(--snippet);
+}
+
+.reorder-list {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.reorder-line {
+    display: grid;
+    grid-template-columns: 3rem 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.35rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+    font-size: 0.9em;
+    min-height: 1.35em;
+}
+
+.reorder-line:last-child {
+    border-bottom: none;
+}
+
+.reorder-line-number {
+    color: var(--snippet);
+    text-align: right;
+    user-select: none;
+}
+
+.reorder-line-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .search-form {
     display: flex;
     flex-wrap: wrap;

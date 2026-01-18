@@ -1,7 +1,7 @@
 # Reorder Items (Todo + General)
 
 ## Status
-Proposed
+In progress
 
 ## Goal
 Provide a convenient way to reorder TODO items within a document (including moving between separate lists), while also enabling a minimal, general-purpose “reorder blocks” feature for any markdown content.
@@ -88,7 +88,7 @@ This satisfies the TODO list reorder request while keeping the system minimal an
 
 ## Proposed UX
 - Add a “Reorder” action on document view and/or edit view.
-- Route: `GET /doc/{*path}/reorder`.
+- Route: `GET /reorder/{*path}`.
 - Default view: block list with drag handles.
 - If a block is a table, allow row-level reordering within that table (header + separator fixed).
 - Optional toggle: “Line mode” (advanced).
@@ -143,8 +143,9 @@ No ADR needed. This change does not alter architecture, security model, data mod
 ## Task breakdown (PR-sized)
 
 ### Task 1: Reorder page (read-only UI)
-- Add `GET /doc/{*path}/reorder` handler and template rendering a block list.
-- **Acceptance criteria**: A document can be opened in “Reorder” mode and shows draggable blocks with start/end line data.
+- Add `GET /reorder/{*path}` handler and template rendering a block list.
+- Status: Done.
+- **Acceptance criteria**: A document can be opened in “Reorder” mode and shows line blocks with start/end line data.
 
 ### Task 2: Block scanner + reorder splice
 - Implement a small block scanner and a `reorder_range` function.

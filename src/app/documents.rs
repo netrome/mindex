@@ -203,6 +203,37 @@ pub(crate) async fn document_view(
     })
 }
 
+pub(crate) async fn document_reorder(
+    State(state): State<state::AppState>,
+    AxumPath(doc_id): AxumPath<String>,
+) -> Result<templates::ReorderTemplate, (StatusCode, &'static str)> {
+    let git_enabled = state.git_dir.is_some();
+    let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
+        DocError::NotFound => (StatusCode::NOT_FOUND, "document not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err:?}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let normalized = normalize_newlines(&contents);
+    let lines = normalized
+        .lines()
+        .enumerate()
+        .map(|(index, text)| templates::ReorderLine {
+            index,
+            text: text.to_string(),
+        })
+        .collect();
+
+    Ok(templates::ReorderTemplate {
+        app_name: state.config.app_name,
+        doc_id,
+        lines,
+        git_enabled,
+    })
+}
+
 pub(crate) async fn document_edit(
     State(state): State<state::AppState>,
     AxumPath(doc_id): AxumPath<String>,

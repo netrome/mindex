@@ -1,10 +1,10 @@
 # TODO
 
 ## In progress
+- [ ] Drag/rearrange TODO items (reorder mode read-only page shipped)
+  - Could be general to allow any type of block/collection to be draggable.
 
 ## To do
-- [ ] Drag/rearrange TODO items
-  - Could be general to allow any type of block/collection to be draggable.
 - [ ] Code syntax highligting
 - [ ] Public pages
 - [ ] Custom styling of pages

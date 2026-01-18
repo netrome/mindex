@@ -40,6 +40,20 @@ pub(crate) struct DocumentTemplate {
 }
 
 #[derive(Template, WebTemplate)]
+#[template(path = "reorder.html")]
+pub(crate) struct ReorderTemplate {
+    pub(crate) app_name: String,
+    pub(crate) doc_id: String,
+    pub(crate) lines: Vec<ReorderLine>,
+    pub(crate) git_enabled: bool,
+}
+
+pub(crate) struct ReorderLine {
+    pub(crate) index: usize,
+    pub(crate) text: String,
+}
+
+#[derive(Template, WebTemplate)]
 #[template(path = "edit.html")]
 pub(crate) struct EditTemplate {
     pub(crate) app_name: String,
