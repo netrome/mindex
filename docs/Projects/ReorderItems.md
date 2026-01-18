@@ -149,6 +149,7 @@ No ADR needed. This change does not alter architecture, security model, data mod
 
 ### Task 2: Block scanner + reorder splice
 - Implement a small block scanner and a `reorder_range` function.
+- Status: Done.
 - **Acceptance criteria**: Given a known markdown fixture, blocks match expected ranges; reordering produces correct content.
 
 ### Task 3: Reorder API endpoint

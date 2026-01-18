@@ -1,8 +1,9 @@
 use crate::config;
 use crate::documents::{
-    DocError, add_task_item_in_list, atomic_write, collect_markdown_paths, collect_mentions,
-    create_document, doc_id_from_path, load_document, normalize_newlines,
-    render_task_list_markdown, resolve_doc_path, rewrite_relative_md_links, toggle_task_item,
+    DocError, ReorderError, add_task_item_in_list, atomic_write, collect_markdown_paths,
+    collect_mentions, create_document, doc_id_from_path, line_count, load_document,
+    normalize_newlines, render_task_list_markdown, reorder_range, resolve_doc_path,
+    rewrite_relative_md_links, scan_block_ranges, toggle_task_item,
 };
 use crate::math::{MathStyle, render_math};
 use crate::push as push_service;
@@ -403,6 +404,94 @@ pub(crate) async fn document_add_task(
     }
 
     Ok(Redirect::to(&format!("/doc/{doc_id}")))
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ReorderRangeForm {
+    pub(crate) doc_id: String,
+    pub(crate) start_line: usize,
+    pub(crate) end_line: usize,
+    pub(crate) insert_before_line: usize,
+    pub(crate) mode: Option<String>,
+}
+
+pub(crate) async fn document_reorder_range(
+    State(state): State<state::AppState>,
+    Form(form): Form<ReorderRangeForm>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let doc_id = form.doc_id.trim();
+    if doc_id.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "doc_id is required"));
+    }
+
+    let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let contents = std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let total_lines = line_count(&contents);
+    if total_lines == 0 {
+        return Err((StatusCode::BAD_REQUEST, "document is empty"));
+    }
+    if form.start_line > form.end_line
+        || form.end_line >= total_lines
+        || form.insert_before_line > total_lines
+    {
+        return Err((StatusCode::BAD_REQUEST, "invalid line range"));
+    }
+
+    if form.mode.as_deref() == Some("block") {
+        let blocks = scan_block_ranges(&contents);
+        let matches_block = blocks
+            .iter()
+            .any(|block| block.start == form.start_line && block.end == form.end_line);
+        if !matches_block {
+            return Err((StatusCode::CONFLICT, "range does not match a block"));
+        }
+        let matches_boundary = form.insert_before_line == total_lines
+            || blocks
+                .iter()
+                .any(|block| block.start == form.insert_before_line);
+        if !matches_boundary {
+            return Err((StatusCode::CONFLICT, "insert point is not a block boundary"));
+        }
+    }
+
+    let updated = reorder_range(
+        &contents,
+        form.start_line,
+        form.end_line,
+        form.insert_before_line,
+    )
+    .map_err(|err| match err {
+        ReorderError::InvalidRange => (StatusCode::BAD_REQUEST, "invalid line range"),
+    })?;
+
+    let Some(updated) = updated else {
+        return Ok(StatusCode::NO_CONTENT);
+    };
+
+    atomic_write(&path, &updated).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after reorder: {err}");
+    }
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub(crate) fn search_documents(

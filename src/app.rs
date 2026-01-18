@@ -71,6 +71,10 @@ pub fn app(config: config::AppConfig) -> Router {
             post(documents::document_toggle_task),
         )
         .route("/api/doc/add-task", post(documents::document_add_task))
+        .route(
+            "/api/doc/reorder-range",
+            post(documents::document_reorder_range),
+        )
         .route("/push/subscribe", get(push::push_subscribe))
         .route("/api/push/public-key", get(push::push_public_key))
         .route("/api/push/test", post(push::push_test))
@@ -732,6 +736,38 @@ password_hash = "hash"
         let body = std::str::from_utf8(&body).expect("utf8");
         assert!(body.contains("Reorder note.md"));
         assert!(body.contains(r#"data-start-line="0""#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn document_reorder_range__should_update_document() {
+        // Given
+        let root = create_temp_root("reorder-range");
+        std::fs::write(root.join("note.md"), "a\nb\nc\n").expect("write note.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "doc_id=note.md&start_line=0&end_line=0&insert_before_line=2&mode=line";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/doc/reorder-range")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        let updated = std::fs::read_to_string(root.join("note.md")).expect("read note.md");
+        assert_eq!(updated, "b\na\nc\n");
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
