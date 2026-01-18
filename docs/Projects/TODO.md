@@ -19,6 +19,7 @@
 
 
 ## Recently done
+- [x] Auto-scroll while dragging reorder items on mobile
 - [x] Mobile-friendly drag handle for reorder mode
 - [x] Drag/rearrange TODO items
   - Reorder mode with block/line drag + drop.

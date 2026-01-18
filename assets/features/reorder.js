@@ -64,6 +64,7 @@ export const initReorder = () => {
     let dragState = null;
     let dropTarget = null;
     let dropPosition = null;
+    let autoScroll = null;
 
     const clearDropIndicator = () => {
         if (dropTarget) {
@@ -73,12 +74,20 @@ export const initReorder = () => {
         dropPosition = null;
     };
 
+    const stopAutoScroll = () => {
+        if (autoScroll && autoScroll.raf) {
+            cancelAnimationFrame(autoScroll.raf);
+        }
+        autoScroll = null;
+    };
+
     const endDrag = () => {
         if (dragState && dragState.row) {
             dragState.row.classList.remove("is-dragging");
         }
         dragState = null;
         clearDropIndicator();
+        stopAutoScroll();
     };
 
     const buildDragState = (row, extra = {}) => {
@@ -185,6 +194,61 @@ export const initReorder = () => {
         };
     };
 
+    const updateDropIndicatorAt = (clientX, clientY) => {
+        const info = getDropInfoFromPoint(clientX, clientY);
+        if (!info.row) {
+            clearDropIndicator();
+        } else if (dropTarget !== info.row || dropPosition !== info.position) {
+            clearDropIndicator();
+            dropTarget = info.row;
+            dropPosition = info.position;
+            dropTarget.classList.add(
+                dropPosition === "after" ? "drop-after" : "drop-before"
+            );
+        }
+        return info;
+    };
+
+    const updateAutoScroll = (clientY) => {
+        if (!dragState || dragState.type !== "pointer" || !dragState.hasMoved) {
+            stopAutoScroll();
+            return;
+        }
+        const threshold = 48;
+        const maxSpeed = 18;
+        const height = window.innerHeight;
+        let speed = 0;
+        if (clientY < threshold) {
+            speed = -((threshold - clientY) / threshold) * maxSpeed;
+        } else if (clientY > height - threshold) {
+            speed = ((clientY - (height - threshold)) / threshold) * maxSpeed;
+        }
+        if (speed === 0) {
+            stopAutoScroll();
+            return;
+        }
+        if (!autoScroll) {
+            autoScroll = { speed, raf: 0 };
+            const step = () => {
+                if (!autoScroll || !dragState || dragState.type !== "pointer") {
+                    stopAutoScroll();
+                    return;
+                }
+                window.scrollBy(0, autoScroll.speed);
+                if (
+                    Number.isFinite(dragState.lastX) &&
+                    Number.isFinite(dragState.lastY)
+                ) {
+                    updateDropIndicatorAt(dragState.lastX, dragState.lastY);
+                }
+                autoScroll.raf = requestAnimationFrame(step);
+            };
+            autoScroll.raf = requestAnimationFrame(step);
+        } else {
+            autoScroll.speed = speed;
+        }
+    };
+
     document.querySelectorAll(".reorder-row-handle").forEach((handle) => {
         handle.addEventListener("dragstart", (event) => {
             const row = handle.closest(".reorder-row");
@@ -221,6 +285,8 @@ export const initReorder = () => {
                 startX: event.clientX,
                 startY: event.clientY,
                 hasMoved: false,
+                lastX: event.clientX,
+                lastY: event.clientY,
             });
             if (!nextState) {
                 return;
@@ -249,17 +315,10 @@ export const initReorder = () => {
                 dragState.hasMoved = true;
                 dragState.row.classList.add("is-dragging");
             }
-            const info = getDropInfoFromPoint(event.clientX, event.clientY);
-            if (!info.row) {
-                clearDropIndicator();
-            } else if (dropTarget !== info.row || dropPosition !== info.position) {
-                clearDropIndicator();
-                dropTarget = info.row;
-                dropPosition = info.position;
-                dropTarget.classList.add(
-                    dropPosition === "after" ? "drop-after" : "drop-before"
-                );
-            }
+            dragState.lastX = event.clientX;
+            dragState.lastY = event.clientY;
+            updateDropIndicatorAt(event.clientX, event.clientY);
+            updateAutoScroll(event.clientY);
             event.preventDefault();
         });
 
