@@ -68,6 +68,16 @@ pub(crate) async fn todo_toggle_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn reorder_script() -> axum::response::Response {
+    const REORDER_JS_CONTENT: &str = include_str!("../assets/features/reorder.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(REORDER_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn push_subscribe_script() -> axum::response::Response {
     const PUSH_SUBSCRIBE_JS_CONTENT: &str = include_str!("../assets/features/push_subscribe.js");
     axum::response::Response::builder()

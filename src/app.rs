@@ -87,6 +87,7 @@ pub fn app(config: config::AppConfig) -> Router {
             "/static/features/todo_toggle.js",
             get(assets::todo_toggle_script),
         )
+        .route("/static/features/reorder.js", get(assets::reorder_script))
         .route(
             "/static/features/push_subscribe.js",
             get(assets::push_subscribe_script),
@@ -668,6 +669,15 @@ password_hash = "hash"
                     text: String::new(),
                 },
             ],
+            blocks: vec![templates::ReorderBlock {
+                start: 0,
+                end: 0,
+                kind: "Paragraph".to_string(),
+                text: "First line".to_string(),
+                is_blank: false,
+            }],
+            line_count: 2,
+            mode: "block".to_string(),
             git_enabled: false,
         };
 

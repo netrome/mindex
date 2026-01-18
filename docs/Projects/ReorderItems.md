@@ -154,14 +154,17 @@ No ADR needed. This change does not alter architecture, security model, data mod
 
 ### Task 3: Reorder API endpoint
 - Add `POST /api/doc/reorder-range` that validates and applies a reorder.
+- Status: Done.
 - **Acceptance criteria**: A valid reorder request updates the document on disk; invalid ranges return 400; stale block boundaries return 409.
 
 ### Task 4: Client drag/drop
 - Add `assets/features/reorder.js` and minimal CSS for drag handles + drop markers.
+- Status: Done.
 - **Acceptance criteria**: Users can drag a block and drop it elsewhere; the document updates and the reorder page refreshes.
 
 ### Task 5: Line mode fallback
 - Add a toggle to switch the reorder view into line mode (each line as a draggable block).
+- Status: Done.
 - **Acceptance criteria**: Line mode renders one line per row; dragging lines reorders correctly.
 
 ### Task 6: Table row reorder (within block mode)

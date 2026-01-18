@@ -325,6 +325,13 @@ pub(crate) fn line_count(contents: &str) -> usize {
     split_lines_preserve(contents).len()
 }
 
+pub(crate) fn lines_for_display(contents: &str) -> Vec<String> {
+    split_lines_preserve(contents)
+        .into_iter()
+        .map(|segment| segment.text)
+        .collect()
+}
+
 pub(crate) fn scan_block_ranges(contents: &str) -> Vec<BlockRange> {
     let lines = split_lines_preserve(contents);
     let mut blocks = Vec::new();

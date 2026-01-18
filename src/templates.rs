@@ -45,12 +45,23 @@ pub(crate) struct ReorderTemplate {
     pub(crate) app_name: String,
     pub(crate) doc_id: String,
     pub(crate) lines: Vec<ReorderLine>,
+    pub(crate) blocks: Vec<ReorderBlock>,
+    pub(crate) line_count: usize,
+    pub(crate) mode: String,
     pub(crate) git_enabled: bool,
 }
 
 pub(crate) struct ReorderLine {
     pub(crate) index: usize,
     pub(crate) text: String,
+}
+
+pub(crate) struct ReorderBlock {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) kind: String,
+    pub(crate) text: String,
+    pub(crate) is_blank: bool,
 }
 
 #[derive(Template, WebTemplate)]

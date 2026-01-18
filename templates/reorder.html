@@ -20,17 +20,55 @@
 
 <h1>Reorder {{ doc_id }}</h1>
 
-<p class="notice">Read-only preview for now. Drag and drop comes next.</p>
+<div class="notice" data-reorder-notice>Drag and drop blocks or lines to reorder.</div>
 
-<div class="reorder-page" data-doc-id="{{ doc_id }}" data-mode="line">
+<div class="reorder-toolbar">
+    <span class="reorder-toolbar-label">Mode</span>
+    <button type="button" class="reorder-mode-toggle" data-mode="block" aria-pressed="false">
+        Blocks
+    </button>
+    <button type="button" class="reorder-mode-toggle" data-mode="line" aria-pressed="false">
+        Lines
+    </button>
+</div>
+
+<div
+    class="reorder-page"
+    data-doc-id="{{ doc_id }}"
+    data-mode="{{ mode }}"
+    data-line-count="{{ line_count }}"
+>
     {% if lines.is_empty() %}
     <div class="reorder-empty">Document is empty.</div>
     {% else %}
-    <div class="reorder-list">
+    <div class="reorder-list reorder-list-block" data-mode="block">
+        {% for block in blocks %}
+        <div
+            class="reorder-row reorder-row-block{% if block.is_blank %} is-blank{% endif %}"
+            draggable="true"
+            data-start-line="{{ block.start }}"
+            data-end-line="{{ block.end }}"
+        >
+            <div class="reorder-row-meta">
+                <span class="reorder-row-range">
+                    {{ block.start + 1 }}{% if block.end != block.start %}-{{ block.end + 1 }}{% endif %}
+                </span>
+                <span class="reorder-row-kind">{{ block.kind }}</span>
+            </div>
+            <pre class="reorder-row-text">{{ block.text }}</pre>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="reorder-list reorder-list-line" data-mode="line">
         {% for line in lines %}
-        <div class="reorder-line" data-start-line="{{ line.index }}" data-end-line="{{ line.index }}">
-            <span class="reorder-line-number">{{ line.index + 1 }}</span>
-            <span class="reorder-line-text">{{ line.text }}</span>
+        <div
+            class="reorder-row reorder-row-line"
+            draggable="true"
+            data-start-line="{{ line.index }}"
+            data-end-line="{{ line.index }}"
+        >
+            <span class="reorder-row-range">{{ line.index + 1 }}</span>
+            <span class="reorder-row-text-inline">{{ line.text }}</span>
         </div>
         {% endfor %}
     </div>

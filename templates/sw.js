@@ -5,6 +5,7 @@ const STATIC_ASSETS = [
   '/static/theme.js',
   '/static/app.js',
   '/static/features/todo_toggle.js',
+  '/static/features/reorder.js',
   '/static/features/push_subscribe.js',
   '/static/features/sw_register.js',
   '/static/manifest.json',

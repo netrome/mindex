@@ -1,8 +1,8 @@
 use crate::config;
 use crate::documents::{
-    DocError, ReorderError, add_task_item_in_list, atomic_write, collect_markdown_paths,
-    collect_mentions, create_document, doc_id_from_path, line_count, load_document,
-    normalize_newlines, render_task_list_markdown, reorder_range, resolve_doc_path,
+    BlockKind, DocError, ReorderError, add_task_item_in_list, atomic_write, collect_markdown_paths,
+    collect_mentions, create_document, doc_id_from_path, line_count, lines_for_display,
+    load_document, normalize_newlines, render_task_list_markdown, reorder_range, resolve_doc_path,
     rewrite_relative_md_links, scan_block_ranges, toggle_task_item,
 };
 use crate::math::{MathStyle, render_math};
@@ -204,9 +204,15 @@ pub(crate) async fn document_view(
     })
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct ReorderQuery {
+    pub(crate) mode: Option<String>,
+}
+
 pub(crate) async fn document_reorder(
     State(state): State<state::AppState>,
     AxumPath(doc_id): AxumPath<String>,
+    Query(query): Query<ReorderQuery>,
 ) -> Result<templates::ReorderTemplate, (StatusCode, &'static str)> {
     let git_enabled = state.git_dir.is_some();
     let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
@@ -217,22 +223,58 @@ pub(crate) async fn document_reorder(
         }
     })?;
 
-    let normalized = normalize_newlines(&contents);
-    let lines = normalized
-        .lines()
-        .enumerate()
-        .map(|(index, text)| templates::ReorderLine {
-            index,
-            text: text.to_string(),
+    let lines = lines_for_display(&contents);
+    let line_count = lines.len();
+    let blocks = scan_block_ranges(&contents)
+        .iter()
+        .map(|block| {
+            let text = if block.start <= block.end && block.end < lines.len() {
+                lines[block.start..=block.end].join("\n")
+            } else {
+                String::new()
+            };
+            templates::ReorderBlock {
+                start: block.start,
+                end: block.end,
+                kind: block_kind_label(block.kind),
+                text,
+                is_blank: block.kind == BlockKind::Blank,
+            }
         })
+        .collect();
+
+    let mode = match query.mode.as_deref() {
+        Some("line") => "line".to_string(),
+        _ => "block".to_string(),
+    };
+
+    let lines = lines
+        .into_iter()
+        .enumerate()
+        .map(|(index, text)| templates::ReorderLine { index, text })
         .collect();
 
     Ok(templates::ReorderTemplate {
         app_name: state.config.app_name,
         doc_id,
         lines,
+        blocks,
+        line_count,
+        mode,
         git_enabled,
     })
+}
+
+fn block_kind_label(kind: BlockKind) -> String {
+    match kind {
+        BlockKind::Fence => "Fence",
+        BlockKind::Table => "Table",
+        BlockKind::ListItem => "List",
+        BlockKind::Heading => "Heading",
+        BlockKind::Paragraph => "Paragraph",
+        BlockKind::Blank => "Blank",
+    }
+    .to_string()
 }
 
 pub(crate) async fn document_edit(
