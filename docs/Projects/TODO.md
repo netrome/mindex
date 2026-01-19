@@ -7,14 +7,11 @@
 - [ ] Public pages
 - [ ] Custom styling of pages
   - Allow embed ad-hoc styles on a page to "pimp it up".
+- [ ] Chat boxes
 - [ ] Image uploads
+- [ ] fzf style file search
 - [ ] Emojis
 - [ ] Code execution/scripting
-- [ ] Chat boxes
-- [ ] Remote terminal
-- [ ] Stuff
-- [ ] Things
-- [ ] Derp
 +
 
 
