@@ -13,6 +13,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 - Mermaid diagrams via fenced `mermaid` code blocks
 - Full-text search across documents
 - Edit and save Markdown from the browser
+- Image uploads via `/upload` (returns markdown link)
 - Reorder mode (`/reorder/<doc>.md`) with block/line drag + drop
 - Mobile-friendly UI
 - Optional in-app authentication with a signed cookie

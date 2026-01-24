@@ -3,7 +3,7 @@ use crate::documents::{
     BlockKind, DocError, ReorderError, add_task_item_in_list, atomic_write, collect_markdown_paths,
     collect_mentions, create_document, doc_id_from_path, line_count, lines_for_display,
     load_document, normalize_newlines, render_task_list_markdown, reorder_range, resolve_doc_path,
-    rewrite_relative_md_links, scan_block_ranges, toggle_task_item,
+    rewrite_relative_image_links, rewrite_relative_md_links, scan_block_ranges, toggle_task_item,
 };
 use crate::math::{MathStyle, html_escape, render_math};
 use crate::push as push_service;
@@ -178,8 +178,10 @@ pub(crate) async fn document_view(
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_MATH);
-    let parser =
-        Parser::new_ext(&rendered, options).map(|event| rewrite_relative_md_links(event, &doc_id));
+    let parser = Parser::new_ext(&rendered, options).map(|event| {
+        let event = rewrite_relative_md_links(event, &doc_id);
+        rewrite_relative_image_links(event, &doc_id)
+    });
 
     let mut has_mermaid = false;
     let mut in_mermaid = false;

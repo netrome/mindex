@@ -896,6 +896,34 @@ pub(crate) fn rewrite_relative_md_links<'a>(event: Event<'a>, doc_id: &str) -> E
     }
 }
 
+pub(crate) fn rewrite_relative_image_links<'a>(event: Event<'a>, doc_id: &str) -> Event<'a> {
+    match event {
+        Event::Start(Tag::Image {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) => {
+            if let Some(new_dest) = rewrite_relative_image_link(doc_id, dest_url.as_ref()) {
+                Event::Start(Tag::Image {
+                    link_type,
+                    dest_url: new_dest.into(),
+                    title,
+                    id,
+                })
+            } else {
+                Event::Start(Tag::Image {
+                    link_type,
+                    dest_url,
+                    title,
+                    id,
+                })
+            }
+        }
+        _ => event,
+    }
+}
+
 fn rewrite_relative_md_link(doc_id: &str, dest_url: &str) -> Option<String> {
     let (path_part, fragment) = split_link_fragment(dest_url);
     if path_part.is_empty() || is_absolute_or_scheme(path_part) || !path_part.ends_with(".md") {
@@ -906,6 +934,23 @@ fn rewrite_relative_md_link(doc_id: &str, dest_url: &str) -> Option<String> {
     doc_id_to_path(&resolved)?;
 
     let mut new_dest = String::from("/doc/");
+    new_dest.push_str(&resolved);
+    if let Some(fragment) = fragment {
+        new_dest.push('#');
+        new_dest.push_str(fragment);
+    }
+    Some(new_dest)
+}
+
+fn rewrite_relative_image_link(doc_id: &str, dest_url: &str) -> Option<String> {
+    let (path_part, fragment) = split_link_fragment(dest_url);
+    if path_part.is_empty() || is_absolute_or_scheme(path_part) {
+        return None;
+    }
+
+    let resolved = resolve_relative_path(doc_id, path_part)?;
+
+    let mut new_dest = String::from("/file/");
     new_dest.push_str(&resolved);
     if let Some(fragment) = fragment {
         new_dest.push('#');
@@ -935,6 +980,11 @@ fn is_absolute_or_scheme(path: &str) -> bool {
 }
 
 fn resolve_relative_doc_id(doc_id: &str, dest_path: &str) -> Option<String> {
+    let resolved = resolve_relative_path(doc_id, dest_path)?;
+    Some(resolved)
+}
+
+fn resolve_relative_path(doc_id: &str, dest_path: &str) -> Option<String> {
     let mut parts: Vec<&str> = doc_id.split('/').collect();
     if parts.is_empty() {
         return None;
@@ -1048,6 +1098,30 @@ mod tests {
         assert!(body.contains(r#"href="https://example.com/a.md""#));
         assert!(body.contains(r#"href="/notes/e.md""#));
         assert!(body.contains(r#"href="f.txt""#));
+    }
+
+    #[test]
+    fn rewrite_relative_image_links__should_rewrite_relative_image_links() {
+        // Given
+        let markdown = "\
+![A](images/a.png)
+![Up](../b.jpg)
+![Abs](https://example.com/a.png)
+![Root](/c.png)
+";
+        let mut body = String::new();
+        let options = Options::empty();
+
+        // When
+        let parser = Parser::new_ext(markdown, options)
+            .map(|event| rewrite_relative_image_links(event, "notes/doc.md"));
+        pulldown_cmark::html::push_html(&mut body, parser);
+
+        // Then
+        assert!(body.contains(r#"src="/file/notes/images/a.png""#));
+        assert!(body.contains(r#"src="/file/b.jpg""#));
+        assert!(body.contains(r#"src="https://example.com/a.png""#));
+        assert!(body.contains(r#"src="/c.png""#));
     }
 
     #[test]

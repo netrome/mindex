@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Documents</a>
+    <a href="/new">New</a>
+    <a href="/upload">Upload</a>
+    <a href="/search">Search</a>
+    {% if git_enabled %}
+    <a href="/git">Git</a>
+    {% endif %}
+    <a href="/push/subscribe">Push</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+        Theme
+    </button>
+</div>
+
+<h1>Upload image</h1>
+
+<div class="upload-card" data-upload>
+    <p>Select an image to upload. The markdown snippet will reference the file
+    stored under <code>mindex-uploads/</code>.</p>
+
+    <div class="upload-field">
+        <input type="file" accept="image/*" data-upload-input />
+        <button type="button" data-upload-button>Upload</button>
+    </div>
+
+    <p class="upload-status" data-upload-status></p>
+
+    <div class="upload-output" data-upload-output hidden>
+        <label for="upload-url">Image URL</label>
+        <div class="upload-field">
+            <input id="upload-url" type="text" readonly data-upload-url />
+            <button type="button" data-copy-url>Copy</button>
+        </div>
+
+        <label for="upload-markdown">Markdown</label>
+        <div class="upload-field">
+            <input id="upload-markdown" type="text" readonly data-upload-markdown />
+            <button type="button" data-copy-markdown>Copy</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

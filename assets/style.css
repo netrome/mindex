@@ -193,6 +193,38 @@ input[type="search"] {
     color: var(--text);
 }
 
+.upload-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    background-color: var(--input-bg);
+}
+
+.upload-field {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.upload-field button {
+    margin-top: 0;
+}
+
+.upload-status {
+    margin-top: 0.75rem;
+    min-height: 1.2rem;
+    color: var(--snippet);
+}
+
+.upload-status[data-state="error"] {
+    color: #b00020;
+}
+
+.upload-output {
+    margin-top: 1rem;
+}
+
 .todo-checkbox {
     margin-right: 0.5rem;
     transform: translateY(1px);

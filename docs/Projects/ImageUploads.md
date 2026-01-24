@@ -1,7 +1,7 @@
 # Image Uploads
 
 ## Status
-Proposed
+Phase 1 implemented
 
 ## Goal
 Support image uploads with the best UX: paste clipboard images directly into the editor to upload and insert a markdown image link. If paste is too complex, provide a dedicated upload page that returns a link to copy into a document.

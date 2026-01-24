@@ -121,6 +121,13 @@ pub(crate) struct PushSubscribeTemplate {
 }
 
 #[derive(Template, WebTemplate)]
+#[template(path = "upload.html")]
+pub(crate) struct UploadTemplate {
+    pub(crate) app_name: String,
+    pub(crate) git_enabled: bool,
+}
+
+#[derive(Template, WebTemplate)]
 #[template(path = "login.html")]
 pub(crate) struct LoginTemplate {
     pub(crate) app_name: String,

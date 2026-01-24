@@ -7,6 +7,7 @@ use crate::state;
 use crate::types::directives;
 
 use axum::Router;
+use axum::extract::DefaultBodyLimit;
 use axum::middleware;
 use axum::routing::get;
 use axum::routing::post;
@@ -15,6 +16,7 @@ mod auth;
 mod documents;
 mod git;
 mod push;
+mod uploads;
 
 pub fn app(config: config::AppConfig) -> Router {
     let auth = auth_service::AuthState::from_config(&config)
@@ -78,6 +80,12 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/push/subscribe", get(push::push_subscribe))
         .route("/api/push/public-key", get(push::push_public_key))
         .route("/api/push/test", post(push::push_test))
+        .route("/upload", get(uploads::upload_form))
+        .route(
+            "/api/uploads",
+            post(uploads::upload_image).layer(DefaultBodyLimit::disable()),
+        )
+        .route("/file/{*path}", get(uploads::upload_file))
         .route("/api/debug/push/registry", get(push::push_registry_debug))
         .route("/api/debug/push/schedule", get(push::push_schedule_debug))
         .route("/static/style.css", get(assets::stylesheet))
@@ -93,6 +101,7 @@ pub fn app(config: config::AppConfig) -> Router {
             "/static/features/push_subscribe.js",
             get(assets::push_subscribe_script),
         )
+        .route("/static/features/uploads.js", get(assets::uploads_script))
         .route(
             "/static/features/sw_register.js",
             get(assets::sw_register_script),

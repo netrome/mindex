@@ -98,6 +98,16 @@ pub(crate) async fn push_subscribe_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn uploads_script() -> axum::response::Response {
+    const UPLOADS_JS_CONTENT: &str = include_str!("../assets/features/uploads.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(UPLOADS_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn sw_register_script() -> axum::response::Response {
     const SW_REGISTER_JS_CONTENT: &str = include_str!("../assets/features/sw_register.js");
     axum::response::Response::builder()

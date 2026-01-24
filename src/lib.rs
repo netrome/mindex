@@ -9,6 +9,7 @@ mod documents;
 mod math;
 mod ports;
 mod types;
+mod uploads;
 
 mod app;
 mod assets;
