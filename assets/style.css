@@ -221,6 +221,10 @@ input[type="search"] {
     color: #b00020;
 }
 
+.upload-status[data-state="info"] {
+    color: var(--snippet);
+}
+
 .upload-output {
     margin-top: 1rem;
 }

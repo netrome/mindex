@@ -11,7 +11,6 @@
 - [ ] Custom styling of pages
   - Allow embed ad-hoc styles on a page to "pimp it up".
 - [ ] Chat boxes
-- [ ] Editor paste support for image uploads
 - [ ] fzf style file search
 - [ ] Emojis
 - [ ] Code execution/scripting
@@ -19,6 +18,7 @@
 
 
 ## Recently done
+- [x] Editor paste support for image uploads
 - [x] Image uploads (upload API + upload page + file serving)
 - [x] Add support for Mermaid charts.
 - [x] Auto-scroll while dragging reorder items on mobile

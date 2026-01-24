@@ -23,7 +23,8 @@
 {% endif %}
 
 <form method="post" action="/edit/{{ doc_id }}">
-    <textarea name="contents" rows="24" cols="80">{{ contents }}</textarea>
+    <textarea name="contents" rows="24" cols="80" data-editor>{{ contents }}</textarea>
+    <p class="upload-status" data-editor-upload-status></p>
     <p><button type="submit">Save</button></p>
 </form>
 {% endblock %}

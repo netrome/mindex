@@ -103,6 +103,10 @@ pub fn app(config: config::AppConfig) -> Router {
         )
         .route("/static/features/uploads.js", get(assets::uploads_script))
         .route(
+            "/static/features/editor_paste_upload.js",
+            get(assets::editor_paste_upload_script),
+        )
+        .route(
             "/static/features/sw_register.js",
             get(assets::sw_register_script),
         )
