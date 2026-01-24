@@ -3,6 +3,8 @@
 ## In progress
 
 ## To do
+- [ ] Render new files in git page.
+  - Currently new files don't show on the git page. It would be nice to list them.
 - [ ] Code syntax highligting
 - [ ] Public pages
 - [ ] Custom styling of pages
