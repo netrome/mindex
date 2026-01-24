@@ -36,6 +36,7 @@ pub(crate) struct DocumentTemplate {
     pub(crate) app_name: String,
     pub(crate) doc_id: String,
     pub(crate) content: String,
+    pub(crate) has_mermaid: bool,
     pub(crate) git_enabled: bool,
 }
 

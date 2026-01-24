@@ -63,7 +63,7 @@ pub(crate) fn render_math(latex: &str, style: MathStyle) -> MathResult {
 }
 
 /// Escape HTML special characters in a string.
-fn html_escape(s: &str) -> String {
+pub(crate) fn html_escape(s: &str) -> String {
     let mut escaped = String::with_capacity(s.len());
     for c in s.chars() {
         match c {

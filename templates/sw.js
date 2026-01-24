@@ -4,6 +4,7 @@ const STATIC_ASSETS = [
   '/static/style.css',
   '/static/theme.js',
   '/static/app.js',
+  '/static/mermaid.min.js',
   '/static/features/todo_toggle.js',
   '/static/features/reorder.js',
   '/static/features/push_subscribe.js',

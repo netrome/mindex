@@ -19,4 +19,11 @@
 </div>
 
 {{ content|safe }}
+
+{% if has_mermaid %}
+<script src="/static/mermaid.min.js"></script>
+<script>
+    mermaid.initialize({ startOnLoad: true, securityLevel: "strict" });
+</script>
+{% endif %}
 {% endblock %}

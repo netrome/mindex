@@ -58,6 +58,16 @@ pub(crate) async fn app_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn mermaid_script() -> axum::response::Response {
+    const MERMAID_JS_CONTENT: &str = include_str!("../assets/mermaid.min.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(MERMAID_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn todo_toggle_script() -> axum::response::Response {
     const TODO_TOGGLE_JS_CONTENT: &str = include_str!("../assets/features/todo_toggle.js");
     axum::response::Response::builder()

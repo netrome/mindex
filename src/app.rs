@@ -83,6 +83,7 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/static/style.css", get(assets::stylesheet))
         .route("/static/theme.js", get(assets::theme_script))
         .route("/static/app.js", get(assets::app_script))
+        .route("/static/mermaid.min.js", get(assets::mermaid_script))
         .route(
             "/static/features/todo_toggle.js",
             get(assets::todo_toggle_script),
@@ -552,6 +553,7 @@ password_hash = "hash"
             app_name: "Mindex".to_string(),
             doc_id: "table.md".to_string(),
             content: body,
+            has_mermaid: false,
             git_enabled: false,
         };
         let html = template.render().unwrap();
@@ -613,6 +615,78 @@ password_hash = "hash"
         assert!(body.contains("<math"));
         assert!(body.contains(r#"display="block""#));
         assert!(body.contains("<mfrac>"));
+    }
+
+    #[tokio::test]
+    async fn view_document__should_render_mermaid_blocks() {
+        // Given
+        let root = create_temp_root("mermaid-doc");
+        let markdown = "\
+```mermaid
+flowchart TD
+  A --> B
+```
+";
+        std::fs::write(root.join("diagram.md"), markdown).expect("write diagram.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/doc/diagram.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(body.contains(r#"<div class="mermaid">"#));
+        assert!(body.contains("flowchart TD"));
+        assert!(body.contains(r#"<script src="/static/mermaid.min.js"></script>"#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn view_document__should_not_load_mermaid_script_for_plain_docs() {
+        // Given
+        let root = create_temp_root("plain-doc");
+        std::fs::write(root.join("note.md"), "Just text.").expect("write note.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/doc/note.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(!body.contains(r#"/static/mermaid.min.js"#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[test]

@@ -1,7 +1,7 @@
 # Chart Rendering (Mermaid / D2)
 
 ## Status
-Proposed
+Implemented (Mermaid)
 
 ## Goal
 Support simple charts/diagrams in markdown using fenced code blocks, starting with the smallest, most maintainable option.

@@ -5,7 +5,7 @@ use crate::documents::{
     load_document, normalize_newlines, render_task_list_markdown, reorder_range, resolve_doc_path,
     rewrite_relative_md_links, scan_block_ranges, toggle_task_item,
 };
-use crate::math::{MathStyle, render_math};
+use crate::math::{MathStyle, html_escape, render_math};
 use crate::push as push_service;
 use crate::state;
 use crate::templates;
@@ -16,9 +16,7 @@ use axum::extract::Query;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Redirect;
-use pulldown_cmark::Event;
-use pulldown_cmark::Options;
-use pulldown_cmark::Parser;
+use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use serde::Deserialize;
 
 use std::io::ErrorKind;
@@ -180,9 +178,41 @@ pub(crate) async fn document_view(
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_MATH);
-    let parser = Parser::new_ext(&rendered, options).map(|event| {
-        let event = rewrite_relative_md_links(event, &doc_id);
-        match event {
+    let parser =
+        Parser::new_ext(&rendered, options).map(|event| rewrite_relative_md_links(event, &doc_id));
+
+    let mut has_mermaid = false;
+    let mut in_mermaid = false;
+    let mut mermaid_buffer = String::new();
+    let mut events = Vec::new();
+
+    for event in parser {
+        if in_mermaid {
+            match event {
+                Event::End(TagEnd::CodeBlock) => {
+                    let escaped = html_escape(&mermaid_buffer);
+                    let html = format!(r#"<div class="mermaid">{escaped}</div>"#);
+                    events.push(Event::Html(html.into()));
+                    mermaid_buffer.clear();
+                    in_mermaid = false;
+                    has_mermaid = true;
+                }
+                Event::Text(text) => mermaid_buffer.push_str(&text),
+                Event::SoftBreak | Event::HardBreak => mermaid_buffer.push('\n'),
+                _ => {}
+            }
+            continue;
+        }
+
+        if let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = &event
+            && is_mermaid_info(info)
+        {
+            in_mermaid = true;
+            mermaid_buffer.clear();
+            continue;
+        }
+
+        let event = match event {
             Event::InlineMath(latex) => {
                 let html = render_math(&latex, MathStyle::Inline).into_html();
                 Event::Html(html.into())
@@ -192,16 +222,24 @@ pub(crate) async fn document_view(
                 Event::Html(html.into())
             }
             other => other,
-        }
-    });
-    pulldown_cmark::html::push_html(&mut body, parser);
+        };
+        events.push(event);
+    }
+
+    pulldown_cmark::html::push_html(&mut body, events.into_iter());
 
     Ok(templates::DocumentTemplate {
         app_name: state.config.app_name,
         doc_id,
         content: body,
+        has_mermaid,
         git_enabled,
     })
+}
+
+fn is_mermaid_info(info: &pulldown_cmark::CowStr<'_>) -> bool {
+    let language = info.as_ref().split_whitespace().next().unwrap_or("");
+    language.eq_ignore_ascii_case("mermaid")
 }
 
 #[derive(Debug, Deserialize)]
