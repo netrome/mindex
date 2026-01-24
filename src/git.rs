@@ -67,6 +67,7 @@ pub(crate) fn git_dir_within_root(root: &Path) -> std::io::Result<Option<PathBuf
 pub(crate) struct GitSnapshot {
     pub(crate) changed_files: usize,
     pub(crate) diff: String,
+    pub(crate) new_files: Vec<String>,
 }
 
 pub(crate) struct GitCommit {
@@ -102,10 +103,12 @@ impl std::fmt::Display for GitError {
 impl std::error::Error for GitError {}
 
 pub(crate) fn git_status_and_diff(root: &Path) -> Result<GitSnapshot, GitError> {
+    let new_files = git_untracked_files(root)?;
     if !git_has_head(root)? {
         return Ok(GitSnapshot {
             changed_files: 0,
             diff: String::new(),
+            new_files,
         });
     }
 
@@ -115,6 +118,7 @@ pub(crate) fn git_status_and_diff(root: &Path) -> Result<GitSnapshot, GitError> 
     Ok(GitSnapshot {
         changed_files,
         diff,
+        new_files,
     })
 }
 
@@ -457,6 +461,35 @@ fn git_diff(root: &Path) -> Result<String, GitError> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+fn git_untracked_files(root: &Path) -> Result<Vec<String>, GitError> {
+    let mut cmd = git_command(root)?;
+    cmd.args([
+        "status",
+        "--porcelain",
+        "-z",
+        "--untracked-files=all",
+        "--ignore-submodules=all",
+        "--",
+    ]);
+    let output = run_command_checked("git status --porcelain", cmd, None)?;
+    let mut files = Vec::new();
+    for entry in output.stdout.split(|byte| *byte == 0) {
+        if entry.is_empty() {
+            continue;
+        }
+        if entry.len() < 4 {
+            continue;
+        }
+        if entry[0] == b'?' && entry[1] == b'?' && entry[2] == b' ' {
+            let path = String::from_utf8_lossy(&entry[3..]).to_string();
+            if !path.is_empty() {
+                files.push(path);
+            }
+        }
+    }
+    Ok(files)
+}
+
 fn git_command(root: &Path) -> Result<Command, GitError> {
     let root = std::fs::canonicalize(root)
         .map_err(|err| GitError::new(format!("canonicalize root: {err}")))?;
@@ -708,7 +741,24 @@ mod tests {
         let snapshot = git_status_and_diff(&root).expect("status");
         assert_eq!(snapshot.changed_files, 0);
         assert!(snapshot.diff.trim().is_empty());
+        assert!(snapshot.new_files.is_empty());
         assert!(!commit.id.is_empty());
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn git_status_and_diff__should_list_untracked_files() {
+        // Given
+        let root = create_temp_root("git-untracked");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "Hello").expect("write note.md");
+
+        // When
+        let snapshot = git_status_and_diff(&root).expect("status");
+
+        // Then
+        assert_eq!(snapshot.new_files, vec!["note.md".to_string()]);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

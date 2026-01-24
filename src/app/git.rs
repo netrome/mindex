@@ -120,14 +120,29 @@ fn git_template(
         (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
     })?;
 
-    let status = if snapshot.changed_files == 0 {
-        "Clean".to_string()
-    } else {
-        format!(
+    let mut status_parts = Vec::new();
+    if snapshot.changed_files > 0 {
+        status_parts.push(format!(
             "{} file{} changed",
             snapshot.changed_files,
             if snapshot.changed_files == 1 { "" } else { "s" }
-        )
+        ));
+    }
+    if !snapshot.new_files.is_empty() {
+        status_parts.push(format!(
+            "{} new file{}",
+            snapshot.new_files.len(),
+            if snapshot.new_files.len() == 1 {
+                ""
+            } else {
+                "s"
+            }
+        ));
+    }
+    let status = if status_parts.is_empty() {
+        "Clean".to_string()
+    } else {
+        status_parts.join(", ")
     };
     let diff = if snapshot.diff.trim().is_empty() {
         "No changes.\n".to_string()
@@ -142,6 +157,7 @@ fn git_template(
         message,
         error,
         notice,
+        new_files: snapshot.new_files,
         git_enabled: state.git_dir.is_some(),
     })
 }

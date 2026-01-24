@@ -137,5 +137,6 @@ pub(crate) struct GitTemplate {
     pub(crate) message: String,
     pub(crate) error: String,
     pub(crate) notice: String,
+    pub(crate) new_files: Vec<String>,
     pub(crate) git_enabled: bool,
 }

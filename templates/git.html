@@ -27,6 +27,15 @@
 
 <p>{{ status }}</p>
 
+{% if !new_files.is_empty() %}
+<h2>New files</h2>
+<ul class="git-new-files">
+    {% for file in new_files %}
+    <li>{{ file }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
 <div class="git-actions">
     <form method="post" action="/git/pull">
         <button type="submit">Pull (fast-forward)</button>
