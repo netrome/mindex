@@ -1,6 +1,7 @@
 # TODO
 
 ## In progress
+- [ ] Image uploads
 
 ## To do
 - [x] Render new files in git page.
