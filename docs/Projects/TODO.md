@@ -3,6 +3,7 @@
 ## In progress
 
 ## To do
+- [ ] Add support for d2 or mermaidjs charts.
 - [x] Render new files in git page.
   - Currently new files don't show on the git page. It would be nice to list them.
 - [ ] Code syntax highligting
