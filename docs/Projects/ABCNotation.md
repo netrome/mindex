@@ -113,7 +113,7 @@ dependency and security implications.
 - **Acceptance criteria**: A document containing ` ```abc` renders a `.abc-notation` container
   with the ABC text and sets `has_abc = true`.
 
-### [ ] Task 2: Add client-side renderer and asset
+### [x] Task 2: Add client-side renderer and asset
 - Add a bundled abcjs JS asset to `assets/`.
 - Add a small feature module to render ABC on load.
 - **Acceptance criteria**: ABC blocks render into SVG on document pages.

@@ -4,6 +4,7 @@ import { initPushSubscribe } from "./features/push_subscribe.js";
 import { initServiceWorker } from "./features/sw_register.js";
 import { initUploads } from "./features/uploads.js";
 import { initEditorPasteUploads } from "./features/editor_paste_upload.js";
+import { initAbcRender } from "./features/abc_render.js";
 
 const init = () => {
     initTodoToggle();
@@ -12,6 +13,7 @@ const init = () => {
     initServiceWorker();
     initUploads();
     initEditorPasteUploads();
+    initAbcRender();
 };
 
 if (document.readyState === "loading") {

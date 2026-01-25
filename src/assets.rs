@@ -68,6 +68,26 @@ pub(crate) async fn mermaid_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn abcjs_script() -> axum::response::Response {
+    const ABCJS_CONTENT: &str = include_str!("../assets/vendor/abcjs.min.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(ABCJS_CONTENT.into())
+        .unwrap()
+}
+
+pub(crate) async fn abc_render_script() -> axum::response::Response {
+    const ABC_RENDER_JS_CONTENT: &str = include_str!("../assets/features/abc_render.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(ABC_RENDER_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn todo_toggle_script() -> axum::response::Response {
     const TODO_TOGGLE_JS_CONTENT: &str = include_str!("../assets/features/todo_toggle.js");
     axum::response::Response::builder()

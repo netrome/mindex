@@ -92,9 +92,14 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/static/theme.js", get(assets::theme_script))
         .route("/static/app.js", get(assets::app_script))
         .route("/static/mermaid.min.js", get(assets::mermaid_script))
+        .route("/static/abcjs.min.js", get(assets::abcjs_script))
         .route(
             "/static/features/todo_toggle.js",
             get(assets::todo_toggle_script),
+        )
+        .route(
+            "/static/features/abc_render.js",
+            get(assets::abc_render_script),
         )
         .route("/static/features/reorder.js", get(assets::reorder_script))
         .route(
