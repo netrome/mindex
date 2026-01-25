@@ -4,7 +4,7 @@
 
 
 ## To do
-- [ ] ABC Notation
+- [x] ABC Notation
 - [ ] Code syntax highligting
 - [ ] Public pages
 - [ ] Custom styling of pages

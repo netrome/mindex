@@ -11,6 +11,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 - Render Markdown documents for reading
 - Math expressions via LaTeX syntax (`$...$` for inline, `$$...$$` for display)
 - Mermaid diagrams via fenced `mermaid` code blocks
+- ABC notation rendering via fenced `abc`/`abcjs` code blocks (client-side)
 - Full-text search across documents
 - Edit and save Markdown from the browser
 - Image uploads via `/upload` (returns markdown link)

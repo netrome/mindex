@@ -131,7 +131,7 @@ dependency and security implications.
 - Template tests for conditional asset loading.
 - **Acceptance criteria**: Tests cover single/multiple ABC blocks and mixed code fences.
 
-### [ ] Task 6: Documentation
+### [x] Task 6: Documentation
 - Update README or docs to describe ABC syntax support.
 - Check off the TODO item.
 - **Acceptance criteria**: Users can find ABC usage in docs.
