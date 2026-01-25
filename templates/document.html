@@ -21,7 +21,9 @@
 
 {{ content|safe }}
 
+{% if has_abc %}
 <script src="/static/abcjs.min.js"></script>
+{% endif %}
 
 {% if has_mermaid %}
 <script src="/static/mermaid.min.js"></script>

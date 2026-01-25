@@ -118,7 +118,7 @@ dependency and security implications.
 - Add a small feature module to render ABC on load.
 - **Acceptance criteria**: ABC blocks render into SVG on document pages.
 
-### [ ] Task 3: Load assets conditionally
+### [x] Task 3: Load assets conditionally
 - Only include the abcjs asset when `has_abc` is true.
 - **Acceptance criteria**: Documents without ABC blocks do not load abcjs.
 

@@ -715,6 +715,7 @@ C D E F | G A B c |
         assert!(body.contains(r#"<div class="abc-notation">"#));
         assert!(body.contains("X:1"));
         assert!(body.contains("K:C"));
+        assert!(body.contains(r#"<script src="/static/abcjs.min.js"></script>"#));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
@@ -747,6 +748,7 @@ C D E F | G A B c |
             .expect("read body");
         let body = std::str::from_utf8(&body).expect("utf8");
         assert!(!body.contains(r#"/static/mermaid.min.js"#));
+        assert!(!body.contains(r#"/static/abcjs.min.js"#));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
