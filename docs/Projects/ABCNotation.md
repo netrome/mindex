@@ -106,32 +106,32 @@ dependency and security implications.
 
 ## Implementation plan
 
-### Task 1: Detect ABC blocks in Markdown rendering
+### [x] Task 1: Detect ABC blocks in Markdown rendering
 - Extend the pulldown-cmark event pipeline to capture `abc`/`abcjs` fenced blocks.
 - Replace them with `<div class="abc-notation">` containers.
 - Track `has_abc`.
 - **Acceptance criteria**: A document containing ` ```abc` renders a `.abc-notation` container
   with the ABC text and sets `has_abc = true`.
 
-### Task 2: Add client-side renderer and asset
+### [ ] Task 2: Add client-side renderer and asset
 - Add a bundled abcjs JS asset to `assets/`.
 - Add a small feature module to render ABC on load.
 - **Acceptance criteria**: ABC blocks render into SVG on document pages.
 
-### Task 3: Load assets conditionally
+### [ ] Task 3: Load assets conditionally
 - Only include the abcjs asset when `has_abc` is true.
 - **Acceptance criteria**: Documents without ABC blocks do not load abcjs.
 
-### Task 4: Minimal styling (if needed)
+### [ ] Task 4: Minimal styling (if needed)
 - Add CSS to prevent overflow and keep SVG responsive.
 - **Acceptance criteria**: Sheet music fits within the content column on mobile.
 
-### Task 5: Tests
+### [ ] Task 5: Tests
 - Markdown-to-HTML tests for ABC block detection and escaping.
 - Template tests for conditional asset loading.
 - **Acceptance criteria**: Tests cover single/multiple ABC blocks and mixed code fences.
 
-### Task 6: Documentation
+### [ ] Task 6: Documentation
 - Update README or docs to describe ABC syntax support.
 - Check off the TODO item.
 - **Acceptance criteria**: Users can find ABC usage in docs.

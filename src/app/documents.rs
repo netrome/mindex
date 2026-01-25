@@ -184,8 +184,11 @@ pub(crate) async fn document_view(
     });
 
     let mut has_mermaid = false;
+    let mut has_abc = false;
     let mut in_mermaid = false;
+    let mut in_abc = false;
     let mut mermaid_buffer = String::new();
+    let mut abc_buffer = String::new();
     let mut events = Vec::new();
 
     for event in parser {
@@ -206,12 +209,34 @@ pub(crate) async fn document_view(
             continue;
         }
 
-        if let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = &event
-            && is_mermaid_info(info)
-        {
-            in_mermaid = true;
-            mermaid_buffer.clear();
+        if in_abc {
+            match event {
+                Event::End(TagEnd::CodeBlock) => {
+                    let escaped = html_escape(&abc_buffer);
+                    let html = format!(r#"<div class="abc-notation">{escaped}</div>"#);
+                    events.push(Event::Html(html.into()));
+                    abc_buffer.clear();
+                    in_abc = false;
+                    has_abc = true;
+                }
+                Event::Text(text) => abc_buffer.push_str(&text),
+                Event::SoftBreak | Event::HardBreak => abc_buffer.push('\n'),
+                _ => {}
+            }
             continue;
+        }
+
+        if let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = &event {
+            if is_mermaid_info(info) {
+                in_mermaid = true;
+                mermaid_buffer.clear();
+                continue;
+            }
+            if is_abc_info(info) {
+                in_abc = true;
+                abc_buffer.clear();
+                continue;
+            }
         }
 
         let event = match event {
@@ -235,6 +260,7 @@ pub(crate) async fn document_view(
         doc_id,
         content: body,
         has_mermaid,
+        has_abc,
         git_enabled,
     })
 }
@@ -242,6 +268,11 @@ pub(crate) async fn document_view(
 fn is_mermaid_info(info: &pulldown_cmark::CowStr<'_>) -> bool {
     let language = info.as_ref().split_whitespace().next().unwrap_or("");
     language.eq_ignore_ascii_case("mermaid")
+}
+
+fn is_abc_info(info: &pulldown_cmark::CowStr<'_>) -> bool {
+    let language = info.as_ref().split_whitespace().next().unwrap_or("");
+    language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
 }
 
 #[derive(Debug, Deserialize)]

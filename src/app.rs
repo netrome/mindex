@@ -567,6 +567,7 @@ password_hash = "hash"
             doc_id: "table.md".to_string(),
             content: body,
             has_mermaid: false,
+            has_abc: false,
             git_enabled: false,
         };
         let html = template.render().unwrap();
@@ -666,6 +667,49 @@ flowchart TD
         assert!(body.contains(r#"<div class="mermaid">"#));
         assert!(body.contains("flowchart TD"));
         assert!(body.contains(r#"<script src="/static/mermaid.min.js"></script>"#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn view_document__should_render_abc_blocks() {
+        // Given
+        let root = create_temp_root("abc-doc");
+        let markdown = "\
+```abc
+X:1
+T:Simple Scale
+M:4/4
+K:C
+C D E F | G A B c |
+```
+";
+        std::fs::write(root.join("tune.md"), markdown).expect("write tune.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/doc/tune.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(body.contains(r#"<div class="abc-notation">"#));
+        assert!(body.contains("X:1"));
+        assert!(body.contains("K:C"));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
