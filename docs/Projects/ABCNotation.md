@@ -122,7 +122,7 @@ dependency and security implications.
 - Only include the abcjs asset when `has_abc` is true.
 - **Acceptance criteria**: Documents without ABC blocks do not load abcjs.
 
-### [ ] Task 4: Minimal styling (if needed)
+### [x] Task 4: Minimal styling (if needed)
 - Add CSS to prevent overflow and keep SVG responsive.
 - **Acceptance criteria**: Sheet music fits within the content column on mobile.
 

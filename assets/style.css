@@ -517,6 +517,25 @@ pre code {
     height: auto;
 }
 
+/* ABC notation */
+.abc-notation {
+    margin: 1.25rem 0;
+    overflow-x: auto;
+}
+
+.abc-notation svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.abc-render-error {
+    background-color: var(--code-bg);
+    border: 1px dashed var(--border);
+    color: var(--snippet);
+    padding: 0.75rem;
+    white-space: pre-wrap;
+}
+
 blockquote {
     margin: 1rem 0;
     padding: 0.5rem 1rem;
