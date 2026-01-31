@@ -1,5 +1,6 @@
 const AUTH_ENABLED = {{ auth_enabled }};
 const CACHE_NAME = AUTH_ENABLED ? 'mindex-auth-v1' : 'mindex-v1';
+const CACHE_PREFIX = 'mindex-';
 const STATIC_ASSETS = [
   '/static/style.css',
   '/static/theme.js',
@@ -8,6 +9,7 @@ const STATIC_ASSETS = [
   '/static/features/todo_toggle.js',
   '/static/features/reorder.js',
   '/static/features/push_subscribe.js',
+  '/static/features/pwa_refresh.js',
   '/static/features/sw_register.js',
   '/static/manifest.json',
   '/sw.js'
@@ -40,6 +42,32 @@ self.addEventListener('activate', event => {
       })
       .then(() => self.clients.claim())
   );
+});
+
+// Message event - allow manual refresh controls
+self.addEventListener('message', event => {
+  const data = event.data;
+  if (!data || !data.type) {
+    return;
+  }
+
+  if (data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
+
+  if (data.type === 'CLEAR_CACHES') {
+    event.waitUntil(
+      caches.keys()
+        .then(cacheNames => {
+          const deletions = cacheNames
+            .filter(cacheName => cacheName.startsWith(CACHE_PREFIX))
+            .map(cacheName => caches.delete(cacheName));
+          return Promise.all(deletions);
+        })
+        .then(() => self.clients.claim())
+    );
+  }
 });
 
 // Fetch event - serve from cache when offline

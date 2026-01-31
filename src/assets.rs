@@ -118,6 +118,16 @@ pub(crate) async fn push_subscribe_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn pwa_refresh_script() -> axum::response::Response {
+    const PWA_REFRESH_JS_CONTENT: &str = include_str!("../assets/features/pwa_refresh.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(PWA_REFRESH_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn uploads_script() -> axum::response::Response {
     const UPLOADS_JS_CONTENT: &str = include_str!("../assets/features/uploads.js");
     axum::response::Response::builder()

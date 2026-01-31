@@ -4,6 +4,7 @@
 
 
 ## To do
+- [x] PWA refresh button
 - [x] ABC Notation
 - [ ] Code syntax highligting
 - [ ] Public pages

@@ -106,6 +106,10 @@ pub fn app(config: config::AppConfig) -> Router {
             "/static/features/push_subscribe.js",
             get(assets::push_subscribe_script),
         )
+        .route(
+            "/static/features/pwa_refresh.js",
+            get(assets::pwa_refresh_script),
+        )
         .route("/static/features/uploads.js", get(assets::uploads_script))
         .route(
             "/static/features/editor_paste_upload.js",
