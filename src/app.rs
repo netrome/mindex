@@ -148,7 +148,7 @@ pub(crate) mod tests {
     use axum::extract::State;
     use axum::http::Request;
     use axum::http::StatusCode;
-    use axum::http::header::{COOKIE, LOCATION, SET_COOKIE};
+    use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE, COOKIE, LOCATION, SET_COOKIE};
     use base64::{URL_SAFE_NO_PAD, encode_config};
     use jwt_simple::algorithms::MACLike;
     use jwt_simple::prelude::{Claims, Duration as JwtDuration, HS256Key};
@@ -955,6 +955,113 @@ text line 2
 
         // Then
         assert_eq!(response.status(), StatusCode::CONFLICT);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn file_route__should_serve_pdf_with_application_pdf_content_type() {
+        // Given
+        let root = create_temp_root("file-pdf-type");
+        let pdf_bytes = b"%PDF-1.4\n%test\n";
+        std::fs::write(root.join("ticket.pdf"), pdf_bytes).expect("write ticket.pdf");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/file/ticket.pdf")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(CONTENT_TYPE)
+                .expect("content-type header"),
+            "application/pdf"
+        );
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        assert_eq!(body.as_ref(), pdf_bytes);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn file_route__should_set_attachment_disposition_for_pdf_download_query() {
+        // Given
+        let root = create_temp_root("file-pdf-download");
+        std::fs::write(root.join("ticket.pdf"), b"%PDF-1.4\n%test\n").expect("write ticket.pdf");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/file/ticket.pdf?download=1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(CONTENT_TYPE)
+                .expect("content-type header"),
+            "application/pdf"
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get(CONTENT_DISPOSITION)
+                .expect("content-disposition header"),
+            "attachment; filename=\"ticket.pdf\""
+        );
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn file_route__should_return_not_found_for_unsupported_extension() {
+        // Given
+        let root = create_temp_root("file-unsupported-type");
+        std::fs::write(root.join("notes.txt"), b"hello").expect("write notes.txt");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/file/notes.txt")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

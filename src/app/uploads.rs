@@ -5,12 +5,15 @@ use crate::uploads;
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::Path as AxumPath;
+use axum::extract::Query;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::http::header::CONTENT_TYPE;
 use axum::response::Response;
+use serde::Deserialize;
 use serde::Serialize;
+use std::path::Path;
 
 #[derive(Serialize)]
 pub(crate) struct UploadResponse {
@@ -22,6 +25,11 @@ pub(crate) struct UploadResponse {
 #[derive(Serialize)]
 pub(crate) struct UploadErrorResponse {
     pub(crate) error: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct FileQuery {
+    pub(crate) download: Option<String>,
 }
 
 pub(crate) async fn upload_form(
@@ -36,6 +44,7 @@ pub(crate) async fn upload_form(
 pub(crate) async fn upload_file(
     State(state): State<state::AppState>,
     AxumPath(path): AxumPath<String>,
+    Query(query): Query<FileQuery>,
 ) -> Result<Response, (StatusCode, &'static str)> {
     let Some(content_type) = uploads::content_type_for_path(&path) else {
         return Err((StatusCode::NOT_FOUND, "not found"));
@@ -67,12 +76,19 @@ pub(crate) async fn upload_file(
         }
     };
 
-    Ok(Response::builder()
+    let mut response = Response::builder()
         .status(StatusCode::OK)
         .header("content-type", content_type)
-        .header("cache-control", "public, max-age=86400")
-        .body(bytes.into())
-        .unwrap())
+        .header("cache-control", "public, max-age=86400");
+    if content_type == "application/pdf" && should_force_download(query.download.as_deref()) {
+        let filename = download_filename_for_path(&path);
+        response = response.header(
+            "content-disposition",
+            format!("attachment; filename=\"{filename}\""),
+        );
+    }
+
+    Ok(response.body(bytes.into()).unwrap())
 }
 
 pub(crate) async fn upload_image(
@@ -141,4 +157,30 @@ pub(crate) async fn upload_image(
         url,
         markdown,
     }))
+}
+
+fn should_force_download(value: Option<&str>) -> bool {
+    value == Some("1")
+}
+
+fn download_filename_for_path(path: &str) -> String {
+    let file_name = Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("file.pdf");
+    let mut safe = String::with_capacity(file_name.len().max(8));
+    for ch in file_name.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '_' {
+            safe.push(ch);
+        } else {
+            safe.push('-');
+        }
+    }
+    if safe.is_empty() {
+        safe.push_str("file.pdf");
+    }
+    if !safe.to_ascii_lowercase().ends_with(".pdf") {
+        safe.push_str(".pdf");
+    }
+    safe
 }

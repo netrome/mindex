@@ -164,6 +164,9 @@ pub(crate) fn resolve_file_path(root: &Path, rel_path: &str) -> Result<PathBuf, 
 
 pub(crate) fn content_type_for_path(rel_path: &str) -> Option<&'static str> {
     let ext = Path::new(rel_path).extension()?.to_str()?;
+    if ext.eq_ignore_ascii_case("pdf") {
+        return Some("application/pdf");
+    }
     ImageType::from_extension(ext).map(ImageType::content_type)
 }
 

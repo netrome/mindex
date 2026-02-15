@@ -91,7 +91,7 @@ It directly solves the ticket-on-phone use case, keeps the codebase simple, pres
 
 ## Task breakdown (PR-sized)
 
-- [ ] **Task 1: Extend file serving allowlist to include PDF**
+- [x] **Task 1: Extend file serving allowlist to include PDF**
   - Acceptance criteria:
     - `/file/...pdf` returns `200` with `content-type: application/pdf`
     - `/file/...pdf?download=1` returns `200` with attachment disposition
