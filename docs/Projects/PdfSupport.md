@@ -1,7 +1,7 @@
 # PDF Viewing Support
 
 ## Status
-Proposed
+Accepted
 
 ## Goal
 Make PDF files that already exist under the configured root easy to open and read from Mindex, especially on mobile (for example concert tickets).
@@ -36,10 +36,10 @@ Cons:
 - Opens raw file view without Mindex page chrome.
 - UX depends entirely on browser PDF behavior.
 
-### Option 2: Dedicated in-app PDF viewer page (recommended)
+### Option 2: Dedicated in-app PDF viewer page (accepted)
 Approach:
 - Do Option 1.
-- Add `/pdf/{*path}` route and a small template that embeds `/file/<path>` in an `iframe` (or `object`) with a fallback download/open link.
+- Add `/pdf/{*path}` route and a small template that embeds `/file/<path>` in an `iframe` (or `object`) with fallback `Open raw` and `Download` links.
 - Rewrite relative `.pdf` markdown links to `/pdf/<resolved-path>`.
 
 Pros:
@@ -75,10 +75,13 @@ It directly solves the ticket-on-phone use case, keeps the codebase simple, pres
 - On render: link becomes `/pdf/<resolved-relative-path>`
 - Viewer page:
   - Embeds the PDF from `/file/<resolved-relative-path>`
-  - Shows a fallback link to open/download the file directly
+  - Shows explicit actions:
+    - `Open raw PDF` -> `/file/<resolved-relative-path>`
+    - `Download PDF` -> `/file/<resolved-relative-path>?download=1`
 - Direct file endpoint `/file/{*path}` serves:
   - Existing supported image types (unchanged)
   - `application/pdf` for `.pdf`
+  - When `download=1` for PDF: include `Content-Disposition: attachment; filename="<name>.pdf"`
 
 ## Security and invariant impact
 - No invariant change required.
@@ -89,13 +92,19 @@ It directly solves the ticket-on-phone use case, keeps the codebase simple, pres
 ## Task breakdown (PR-sized)
 
 - [ ] **Task 1: Extend file serving allowlist to include PDF**
-  - Acceptance criteria: `/file/...pdf` returns `200` with `content-type: application/pdf`; unsupported extensions still return `404`.
+  - Acceptance criteria:
+    - `/file/...pdf` returns `200` with `content-type: application/pdf`
+    - `/file/...pdf?download=1` returns `200` with attachment disposition
+    - unsupported extensions still return `404`
 
 - [ ] **Task 2: Add relative PDF link rewriting in markdown rendering**
   - Acceptance criteria: `[x](a/b.pdf)` in `notes/doc.md` renders as `href="/pdf/notes/a/b.pdf"`; absolute/schemed links remain unchanged.
 
 - [ ] **Task 3: Add `/pdf/{*path}` viewer route and template**
-  - Acceptance criteria: Valid in-root PDF path renders an embedded viewer with fallback link; invalid/traversal paths return `404`.
+  - Acceptance criteria:
+    - valid in-root PDF path renders an embedded viewer
+    - page includes `Open raw PDF` and `Download PDF` actions
+    - invalid/traversal paths return `404`
 
 - [ ] **Task 4: Add tests for correctness and safety**
   - Acceptance criteria: Tests cover link rewriting, PDF content type, and path safety behavior (including traversal rejection).
