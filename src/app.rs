@@ -86,6 +86,7 @@ pub fn app(config: config::AppConfig) -> Router {
             post(uploads::upload_image).layer(DefaultBodyLimit::disable()),
         )
         .route("/file/{*path}", get(uploads::upload_file))
+        .route("/pdf/{*path}", get(uploads::pdf_view))
         .route("/api/debug/push/registry", get(push::push_registry_debug))
         .route("/api/debug/push/schedule", get(push::push_schedule_debug))
         .route("/static/style.css", get(assets::stylesheet))
@@ -1102,6 +1103,81 @@ text line 2
 
         // Then
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn pdf_route__should_render_viewer_with_open_and_download_actions() {
+        // Given
+        let root = create_temp_root("pdf-route-viewer");
+        std::fs::create_dir_all(root.join("tickets")).expect("create tickets dir");
+        std::fs::write(root.join("tickets").join("show.pdf"), b"%PDF-1.4\n%test\n")
+            .expect("write show.pdf");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/pdf/tickets/show.pdf")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(body.contains(r#"<iframe class="pdf-viewer-frame" src="/file/tickets/show.pdf""#));
+        assert!(body.contains(r#"href="/file/tickets/show.pdf">Open raw PDF</a>"#));
+        assert!(body.contains(r#"href="/file/tickets/show.pdf?download=1">Download PDF</a>"#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn pdf_route__should_return_not_found_for_invalid_or_traversal_paths() {
+        // Given
+        let root = create_temp_root("pdf-route-invalid");
+        std::fs::write(root.join("note.txt"), b"hello").expect("write note.txt");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+        let router = app(app_config);
+
+        // When
+        let non_pdf_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/pdf/note.txt")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+        let traversal_response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/pdf/%2E%2E/outside.pdf")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(non_pdf_response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(traversal_response.status(), StatusCode::NOT_FOUND);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

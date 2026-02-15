@@ -129,6 +129,16 @@ pub(crate) struct UploadTemplate {
 }
 
 #[derive(Template, WebTemplate)]
+#[template(path = "pdf.html")]
+pub(crate) struct PdfTemplate {
+    pub(crate) app_name: String,
+    pub(crate) pdf_path: String,
+    pub(crate) pdf_url: String,
+    pub(crate) download_url: String,
+    pub(crate) git_enabled: bool,
+}
+
+#[derive(Template, WebTemplate)]
 #[template(path = "login.html")]
 pub(crate) struct LoginTemplate {
     pub(crate) app_name: String,

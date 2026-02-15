@@ -100,7 +100,7 @@ It directly solves the ticket-on-phone use case, keeps the codebase simple, pres
 - [x] **Task 2: Add relative PDF link rewriting in markdown rendering**
   - Acceptance criteria: `[x](a/b.pdf)` in `notes/doc.md` renders as `href="/pdf/notes/a/b.pdf"`; absolute/schemed links remain unchanged.
 
-- [ ] **Task 3: Add `/pdf/{*path}` viewer route and template**
+- [x] **Task 3: Add `/pdf/{*path}` viewer route and template**
   - Acceptance criteria:
     - valid in-root PDF path renders an embedded viewer
     - page includes `Open raw PDF` and `Download PDF` actions

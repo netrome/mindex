@@ -41,6 +41,40 @@ pub(crate) async fn upload_form(
     })
 }
 
+pub(crate) async fn pdf_view(
+    State(state): State<state::AppState>,
+    AxumPath(path): AxumPath<String>,
+) -> Result<templates::PdfTemplate, (StatusCode, &'static str)> {
+    if uploads::content_type_for_path(&path) != Some("application/pdf") {
+        return Err((StatusCode::NOT_FOUND, "not found"));
+    }
+
+    match uploads::resolve_file_path(&state.config.root, &path) {
+        Ok(_) => {}
+        Err(uploads::UploadError::NotFound) | Err(uploads::UploadError::BadPath) => {
+            return Err((StatusCode::NOT_FOUND, "not found"));
+        }
+        Err(uploads::UploadError::Io(err)) => {
+            eprintln!("failed to resolve pdf path {path}: {err}");
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, "internal error"));
+        }
+        Err(err) => {
+            eprintln!("failed to resolve pdf path {path}: {err:?}");
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, "internal error"));
+        }
+    }
+
+    let pdf_url = format!("/file/{path}");
+    let download_url = format!("/file/{path}?download=1");
+    Ok(templates::PdfTemplate {
+        app_name: state.config.app_name,
+        pdf_path: path,
+        pdf_url,
+        download_url,
+        git_enabled: state.git_dir.is_some(),
+    })
+}
+
 pub(crate) async fn upload_file(
     State(state): State<state::AppState>,
     AxumPath(path): AxumPath<String>,

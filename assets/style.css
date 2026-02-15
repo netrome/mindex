@@ -243,6 +243,22 @@ input[type="search"] {
     margin-top: 1rem;
 }
 
+.pdf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.pdf-viewer-frame {
+    display: block;
+    width: 100%;
+    min-height: 70vh;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--input-bg);
+}
+
 .todo-checkbox {
     margin-right: 0.5rem;
     transform: translateY(1px);
