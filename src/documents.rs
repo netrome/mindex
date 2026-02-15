@@ -934,7 +934,7 @@ fn rewrite_relative_md_link(doc_id: &str, dest_url: &str) -> Option<String> {
         let resolved = resolve_relative_doc_id(doc_id, path_part)?;
         doc_id_to_path(&resolved)?;
         ("/doc/", resolved)
-    } else if path_part.ends_with(".pdf") {
+    } else if has_extension_ignore_ascii_case(path_part, ".pdf") {
         let resolved = resolve_relative_path(doc_id, path_part)?;
         ("/pdf/", resolved)
     } else {
@@ -990,6 +990,10 @@ fn is_absolute_or_scheme(path: &str) -> bool {
 fn resolve_relative_doc_id(doc_id: &str, dest_path: &str) -> Option<String> {
     let resolved = resolve_relative_path(doc_id, dest_path)?;
     Some(resolved)
+}
+
+fn has_extension_ignore_ascii_case(path: &str, ext: &str) -> bool {
+    path.len() >= ext.len() && path[path.len() - ext.len()..].eq_ignore_ascii_case(ext)
 }
 
 fn resolve_relative_path(doc_id: &str, dest_path: &str) -> Option<String> {
@@ -1086,6 +1090,7 @@ mod tests {
 [Dot](./d.md)
 [Frag](b.md#section)
 [Pdf](tickets/show.pdf)
+[PdfUpper](tickets/show.PDF#page=3)
 [PdfUp](../ticket.pdf#page=2)
 [Abs](https://example.com/a.md)
 [PdfAbs](https://example.com/ticket.pdf)
@@ -1108,6 +1113,7 @@ mod tests {
         assert!(body.contains(r#"href="/doc/notes/d.md""#));
         assert!(body.contains(r#"href="/doc/notes/b.md#section""#));
         assert!(body.contains(r#"href="/pdf/notes/tickets/show.pdf""#));
+        assert!(body.contains(r#"href="/pdf/notes/tickets/show.PDF#page=3""#));
         assert!(body.contains(r#"href="/pdf/ticket.pdf#page=2""#));
         assert!(body.contains(r#"href="https://example.com/a.md""#));
         assert!(body.contains(r#"href="https://example.com/ticket.pdf""#));

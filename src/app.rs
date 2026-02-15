@@ -1081,6 +1081,68 @@ text line 2
     }
 
     #[tokio::test]
+    async fn file_route__should_not_set_attachment_disposition_for_image_download_query() {
+        // Given
+        let root = create_temp_root("file-image-download-query");
+        let image_bytes = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        std::fs::write(root.join("image.png"), image_bytes).expect("write image.png");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/file/image.png?download=1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(CONTENT_TYPE)
+                .expect("content-type header"),
+            "image/png"
+        );
+        assert!(response.headers().get(CONTENT_DISPOSITION).is_none());
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn file_route__should_return_not_found_for_traversal_path() {
+        // Given
+        let root = create_temp_root("file-traversal");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/file/%2E%2E/outside.pdf")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
     async fn file_route__should_return_not_found_for_unsupported_extension() {
         // Given
         let root = create_temp_root("file-unsupported-type");
@@ -1178,6 +1240,32 @@ text line 2
         // Then
         assert_eq!(non_pdf_response.status(), StatusCode::NOT_FOUND);
         assert_eq!(traversal_response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn pdf_route__should_return_not_found_for_missing_pdf() {
+        // Given
+        let root = create_temp_root("pdf-route-missing");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/pdf/missing.pdf")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
