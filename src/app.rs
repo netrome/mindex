@@ -757,6 +757,46 @@ C D E F | G A B c |
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
+    #[tokio::test]
+    async fn view_document__should_rewrite_relative_pdf_links() {
+        // Given
+        let root = create_temp_root("pdf-link-rewrite");
+        std::fs::create_dir_all(root.join("notes")).expect("create notes");
+        let markdown = "\
+[Ticket](tickets/show.pdf)
+[Abs](https://example.com/ticket.pdf)
+[Root](/tickets/root.pdf)
+";
+        std::fs::write(root.join("notes").join("doc.md"), markdown).expect("write doc.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/doc/notes/doc.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(body.contains(r#"href="/pdf/notes/tickets/show.pdf""#));
+        assert!(body.contains(r#"href="https://example.com/ticket.pdf""#));
+        assert!(body.contains(r#"href="/tickets/root.pdf""#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
     #[test]
     fn render_edit_form__should_include_action_and_contents() {
         // Given

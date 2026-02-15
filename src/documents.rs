@@ -926,14 +926,22 @@ pub(crate) fn rewrite_relative_image_links<'a>(event: Event<'a>, doc_id: &str) -
 
 fn rewrite_relative_md_link(doc_id: &str, dest_url: &str) -> Option<String> {
     let (path_part, fragment) = split_link_fragment(dest_url);
-    if path_part.is_empty() || is_absolute_or_scheme(path_part) || !path_part.ends_with(".md") {
+    if path_part.is_empty() || is_absolute_or_scheme(path_part) {
         return None;
     }
 
-    let resolved = resolve_relative_doc_id(doc_id, path_part)?;
-    doc_id_to_path(&resolved)?;
+    let (prefix, resolved) = if path_part.ends_with(".md") {
+        let resolved = resolve_relative_doc_id(doc_id, path_part)?;
+        doc_id_to_path(&resolved)?;
+        ("/doc/", resolved)
+    } else if path_part.ends_with(".pdf") {
+        let resolved = resolve_relative_path(doc_id, path_part)?;
+        ("/pdf/", resolved)
+    } else {
+        return None;
+    };
 
-    let mut new_dest = String::from("/doc/");
+    let mut new_dest = String::from(prefix);
     new_dest.push_str(&resolved);
     if let Some(fragment) = fragment {
         new_dest.push('#');
@@ -1077,8 +1085,12 @@ mod tests {
 [Up](../c.md)
 [Dot](./d.md)
 [Frag](b.md#section)
+[Pdf](tickets/show.pdf)
+[PdfUp](../ticket.pdf#page=2)
 [Abs](https://example.com/a.md)
+[PdfAbs](https://example.com/ticket.pdf)
 [Root](/notes/e.md)
+[PdfRoot](/tickets/root.pdf)
 [Other](f.txt)
 ";
         let mut body = String::new();
@@ -1095,8 +1107,12 @@ mod tests {
         assert!(body.contains(r#"href="/doc/c.md""#));
         assert!(body.contains(r#"href="/doc/notes/d.md""#));
         assert!(body.contains(r#"href="/doc/notes/b.md#section""#));
+        assert!(body.contains(r#"href="/pdf/notes/tickets/show.pdf""#));
+        assert!(body.contains(r#"href="/pdf/ticket.pdf#page=2""#));
         assert!(body.contains(r#"href="https://example.com/a.md""#));
+        assert!(body.contains(r#"href="https://example.com/ticket.pdf""#));
         assert!(body.contains(r#"href="/notes/e.md""#));
+        assert!(body.contains(r#"href="/tickets/root.pdf""#));
         assert!(body.contains(r#"href="f.txt""#));
     }
 

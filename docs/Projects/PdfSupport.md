@@ -97,7 +97,7 @@ It directly solves the ticket-on-phone use case, keeps the codebase simple, pres
     - `/file/...pdf?download=1` returns `200` with attachment disposition
     - unsupported extensions still return `404`
 
-- [ ] **Task 2: Add relative PDF link rewriting in markdown rendering**
+- [x] **Task 2: Add relative PDF link rewriting in markdown rendering**
   - Acceptance criteria: `[x](a/b.pdf)` in `notes/doc.md` renders as `href="/pdf/notes/a/b.pdf"`; absolute/schemed links remain unchanged.
 
 - [ ] **Task 3: Add `/pdf/{*path}` viewer route and template**
