@@ -16,6 +16,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 - Edit and save Markdown from the browser
 - Image uploads via `/upload` (returns markdown link)
 - Paste images directly into the editor (uploads and inserts markdown)
+- View PDFs stored under root, with in-app viewer and explicit open/download actions
 - Reorder mode (`/reorder/<doc>.md`) with block/line drag + drop
 - Mobile-friendly UI
 - Optional in-app authentication with a signed cookie
@@ -37,6 +38,22 @@ cargo run -- --root ./sample-root
 ```
 
 That's it. The documents are now served at `http://localhost:3000`.
+
+## PDF viewing
+
+Mindex supports PDF files under the configured root directory.
+
+- Relative markdown links to PDFs are rewritten to `/pdf/<resolved-path>`.
+- The `/pdf/<path>` page embeds the PDF and includes:
+  - `Open raw PDF` (`/file/<path>`)
+  - `Download PDF` (`/file/<path>?download=1`)
+
+Example in a document:
+
+```markdown
+[Concert ticket](tickets/show.pdf)
+[Ticket page 2](tickets/show.pdf#page=2)
+```
 
 ## Authentication (optional)
 

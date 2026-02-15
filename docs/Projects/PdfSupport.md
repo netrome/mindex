@@ -109,7 +109,7 @@ It directly solves the ticket-on-phone use case, keeps the codebase simple, pres
 - [x] **Task 4: Add tests for correctness and safety**
   - Acceptance criteria: Tests cover link rewriting, PDF content type, and path safety behavior (including traversal rejection).
 
-- [ ] **Task 5: Update docs**
+- [x] **Task 5: Update docs**
   - Acceptance criteria: README includes PDF viewing behavior and basic usage example.
 
 ## Risks and limitations
