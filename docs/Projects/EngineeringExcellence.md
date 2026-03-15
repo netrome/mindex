@@ -134,18 +134,18 @@ Each task is a single focused PR.
 
 ### Naming and organization
 
-- [ ] **Task N1: Rename `push_registries` to `registries`**
+- [x] **Task N1: Rename `push_registries` to `registries`**
   - Rename the field in `AppState` and all references.
   - Acceptance criteria: `cargo clippy` and all tests pass. No functional
     change.
 
-- [ ] **Task N2: Move `search_documents` to `documents.rs`**
+- [x] **Task N2: Move `search_documents` to `documents.rs`**
   - Move `search_documents` and `find_match_snippet` from `app/documents.rs`
     to `documents.rs`. Add unit tests.
   - Acceptance criteria: Search works as before. New unit tests for
     `search_documents` without HTTP.
 
-- [ ] **Task N3: Extract markdown rendering from `document_view`**
+- [x] **Task N3: Extract markdown rendering from `document_view`**
   - Create a `render_document_html` function in `documents.rs` that takes
     markdown content and doc_id, returns rendered HTML + flags (has_mermaid,
     has_abc).

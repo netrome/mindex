@@ -1,6 +1,5 @@
-use crate::math::html_escape;
-use pulldown_cmark::Event;
-use pulldown_cmark::Tag;
+use crate::math::{MathStyle, html_escape, render_math};
+use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
@@ -1075,6 +1074,143 @@ pub(crate) fn normalize_newlines(contents: &str) -> String {
     normalized.replace('\r', "\n")
 }
 
+pub(crate) struct RenderedDocument {
+    pub(crate) html: String,
+    pub(crate) has_mermaid: bool,
+    pub(crate) has_abc: bool,
+}
+
+pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocument {
+    let rendered = render_task_list_markdown(markdown, doc_id);
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_MATH);
+    let parser = Parser::new_ext(&rendered, options).map(|event| {
+        let event = rewrite_relative_md_links(event, doc_id);
+        rewrite_relative_image_links(event, doc_id)
+    });
+
+    let mut has_mermaid = false;
+    let mut has_abc = false;
+    let mut in_mermaid = false;
+    let mut in_abc = false;
+    let mut mermaid_buffer = String::new();
+    let mut abc_buffer = String::new();
+    let mut events = Vec::new();
+
+    for event in parser {
+        if in_mermaid {
+            match event {
+                Event::End(TagEnd::CodeBlock) => {
+                    let escaped = html_escape(&mermaid_buffer);
+                    let html = format!(r#"<div class="mermaid">{escaped}</div>"#);
+                    events.push(Event::Html(html.into()));
+                    mermaid_buffer.clear();
+                    in_mermaid = false;
+                    has_mermaid = true;
+                }
+                Event::Text(text) => mermaid_buffer.push_str(&text),
+                Event::SoftBreak | Event::HardBreak => mermaid_buffer.push('\n'),
+                _ => {}
+            }
+            continue;
+        }
+
+        if in_abc {
+            match event {
+                Event::End(TagEnd::CodeBlock) => {
+                    let escaped = html_escape(&abc_buffer);
+                    let html = format!(r#"<div class="abc-notation">{escaped}</div>"#);
+                    events.push(Event::Html(html.into()));
+                    abc_buffer.clear();
+                    in_abc = false;
+                    has_abc = true;
+                }
+                Event::Text(text) => abc_buffer.push_str(&text),
+                Event::SoftBreak | Event::HardBreak => abc_buffer.push('\n'),
+                _ => {}
+            }
+            continue;
+        }
+
+        if let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref info))) = event {
+            if is_mermaid_info(info) {
+                in_mermaid = true;
+                mermaid_buffer.clear();
+                continue;
+            }
+            if is_abc_info(info) {
+                in_abc = true;
+                abc_buffer.clear();
+                continue;
+            }
+        }
+
+        let event = match event {
+            Event::InlineMath(latex) => {
+                let html = render_math(&latex, MathStyle::Inline).into_html();
+                Event::Html(html.into())
+            }
+            Event::DisplayMath(latex) => {
+                let html = render_math(&latex, MathStyle::Display).into_html();
+                Event::Html(html.into())
+            }
+            other => other,
+        };
+        events.push(event);
+    }
+
+    let mut html = String::new();
+    pulldown_cmark::html::push_html(&mut html, events.into_iter());
+
+    RenderedDocument {
+        html,
+        has_mermaid,
+        has_abc,
+    }
+}
+
+fn is_mermaid_info(info: &str) -> bool {
+    let language = info.split_whitespace().next().unwrap_or("");
+    language.eq_ignore_ascii_case("mermaid")
+}
+
+fn is_abc_info(info: &str) -> bool {
+    let language = info.split_whitespace().next().unwrap_or("");
+    language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
+}
+
+pub(crate) struct SearchResult {
+    pub(crate) doc_id: String,
+    pub(crate) snippet: String,
+}
+
+pub(crate) fn search_documents(root: &Path, query: &str) -> std::io::Result<Vec<SearchResult>> {
+    let mut results = Vec::new();
+    let needle = query.to_lowercase();
+    for path in collect_markdown_paths(root)? {
+        let doc_id = match doc_id_from_path(root, &path) {
+            Some(doc_id) => doc_id,
+            None => continue,
+        };
+        let contents = std::fs::read_to_string(&path)?;
+        if let Some(snippet) = find_match_snippet(&contents, &needle) {
+            results.push(SearchResult { doc_id, snippet });
+        }
+    }
+    results.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
+    Ok(results)
+}
+
+pub(crate) fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
+    for line in contents.lines() {
+        if line.to_lowercase().contains(needle) {
+            return Some(line.trim().to_string());
+        }
+    }
+    None
+}
+
 #[derive(Debug)]
 pub(crate) enum DocError {
     BadPath,
@@ -1086,8 +1222,6 @@ pub(crate) enum DocError {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
-    use pulldown_cmark::Options;
-    use pulldown_cmark::Parser;
 
     #[test]
     fn rewrite_relative_md_links__should_rewrite_relative_md_links() {
@@ -1560,6 +1694,147 @@ Edge: email@example.com and @not+valid and @ok-name.
 
         // Then
         assert_eq!(updated, contents);
+    }
+
+    // -- search --
+
+    #[test]
+    fn find_match_snippet__should_return_first_matching_line() {
+        // Given
+        let contents = "First line\nSecond contains hello world\nThird line\n";
+
+        // When
+        let snippet = find_match_snippet(contents, "hello");
+
+        // Then
+        assert_eq!(snippet, Some("Second contains hello world".to_string()));
+    }
+
+    #[test]
+    fn find_match_snippet__should_be_case_insensitive() {
+        // Given
+        let contents = "Title: Hello World\n";
+
+        // When
+        let snippet = find_match_snippet(contents, "hello");
+
+        // Then
+        assert_eq!(snippet, Some("Title: Hello World".to_string()));
+    }
+
+    #[test]
+    fn find_match_snippet__should_return_none_when_no_match() {
+        // Given
+        let contents = "Nothing relevant here\n";
+
+        // When
+        let snippet = find_match_snippet(contents, "missing");
+
+        // Then
+        assert_eq!(snippet, None);
+    }
+
+    #[test]
+    fn search_documents__should_find_matching_docs() {
+        // Given
+        let root = create_temp_root("search");
+        std::fs::write(root.join("alpha.md"), "Alpha has the needle").expect("write");
+        std::fs::write(root.join("beta.md"), "Beta has nothing").expect("write");
+        std::fs::write(root.join("gamma.md"), "Gamma also has the needle").expect("write");
+
+        // When
+        let results = search_documents(&root, "needle").expect("search");
+
+        // Then
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].doc_id, "alpha.md");
+        assert_eq!(results[0].snippet, "Alpha has the needle");
+        assert_eq!(results[1].doc_id, "gamma.md");
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn search_documents__should_return_empty_for_no_matches() {
+        // Given
+        let root = create_temp_root("search-empty");
+        std::fs::write(root.join("doc.md"), "Nothing here").expect("write");
+
+        // When
+        let results = search_documents(&root, "missing").expect("search");
+
+        // Then
+        assert!(results.is_empty());
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    // -- rendering --
+
+    #[test]
+    fn render_document_html__should_render_basic_markdown() {
+        // Given
+        let markdown = "# Hello\n\nA paragraph.\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.html.contains("<h1>Hello</h1>"));
+        assert!(result.html.contains("<p>A paragraph.</p>"));
+        assert!(!result.has_mermaid);
+        assert!(!result.has_abc);
+    }
+
+    #[test]
+    fn render_document_html__should_extract_mermaid_blocks() {
+        // Given
+        let markdown = "```mermaid\ngraph TD;\nA-->B;\n```\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.has_mermaid);
+        assert!(result.html.contains(r#"class="mermaid"#));
+        assert!(result.html.contains("A--&gt;B;"));
+    }
+
+    #[test]
+    fn render_document_html__should_extract_abc_blocks() {
+        // Given
+        let markdown = "```abc\nX:1\nT:Test\nK:C\n```\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.has_abc);
+        assert!(result.html.contains(r#"class="abc-notation"#));
+    }
+
+    #[test]
+    fn render_document_html__should_render_inline_math() {
+        // Given
+        let markdown = "Equation: $x^2$\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.html.contains("<math"));
+    }
+
+    #[test]
+    fn render_document_html__should_render_tables() {
+        // Given
+        let markdown = "| A | B |\n|---|---|\n| 1 | 2 |\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.html.contains("<table>"));
     }
 
     fn create_temp_root(test_name: &str) -> PathBuf {

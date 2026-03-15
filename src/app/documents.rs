@@ -2,10 +2,9 @@ use crate::config;
 use crate::documents::{
     BlockKind, DocError, ReorderError, add_task_item_in_list, atomic_write, collect_markdown_paths,
     collect_mentions, create_document, doc_id_from_path, line_count, lines_for_display,
-    load_document, normalize_newlines, render_task_list_markdown, reorder_range, resolve_doc_path,
-    rewrite_relative_image_links, rewrite_relative_md_links, scan_block_ranges, toggle_task_item,
+    load_document, normalize_newlines, render_document_html, reorder_range, resolve_doc_path,
+    scan_block_ranges, search_documents, toggle_task_item,
 };
-use crate::math::{MathStyle, html_escape, render_math};
 use crate::push as push_service;
 use crate::state;
 use crate::templates;
@@ -16,11 +15,9 @@ use axum::extract::Query;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Redirect;
-use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use serde::Deserialize;
 
 use std::io::ErrorKind;
-use std::path::Path;
 
 use super::push::refresh_push_state;
 
@@ -173,106 +170,16 @@ pub(crate) async fn document_view(
         }
     })?;
 
-    let rendered = render_task_list_markdown(&contents, &doc_id);
-    let mut body = String::new();
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_MATH);
-    let parser = Parser::new_ext(&rendered, options).map(|event| {
-        let event = rewrite_relative_md_links(event, &doc_id);
-        rewrite_relative_image_links(event, &doc_id)
-    });
-
-    let mut has_mermaid = false;
-    let mut has_abc = false;
-    let mut in_mermaid = false;
-    let mut in_abc = false;
-    let mut mermaid_buffer = String::new();
-    let mut abc_buffer = String::new();
-    let mut events = Vec::new();
-
-    for event in parser {
-        if in_mermaid {
-            match event {
-                Event::End(TagEnd::CodeBlock) => {
-                    let escaped = html_escape(&mermaid_buffer);
-                    let html = format!(r#"<div class="mermaid">{escaped}</div>"#);
-                    events.push(Event::Html(html.into()));
-                    mermaid_buffer.clear();
-                    in_mermaid = false;
-                    has_mermaid = true;
-                }
-                Event::Text(text) => mermaid_buffer.push_str(&text),
-                Event::SoftBreak | Event::HardBreak => mermaid_buffer.push('\n'),
-                _ => {}
-            }
-            continue;
-        }
-
-        if in_abc {
-            match event {
-                Event::End(TagEnd::CodeBlock) => {
-                    let escaped = html_escape(&abc_buffer);
-                    let html = format!(r#"<div class="abc-notation">{escaped}</div>"#);
-                    events.push(Event::Html(html.into()));
-                    abc_buffer.clear();
-                    in_abc = false;
-                    has_abc = true;
-                }
-                Event::Text(text) => abc_buffer.push_str(&text),
-                Event::SoftBreak | Event::HardBreak => abc_buffer.push('\n'),
-                _ => {}
-            }
-            continue;
-        }
-
-        if let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = &event {
-            if is_mermaid_info(info) {
-                in_mermaid = true;
-                mermaid_buffer.clear();
-                continue;
-            }
-            if is_abc_info(info) {
-                in_abc = true;
-                abc_buffer.clear();
-                continue;
-            }
-        }
-
-        let event = match event {
-            Event::InlineMath(latex) => {
-                let html = render_math(&latex, MathStyle::Inline).into_html();
-                Event::Html(html.into())
-            }
-            Event::DisplayMath(latex) => {
-                let html = render_math(&latex, MathStyle::Display).into_html();
-                Event::Html(html.into())
-            }
-            other => other,
-        };
-        events.push(event);
-    }
-
-    pulldown_cmark::html::push_html(&mut body, events.into_iter());
+    let rendered = render_document_html(&contents, &doc_id);
 
     Ok(templates::DocumentTemplate {
         app_name: state.config.app_name,
         doc_id,
-        content: body,
-        has_mermaid,
-        has_abc,
+        content: rendered.html,
+        has_mermaid: rendered.has_mermaid,
+        has_abc: rendered.has_abc,
         git_enabled,
     })
-}
-
-fn is_mermaid_info(info: &pulldown_cmark::CowStr<'_>) -> bool {
-    let language = info.as_ref().split_whitespace().next().unwrap_or("");
-    language.eq_ignore_ascii_case("mermaid")
-}
-
-fn is_abc_info(info: &pulldown_cmark::CowStr<'_>) -> bool {
-    let language = info.as_ref().split_whitespace().next().unwrap_or("");
-    language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
 }
 
 #[derive(Debug, Deserialize)]
@@ -406,11 +313,7 @@ pub(crate) async fn document_save(
         eprintln!("failed to reload push registries after save: {err}");
     }
     if !mentions.is_empty() {
-        let registries_snapshot = state
-            .push_registries
-            .lock()
-            .expect("push registries lock")
-            .clone();
+        let registries_snapshot = state.registries.lock().expect("registries lock").clone();
         push_service::send_mentions(&state.config, &registries_snapshot, &doc_id, &mentions).await;
     }
 
@@ -605,35 +508,6 @@ pub(crate) async fn document_reorder_range(
     }
 
     Ok(StatusCode::NO_CONTENT)
-}
-
-pub(crate) fn search_documents(
-    root: &Path,
-    query: &str,
-) -> std::io::Result<Vec<templates::SearchResult>> {
-    let mut results = Vec::new();
-    let needle = query.to_lowercase();
-    for path in collect_markdown_paths(root)? {
-        let doc_id = match doc_id_from_path(root, &path) {
-            Some(doc_id) => doc_id,
-            None => continue,
-        };
-        let contents = std::fs::read_to_string(&path)?;
-        if let Some(snippet) = find_match_snippet(&contents, &needle) {
-            results.push(templates::SearchResult { doc_id, snippet });
-        }
-    }
-    results.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
-    Ok(results)
-}
-
-pub(crate) fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
-    for line in contents.lines() {
-        if line.to_lowercase().contains(needle) {
-            return Some(line.trim().to_string());
-        }
-    }
-    None
 }
 
 #[derive(Debug, Deserialize)]

@@ -141,7 +141,7 @@ pub(crate) async fn login_submit(
     }
 
     let password_hash = {
-        let registries = state.push_registries.lock().expect("push registries lock");
+        let registries = state.registries.lock().expect("registries lock");
         registries
             .users
             .get(name)

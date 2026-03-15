@@ -28,24 +28,24 @@ pub fn app(config: config::AppConfig) -> Router {
             None
         }
     };
-    let push_registries = match directives::DirectiveRegistries::load(&config.root) {
+    let registries = match directives::DirectiveRegistries::load(&config.root) {
         Ok(registries) => registries,
         Err(err) => {
             eprintln!("failed to load push directive registries: {err}");
             directives::DirectiveRegistries::default()
         }
     };
-    let push_registries = std::sync::Arc::new(std::sync::Mutex::new(push_registries));
+    let registries = std::sync::Arc::new(std::sync::Mutex::new(registries));
     let push_handles = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let state = state::AppState {
         config,
         auth,
-        push_registries: std::sync::Arc::clone(&push_registries),
+        registries: std::sync::Arc::clone(&registries),
         push_handles: std::sync::Arc::clone(&push_handles),
         git_dir,
     };
     let registries_snapshot = {
-        let registries = push_registries.lock().expect("push registries lock");
+        let registries = registries.lock().expect("registries lock");
         std::sync::Arc::new(registries.clone())
     };
     push_service::maybe_start_scheduler(&state.config, registries_snapshot, push_handles);
@@ -505,7 +505,7 @@ message = "Check the daily log."
                 ..Default::default()
             },
             auth: None,
-            push_registries: std::sync::Arc::new(std::sync::Mutex::new(
+            registries: std::sync::Arc::new(std::sync::Mutex::new(
                 directives::DirectiveRegistries::default(),
             )),
             push_handles: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
@@ -534,9 +534,9 @@ password_hash = "hash"
 
         // Then
         let registries = app_state
-            .push_registries
+            .registries
             .lock()
-            .expect("push registries lock")
+            .expect("registries lock")
             .clone();
         assert!(registries.users.contains_key("marten"));
 

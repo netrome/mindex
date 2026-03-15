@@ -175,7 +175,7 @@ fn git_author_from_request(
     let subject = auth_state
         .subject_from_token(token)
         .map_err(|_| "Authentication required.".to_string())?;
-    let registries = state.push_registries.lock().expect("push registries lock");
+    let registries = state.registries.lock().expect("registries lock");
     let user = registries
         .users
         .get(&subject)

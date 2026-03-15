@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 pub struct AppState {
     pub config: AppConfig,
     pub auth: Option<auth::AuthState>,
-    pub push_registries: Arc<Mutex<directives::DirectiveRegistries>>,
+    pub registries: Arc<Mutex<directives::DirectiveRegistries>>,
     pub push_handles: Arc<Mutex<Vec<push_service::ScheduledNotificationHandle>>>,
     pub git_dir: Option<PathBuf>,
 }

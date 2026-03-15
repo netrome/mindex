@@ -109,10 +109,7 @@ pub(crate) struct SearchTemplate {
     pub(crate) git_enabled: bool,
 }
 
-pub(crate) struct SearchResult {
-    pub(crate) doc_id: String,
-    pub(crate) snippet: String,
-}
+pub(crate) use crate::documents::SearchResult;
 
 #[derive(Template, WebTemplate)]
 #[template(path = "push_subscribe.html")]

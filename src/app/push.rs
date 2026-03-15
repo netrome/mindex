@@ -15,11 +15,7 @@ use time::OffsetDateTime;
 pub(crate) async fn push_registry_debug(
     State(state): State<state::AppState>,
 ) -> Json<directives::DirectiveRegistries> {
-    let registries = state
-        .push_registries
-        .lock()
-        .expect("push registries lock")
-        .clone();
+    let registries = state.registries.lock().expect("registries lock").clone();
     Json(registries)
 }
 
@@ -190,7 +186,7 @@ pub(crate) async fn push_subscribe(
 pub(crate) fn refresh_push_state(state: &state::AppState) -> std::io::Result<()> {
     let registries = directives::DirectiveRegistries::load(&state.config.root)?;
     {
-        let mut guard = state.push_registries.lock().expect("push registries lock");
+        let mut guard = state.registries.lock().expect("registries lock");
         *guard = registries.clone();
     }
     push_service::restart_scheduler(
