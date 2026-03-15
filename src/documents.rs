@@ -104,6 +104,143 @@ pub(crate) fn create_document(root: &Path, doc_id: &str, contents: &str) -> Resu
     atomic_write(&target, contents).map_err(DocError::Io)
 }
 
+pub(crate) struct SearchResult {
+    pub(crate) doc_id: String,
+    pub(crate) snippet: String,
+}
+
+pub(crate) fn search_documents(root: &Path, query: &str) -> std::io::Result<Vec<SearchResult>> {
+    let mut results = Vec::new();
+    let needle = query.to_lowercase();
+    for path in collect_markdown_paths(root)? {
+        let doc_id = match doc_id_from_path(root, &path) {
+            Some(doc_id) => doc_id,
+            None => continue,
+        };
+        let contents = std::fs::read_to_string(&path)?;
+        if let Some(snippet) = find_match_snippet(&contents, &needle) {
+            results.push(SearchResult { doc_id, snippet });
+        }
+    }
+    results.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
+    Ok(results)
+}
+
+fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
+    for line in contents.lines() {
+        if line.to_lowercase().contains(needle) {
+            return Some(line.trim().to_string());
+        }
+    }
+    None
+}
+
+pub(crate) struct RenderedDocument {
+    pub(crate) html: String,
+    pub(crate) has_mermaid: bool,
+    pub(crate) has_abc: bool,
+}
+
+pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocument {
+    let rendered = render_task_list_markdown(markdown, doc_id);
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_MATH);
+    let parser = Parser::new_ext(&rendered, options).map(|event| {
+        let event = rewrite_relative_md_links(event, doc_id);
+        rewrite_relative_image_links(event, doc_id)
+    });
+
+    let mut has_mermaid = false;
+    let mut has_abc = false;
+    let mut in_mermaid = false;
+    let mut in_abc = false;
+    let mut mermaid_buffer = String::new();
+    let mut abc_buffer = String::new();
+    let mut events = Vec::new();
+
+    for event in parser {
+        if in_mermaid {
+            match event {
+                Event::End(TagEnd::CodeBlock) => {
+                    let escaped = html_escape(&mermaid_buffer);
+                    let html = format!(r#"<div class="mermaid">{escaped}</div>"#);
+                    events.push(Event::Html(html.into()));
+                    mermaid_buffer.clear();
+                    in_mermaid = false;
+                    has_mermaid = true;
+                }
+                Event::Text(text) => mermaid_buffer.push_str(&text),
+                Event::SoftBreak | Event::HardBreak => mermaid_buffer.push('\n'),
+                _ => {}
+            }
+            continue;
+        }
+
+        if in_abc {
+            match event {
+                Event::End(TagEnd::CodeBlock) => {
+                    let escaped = html_escape(&abc_buffer);
+                    let html = format!(r#"<div class="abc-notation">{escaped}</div>"#);
+                    events.push(Event::Html(html.into()));
+                    abc_buffer.clear();
+                    in_abc = false;
+                    has_abc = true;
+                }
+                Event::Text(text) => abc_buffer.push_str(&text),
+                Event::SoftBreak | Event::HardBreak => abc_buffer.push('\n'),
+                _ => {}
+            }
+            continue;
+        }
+
+        if let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref info))) = event {
+            if is_mermaid_info(info) {
+                in_mermaid = true;
+                mermaid_buffer.clear();
+                continue;
+            }
+            if is_abc_info(info) {
+                in_abc = true;
+                abc_buffer.clear();
+                continue;
+            }
+        }
+
+        let event = match event {
+            Event::InlineMath(latex) => {
+                let html = render_math(&latex, MathStyle::Inline).into_html();
+                Event::Html(html.into())
+            }
+            Event::DisplayMath(latex) => {
+                let html = render_math(&latex, MathStyle::Display).into_html();
+                Event::Html(html.into())
+            }
+            other => other,
+        };
+        events.push(event);
+    }
+
+    let mut html = String::new();
+    pulldown_cmark::html::push_html(&mut html, events.into_iter());
+
+    RenderedDocument {
+        html,
+        has_mermaid,
+        has_abc,
+    }
+}
+
+fn is_mermaid_info(info: &str) -> bool {
+    let language = info.split_whitespace().next().unwrap_or("");
+    language.eq_ignore_ascii_case("mermaid")
+}
+
+fn is_abc_info(info: &str) -> bool {
+    let language = info.split_whitespace().next().unwrap_or("");
+    language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
+}
+
 pub(crate) fn render_task_list_markdown(contents: &str, doc_id: &str) -> String {
     let mut output = String::with_capacity(contents.len());
     let mut in_fence = false;
@@ -1072,143 +1209,6 @@ pub(crate) fn normalize_newlines(contents: &str) -> String {
     }
     let normalized = contents.replace("\r\n", "\n");
     normalized.replace('\r', "\n")
-}
-
-pub(crate) struct RenderedDocument {
-    pub(crate) html: String,
-    pub(crate) has_mermaid: bool,
-    pub(crate) has_abc: bool,
-}
-
-pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocument {
-    let rendered = render_task_list_markdown(markdown, doc_id);
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_MATH);
-    let parser = Parser::new_ext(&rendered, options).map(|event| {
-        let event = rewrite_relative_md_links(event, doc_id);
-        rewrite_relative_image_links(event, doc_id)
-    });
-
-    let mut has_mermaid = false;
-    let mut has_abc = false;
-    let mut in_mermaid = false;
-    let mut in_abc = false;
-    let mut mermaid_buffer = String::new();
-    let mut abc_buffer = String::new();
-    let mut events = Vec::new();
-
-    for event in parser {
-        if in_mermaid {
-            match event {
-                Event::End(TagEnd::CodeBlock) => {
-                    let escaped = html_escape(&mermaid_buffer);
-                    let html = format!(r#"<div class="mermaid">{escaped}</div>"#);
-                    events.push(Event::Html(html.into()));
-                    mermaid_buffer.clear();
-                    in_mermaid = false;
-                    has_mermaid = true;
-                }
-                Event::Text(text) => mermaid_buffer.push_str(&text),
-                Event::SoftBreak | Event::HardBreak => mermaid_buffer.push('\n'),
-                _ => {}
-            }
-            continue;
-        }
-
-        if in_abc {
-            match event {
-                Event::End(TagEnd::CodeBlock) => {
-                    let escaped = html_escape(&abc_buffer);
-                    let html = format!(r#"<div class="abc-notation">{escaped}</div>"#);
-                    events.push(Event::Html(html.into()));
-                    abc_buffer.clear();
-                    in_abc = false;
-                    has_abc = true;
-                }
-                Event::Text(text) => abc_buffer.push_str(&text),
-                Event::SoftBreak | Event::HardBreak => abc_buffer.push('\n'),
-                _ => {}
-            }
-            continue;
-        }
-
-        if let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref info))) = event {
-            if is_mermaid_info(info) {
-                in_mermaid = true;
-                mermaid_buffer.clear();
-                continue;
-            }
-            if is_abc_info(info) {
-                in_abc = true;
-                abc_buffer.clear();
-                continue;
-            }
-        }
-
-        let event = match event {
-            Event::InlineMath(latex) => {
-                let html = render_math(&latex, MathStyle::Inline).into_html();
-                Event::Html(html.into())
-            }
-            Event::DisplayMath(latex) => {
-                let html = render_math(&latex, MathStyle::Display).into_html();
-                Event::Html(html.into())
-            }
-            other => other,
-        };
-        events.push(event);
-    }
-
-    let mut html = String::new();
-    pulldown_cmark::html::push_html(&mut html, events.into_iter());
-
-    RenderedDocument {
-        html,
-        has_mermaid,
-        has_abc,
-    }
-}
-
-fn is_mermaid_info(info: &str) -> bool {
-    let language = info.split_whitespace().next().unwrap_or("");
-    language.eq_ignore_ascii_case("mermaid")
-}
-
-fn is_abc_info(info: &str) -> bool {
-    let language = info.split_whitespace().next().unwrap_or("");
-    language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
-}
-
-pub(crate) struct SearchResult {
-    pub(crate) doc_id: String,
-    pub(crate) snippet: String,
-}
-
-pub(crate) fn search_documents(root: &Path, query: &str) -> std::io::Result<Vec<SearchResult>> {
-    let mut results = Vec::new();
-    let needle = query.to_lowercase();
-    for path in collect_markdown_paths(root)? {
-        let doc_id = match doc_id_from_path(root, &path) {
-            Some(doc_id) => doc_id,
-            None => continue,
-        };
-        let contents = std::fs::read_to_string(&path)?;
-        if let Some(snippet) = find_match_snippet(&contents, &needle) {
-            results.push(SearchResult { doc_id, snippet });
-        }
-    }
-    results.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
-    Ok(results)
-}
-
-pub(crate) fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
-    for line in contents.lines() {
-        if line.to_lowercase().contains(needle) {
-            return Some(line.trim().to_string());
-        }
-    }
-    None
 }
 
 #[derive(Debug)]
