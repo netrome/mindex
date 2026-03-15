@@ -1,7 +1,7 @@
 # Engineering Excellence Sweep
 
 ## Status
-In progress
+Complete
 
 ## Goal
 Bring the codebase to a high bar of quality, readability, and maintainability
@@ -182,11 +182,11 @@ Each task is a single focused PR.
 
 ### Documentation
 
-- [ ] **Task DOC1: Update ARCHITECTURE.md**
+- [x] **Task DOC1: Update ARCHITECTURE.md**
   - Add missing modules and submodules. Remove outdated descriptions.
   - Acceptance criteria: Module list matches current `src/` layout.
 
-- [ ] **Task DOC2: Fix typo in INVARIANTS.md**
+- [x] **Task DOC2: Fix typo in INVARIANTS.md**
   - "secyrity" -> "security"
   - Acceptance criteria: Typo fixed.
 

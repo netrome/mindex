@@ -10,44 +10,67 @@ Mindex is a single-process web server that:
 
 ## Request flow (typical)
 
-- Request arrives at router (handlers in `src/app.rs`)
+- Request arrives at router (routes defined in `src/app.rs`)
+- Auth middleware checks credentials when auth is enabled
 - Handler validates/normalizes the requested document path
-- Handler reads from disk (under root) and renders:
+- Handler calls domain functions and renders:
   - Markdown → HTML for view routes
   - Templates → HTML pages for browse/edit/search
 - Static assets are served via `src/assets.rs`
 
 ## Modules
 
-- `src/main.rs`
-  - Binary entrypoint; initializes config + state; starts server
+### Entrypoints
 
-- `src/lib.rs`
-  - Library exports for reusability/testing
+- `src/main.rs` — binary entrypoint; parses CLI args, initializes config, starts server
+- `src/lib.rs` — library root; declares modules, exports `serve()`
+- `src/cli.rs` — CLI argument parsing and validation
 
-- `src/config.rs`
-  - Defines configuration (CLI/env) and validation
+### Domain logic
 
-- `src/state.rs`
-  - Shared application state (configured root directory, caches/indexes if any)
+- `src/documents.rs` — markdown loading, rendering, search, editing, path resolution
+- `src/directives.rs` — parses user/notification directive blocks from markdown files
+- `src/uploads.rs` — image upload storage and path resolution
+- `src/git.rs` — git status, commit, and remote operations
+- `src/auth.rs` — password hashing and auth key/token generation
+- `src/math.rs` — LaTeX-to-MathML rendering for inline/display math
+- `src/fs.rs` — shared filesystem utilities (atomic writes, safe directory creation)
 
-- `src/ports/`
-  - Shared trait interfaces, scoped by feature where needed
+### HTTP layer
 
-- `src/types/`
-  - Domain types, scoped by feature where needed
+- `src/app.rs` — router setup, middleware, and route definitions
+- `src/app/auth.rs` — login/logout handlers
+- `src/app/documents.rs` — document view, edit, search, reorder handlers
+- `src/app/git.rs` — git status/commit/pull/push handlers
+- `src/app/push.rs` — push notification debug/subscription handlers
+- `src/app/uploads.rs` — image upload and file serving handlers
 
-- `src/app.rs`
-  - HTTP routing and request handlers
+### Infrastructure
 
-- `src/templates.rs`
-  - HTML templates and rendering helpers (server-side)
+- `src/config.rs` — application configuration (CLI/env) and validation
+- `src/state.rs` — shared application state (`AppState`)
+- `src/templates.rs` — HTML templates and rendering helpers (server-side)
+- `src/assets.rs` — serves or embeds static UI assets from `static/`
+- `src/adapters.rs` — concrete implementations of port traits (e.g. `WebPushSender`)
 
-- `src/assets.rs`
-  - Serves or embeds static UI assets from `static/`
+### Push notifications
 
-- `src/push/`
-  - Push notification internals (directive parsing, registry, scheduling, VAPID)
+- `src/push.rs` — push notification dispatch (mention notifications)
+- `src/push/scheduler.rs` — scheduled notification delivery
+- `src/push/vapid.rs` — VAPID key generation for web push
+
+### Shared abstractions
+
+- `src/ports/` — trait interfaces for external dependencies
+  - `src/ports/push.rs` — `PushSender` trait
+  - `src/ports/time.rs` — `Clock` trait
+- `src/types/` — domain types
+  - `src/types/directives.rs` — directive registry types (users, subscriptions, notifications)
+  - `src/types/push.rs` — VAPID configuration type
+
+### Test support
+
+- `src/test_support.rs` — shared test utilities (`create_temp_root`); compiled only under `#[cfg(test)]`
 
 ## Key design choices
 
