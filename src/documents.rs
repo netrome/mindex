@@ -25,7 +25,13 @@ fn collect_markdown_paths_recursive(dir: &Path, paths: &mut Vec<PathBuf>) -> std
 
         let path = entry.path();
         if file_type.is_dir() {
-            collect_markdown_paths_recursive(&path, paths)?;
+            let is_hidden = entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.starts_with('.'));
+            if !is_hidden {
+                collect_markdown_paths_recursive(&path, paths)?;
+            }
             continue;
         }
 
@@ -1260,6 +1266,35 @@ Final.\n";
 
         // Then
         assert_eq!(doc_ids, vec!["a.md".to_string(), "notes/c.md".to_string()]);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn collect_markdown_paths__should_skip_hidden_directories() {
+        // Given
+        let root = create_temp_root("collect-hidden");
+        std::fs::write(root.join("a.md"), "# A").expect("write a.md");
+        std::fs::create_dir_all(root.join(".git")).expect("create .git dir");
+        std::fs::write(root.join(".git").join("HEAD.md"), "ref").expect("write .git/HEAD.md");
+        std::fs::create_dir_all(root.join(".obsidian")).expect("create .obsidian dir");
+        std::fs::write(root.join(".obsidian").join("config.md"), "{}").expect("write config.md");
+        std::fs::create_dir_all(root.join("visible")).expect("create visible dir");
+        std::fs::write(root.join("visible").join("b.md"), "# B").expect("write b.md");
+
+        // When
+        let mut doc_ids: Vec<String> = collect_markdown_paths(&root)
+            .expect("collect paths")
+            .into_iter()
+            .filter_map(|path| doc_id_from_path(&root, &path))
+            .collect();
+        doc_ids.sort();
+
+        // Then
+        assert_eq!(
+            doc_ids,
+            vec!["a.md".to_string(), "visible/b.md".to_string()]
+        );
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

@@ -128,7 +128,7 @@ Each task is a single focused PR.
   - Acceptance criteria: A `doc_id` containing `"` does not break the HTML.
     Test added.
 
-- [ ] **Task C3: Skip hidden directories in `collect_markdown_paths`**
+- [x] **Task C3: Skip hidden directories in `collect_markdown_paths`**
   - Skip directory entries whose name starts with `.` during recursive traversal.
   - Acceptance criteria: `.git/` and `.obsidian/` are not entered. Test added.
 
