@@ -190,6 +190,26 @@ Each task is a single focused PR.
   - "secyrity" -> "security"
   - Acceptance criteria: Typo fixed.
 
+- [ ] **Task DOC3: Create `docs/Resources/STYLE.md` code style guide**
+  - Document the codebase conventions that are currently implicit. The guide
+    should cover at least:
+    - **Module ordering**: most significant items defined first. If function A
+      calls function B, A is defined before B. Public types that appear in
+      function signatures are defined immediately above the function.
+    - **Separation of concerns**: domain logic (pure functions, no HTTP types)
+      lives in top-level modules (`documents.rs`, `git.rs`, …). HTTP handlers
+      in `app/` are thin wrappers that delegate to domain functions.
+    - **Test naming**: `function_name__should_describe_expected_behavior`
+      (double underscore separates the subject from the expectation).
+    - **Test structure**: use `// Given`, `// When`, `// Then` comment sections.
+    - **I/O at the edges**: keep business logic free of I/O where practical.
+      Functions that need file access take a `&Path` root; callers in `app/`
+      own the HTTP and filesystem glue.
+  - Add `docs/Resources/STYLE.md` to the "Read these first" list in
+    `CLAUDE.md`.
+  - Acceptance criteria: Guide exists, is referenced from `CLAUDE.md`, and
+    accurately reflects current codebase conventions.
+
 ## Non-goals
 - No new features.
 - No refactors beyond what is listed above.
