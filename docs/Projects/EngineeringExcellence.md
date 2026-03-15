@@ -171,11 +171,11 @@ Each task is a single focused PR.
 
 ### Housekeeping
 
-- [ ] **Task H1: Remove stale `#[allow(unused)]` and TODO**
+- [x] **Task H1: Remove stale `#[allow(unused)]` and TODO**
   - Remove the annotation and comment from `types/push.rs:4`.
   - Acceptance criteria: `cargo clippy` passes.
 
-- [ ] **Task H2: Inline `resolve_relative_doc_id`**
+- [x] **Task H2: Inline `resolve_relative_doc_id`**
   - Replace the single call site with a direct call to `resolve_relative_path`.
     Remove the function.
   - Acceptance criteria: All tests pass. No functional change.

@@ -1049,7 +1049,7 @@ fn rewrite_relative_md_link(doc_id: &str, dest_url: &str) -> Option<String> {
     }
 
     let (prefix, resolved) = if path_part.ends_with(".md") {
-        let resolved = resolve_relative_doc_id(doc_id, path_part)?;
+        let resolved = resolve_relative_path(doc_id, path_part)?;
         doc_id_to_path(&resolved)?;
         ("/doc/", resolved)
     } else if has_extension_ignore_ascii_case(path_part, ".pdf") {
@@ -1103,11 +1103,6 @@ fn is_absolute_or_scheme(path: &str) -> bool {
         }
     }
     false
-}
-
-fn resolve_relative_doc_id(doc_id: &str, dest_path: &str) -> Option<String> {
-    let resolved = resolve_relative_path(doc_id, dest_path)?;
-    Some(resolved)
 }
 
 fn has_extension_ignore_ascii_case(path: &str, ext: &str) -> bool {
