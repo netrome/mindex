@@ -4,8 +4,6 @@
 
 
 ## To do
-- [x] PWA refresh button
-- [x] ABC Notation
 - [ ] Code syntax highligting
 - [ ] Public pages
 - [ ] Custom styling of pages
@@ -14,4 +12,8 @@
 - [ ] fzf style file search
 - [ ] Emojis
 - [ ] Code execution/scripting
-+
+
+## Done
+- [x] Configurable port (default 3000)
+- [x] PWA refresh button
+- [x] ABC Notation

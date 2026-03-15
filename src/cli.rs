@@ -56,6 +56,7 @@ pub(crate) fn run() -> RunOutcome {
 
     RunOutcome::Serve(mindex::config::AppConfig {
         root,
+        port: cli.port,
         app_name: cli.app_name,
         icon_192: cli.icon_192,
         icon_512: cli.icon_512,
@@ -78,6 +79,8 @@ struct Cli {
     command: Option<Command>,
     #[arg(long)]
     root: Option<PathBuf>,
+    #[arg(long, default_value_t = 3000, env = "MINDEX_PORT")]
+    port: u16,
     #[arg(long, default_value = "Mindex")]
     app_name: String,
     #[arg(long)]
@@ -320,6 +323,7 @@ mod tests {
         Cli {
             command: None,
             root: Some(PathBuf::from("/")),
+            port: 3000,
             app_name: "Mindex".to_string(),
             icon_192: None,
             icon_512: None,

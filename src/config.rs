@@ -4,6 +4,7 @@ use time::Duration;
 #[derive(Clone)]
 pub struct AppConfig {
     pub root: PathBuf,
+    pub port: u16,
     pub app_name: String,
     pub icon_192: Option<PathBuf>,
     pub icon_512: Option<PathBuf>,
@@ -27,6 +28,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             root: "/".into(),
+            port: 3000,
             app_name: "Mindex".to_string(),
             icon_192: None,
             icon_512: None,

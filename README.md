@@ -39,6 +39,14 @@ cargo run -- --root ./sample-root
 
 That's it. The documents are now served at `http://localhost:3000`.
 
+To use a different port:
+
+```bash
+cargo run -- --root ./sample-root --port 8080
+```
+
+The port can also be set via the `MINDEX_PORT` environment variable.
+
 ## PDF viewing
 
 Mindex supports PDF files under the configured root directory.
