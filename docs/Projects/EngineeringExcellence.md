@@ -117,12 +117,12 @@ Each task is a single focused PR.
 
 ### Correctness
 
-- [ ] **Task C1: Align fence detection between documents and directives**
+- [x] **Task C1: Align fence detection between documents and directives**
   - Add `~~~` fence support to `directives.rs`, matching `documents.rs`.
   - Acceptance criteria: A `/user` block inside `~~~` fences is treated as
     fenced (not parsed as a directive). Test added.
 
-- [ ] **Task C2: HTML-escape `doc_id` in task list form**
+- [x] **Task C2: HTML-escape `doc_id` in task list form**
   - Use the existing `html_escape` function from `math.rs` (or equivalent) when
     interpolating `doc_id` into the form HTML.
   - Acceptance criteria: A `doc_id` containing `"` does not break the HTML.

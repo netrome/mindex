@@ -37,7 +37,8 @@ struct PendingDirective {
 
 #[derive(Debug)]
 struct FenceLine {
-    ticks: usize,
+    ch: char,
+    count: usize,
     language: Option<String>,
 }
 
@@ -104,7 +105,7 @@ fn parse_document(
 
             while idx < lines.len() {
                 let line = lines[idx];
-                if is_fence_close(line, fence.ticks) {
+                if is_fence_close(line, fence.ch, fence.count) {
                     closed = true;
                     idx += 1;
                     break;
@@ -169,32 +170,36 @@ fn parse_directive_line(line: &str) -> Option<DirectiveKind> {
 
 fn parse_fence_line(line: &str) -> Option<FenceLine> {
     let trimmed = line.trim();
-    let mut chars = trimmed.chars();
-    let mut ticks = 0usize;
-    while matches!(chars.next(), Some('`')) {
-        ticks += 1;
-    }
-    if ticks < 3 {
+    let fence_ch = trimmed.chars().next()?;
+    if fence_ch != '`' && fence_ch != '~' {
         return None;
     }
-    let rest = trimmed[ticks..].trim();
+    let count = trimmed.chars().take_while(|&ch| ch == fence_ch).count();
+    if count < 3 {
+        return None;
+    }
+    let rest = trimmed[count..].trim();
     let language = if rest.is_empty() {
         None
     } else {
         Some(rest.split_whitespace().next().unwrap_or("").to_string())
     };
-    Some(FenceLine { ticks, language })
+    Some(FenceLine {
+        ch: fence_ch,
+        count,
+        language,
+    })
 }
 
-fn is_fence_close(line: &str, ticks: usize) -> bool {
+fn is_fence_close(line: &str, fence_ch: char, min_count: usize) -> bool {
     let trimmed = line.trim();
     let mut chars = trimmed.chars();
-    for _ in 0..ticks {
-        if chars.next() != Some('`') {
+    for _ in 0..min_count {
+        if chars.next() != Some(fence_ch) {
             return false;
         }
     }
-    chars.all(|ch| ch.is_whitespace())
+    chars.all(|ch| ch == fence_ch || ch.is_whitespace())
 }
 
 fn is_toml_language(language: Option<&str>) -> bool {
@@ -674,6 +679,28 @@ password_hash = "hash"
         assert!(registries.users.contains_key("real"));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn parse_document__should_ignore_directives_inside_tilde_fences() {
+        // Given
+        let contents = r#"~~~
+/user
+```toml
+name = "hidden"
+email = "hidden@example.com"
+password_hash = "hash"
+```
+~~~
+"#;
+        let mut registries = DirectiveRegistries::default();
+
+        // When
+        let warnings = parse_document("note.md", contents, &mut registries);
+
+        // Then
+        assert!(registries.users.is_empty());
+        assert!(warnings.is_empty());
     }
 
     fn create_temp_root(test_name: &str) -> std::path::PathBuf {

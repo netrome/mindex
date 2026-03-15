@@ -1,3 +1,4 @@
+use crate::math::html_escape;
 use pulldown_cmark::Event;
 use pulldown_cmark::Tag;
 use std::collections::HashSet;
@@ -679,9 +680,10 @@ fn leading_indent(line: &str) -> usize {
 }
 
 fn render_task_list_form(doc_id: &str, list_index: usize) -> String {
+    let escaped_doc_id = html_escape(doc_id);
     format!(
         "<form class=\"todo-quick-add\" method=\"post\" action=\"/api/doc/add-task\">\
-<input type=\"hidden\" name=\"doc_id\" value=\"{doc_id}\" />\
+<input type=\"hidden\" name=\"doc_id\" value=\"{escaped_doc_id}\" />\
 <input type=\"hidden\" name=\"list_index\" value=\"{list_index}\" />\
 <button type=\"submit\">+</button>\
 <input name=\"text\" type=\"text\" placeholder=\"\" autocomplete=\"off\" required />\
@@ -1360,6 +1362,19 @@ Final.\n";
         assert_eq!(rendered.matches("todo-quick-add").count(), 2);
         assert!(rendered.contains("name=\"list_index\" value=\"0\""));
         assert!(rendered.contains("name=\"list_index\" value=\"1\""));
+    }
+
+    #[test]
+    fn render_task_list_markdown__should_escape_doc_id_in_form() {
+        // Given — a doc_id containing characters that could break HTML attributes
+        let contents = "- [ ] One\n+\n";
+
+        // When
+        let rendered = render_task_list_markdown(contents, "path/with\"quotes.md");
+
+        // Then — the doc_id should be HTML-escaped in the value attribute
+        assert!(rendered.contains("value=\"path/with&quot;quotes.md\""));
+        assert!(!rendered.contains("value=\"path/with\"quotes.md\""));
     }
 
     #[test]
