@@ -614,7 +614,8 @@ fn parse_gitdir_path(dot_git: &Path) -> std::io::Result<Option<PathBuf>> {
 #[allow(non_snake_case)]
 mod tests {
     use super::{GitAuthor, git_commit_all, git_dir_within_root, git_status_and_diff};
-    use std::path::{Path, PathBuf};
+    use crate::test_support::create_temp_root;
+    use std::path::Path;
     use std::process::Command;
 
     #[test]
@@ -771,16 +772,5 @@ mod tests {
             .status()
             .expect("init repo");
         assert!(status.success());
-    }
-
-    fn create_temp_root(test_name: &str) -> PathBuf {
-        let mut root = std::env::temp_dir();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time")
-            .as_nanos();
-        root.push(format!("mindex-{}-{}", test_name, nanos));
-        std::fs::create_dir_all(&root).expect("create temp dir");
-        root
     }
 }

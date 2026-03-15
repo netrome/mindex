@@ -6,6 +6,7 @@ mod adapters;
 pub mod auth;
 mod directives;
 mod documents;
+mod fs;
 mod math;
 mod ports;
 mod types;
@@ -17,6 +18,9 @@ mod git;
 mod push;
 mod state;
 mod templates;
+
+#[cfg(test)]
+mod test_support;
 
 pub struct VapidCredentials {
     pub private_key: String,

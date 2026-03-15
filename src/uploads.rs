@@ -1,3 +1,4 @@
+use crate::fs::{atomic_write_bytes, ensure_parent_dirs};
 use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 use time::OffsetDateTime;
@@ -103,7 +104,7 @@ pub(crate) fn store_upload(
         );
         let rel_path = format!("{dir}/{file_name}");
         let rel_path_buf = Path::new(&rel_path);
-        ensure_parent_dirs(root, rel_path_buf)?;
+        ensure_parent_dirs(root, rel_path_buf).map_err(map_io_to_upload_error)?;
         let target = root.join(rel_path_buf);
         if target.exists() {
             continue;
@@ -276,83 +277,19 @@ fn relative_path_to_path(rel_path: &str) -> Option<PathBuf> {
     Some(components.iter().collect())
 }
 
-fn ensure_parent_dirs(root: &Path, rel_path: &Path) -> Result<(), UploadError> {
-    let Some(parent) = rel_path.parent() else {
-        return Ok(());
-    };
-    let mut current = root.to_path_buf();
-    for component in parent.components() {
-        let component = match component {
-            Component::Normal(component) => component,
-            _ => return Err(UploadError::BadPath),
-        };
-        current.push(component);
-        match std::fs::symlink_metadata(&current) {
-            Ok(metadata) => {
-                if metadata.file_type().is_symlink() {
-                    return Err(UploadError::BadPath);
-                }
-                if !metadata.is_dir() {
-                    return Err(UploadError::BadPath);
-                }
-                let resolved = std::fs::canonicalize(&current).map_err(UploadError::Io)?;
-                if !resolved.starts_with(root) {
-                    return Err(UploadError::BadPath);
-                }
-            }
-            Err(err) if err.kind() == ErrorKind::NotFound => {
-                std::fs::create_dir(&current).map_err(UploadError::Io)?;
-            }
-            Err(err) => return Err(UploadError::Io(err)),
-        }
+fn map_io_to_upload_error(err: std::io::Error) -> UploadError {
+    if err.kind() == ErrorKind::InvalidInput {
+        UploadError::BadPath
+    } else {
+        UploadError::Io(err)
     }
-    Ok(())
-}
-
-fn atomic_write_bytes(path: &Path, contents: &[u8]) -> std::io::Result<()> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| std::io::Error::other("missing parent directory"))?;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("upload.bin");
-    let pid = std::process::id();
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-
-    for attempt in 0..10u32 {
-        let temp_name = format!(".{}.tmp-{}-{}-{}", file_name, pid, nanos, attempt);
-        let temp_path = parent.join(temp_name);
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp_path)
-        {
-            Ok(mut file) => {
-                use std::io::Write as _;
-                file.write_all(contents)?;
-                file.flush()?;
-                std::fs::rename(&temp_path, path)?;
-                return Ok(());
-            }
-            Err(err) if err.kind() == ErrorKind::AlreadyExists => continue,
-            Err(err) => return Err(err),
-        }
-    }
-
-    Err(std::io::Error::new(
-        ErrorKind::AlreadyExists,
-        "failed to create temp file",
-    ))
 }
 
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+    use crate::test_support::create_temp_root;
 
     #[test]
     fn store_upload__should_write_under_root() {
@@ -384,16 +321,5 @@ mod tests {
         assert!(matches!(result, Err(UploadError::BadPath)));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
-    }
-
-    fn create_temp_root(test_name: &str) -> PathBuf {
-        let mut root = std::env::temp_dir();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time")
-            .as_nanos();
-        root.push(format!("mindex-{}-{}", test_name, nanos));
-        std::fs::create_dir_all(&root).expect("create temp dir");
-        root
     }
 }

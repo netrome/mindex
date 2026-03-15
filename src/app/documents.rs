@@ -1,10 +1,11 @@
 use crate::config;
 use crate::documents::{
-    BlockKind, DocError, ReorderError, add_task_item_in_list, atomic_write, collect_markdown_paths,
+    BlockKind, DocError, ReorderError, add_task_item_in_list, collect_markdown_paths,
     collect_mentions, create_document, doc_id_from_path, line_count, lines_for_display,
     load_document, normalize_newlines, render_document_html, reorder_range, resolve_doc_path,
     scan_block_ranges, search_documents, toggle_task_item,
 };
+use crate::fs::atomic_write;
 use crate::push as push_service;
 use crate::state;
 use crate::templates;

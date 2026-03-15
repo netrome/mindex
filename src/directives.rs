@@ -478,6 +478,7 @@ fn push_warning(
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+    use crate::test_support::create_temp_root;
 
     #[test]
     fn load_directive_registries__should_load_directives() {
@@ -701,16 +702,5 @@ password_hash = "hash"
         // Then
         assert!(registries.users.is_empty());
         assert!(warnings.is_empty());
-    }
-
-    fn create_temp_root(test_name: &str) -> std::path::PathBuf {
-        let mut root = std::env::temp_dir();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time")
-            .as_nanos();
-        root.push(format!("mindex-{}-{}", test_name, nanos));
-        std::fs::create_dir_all(&root).expect("create temp dir");
-        root
     }
 }

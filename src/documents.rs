@@ -1,9 +1,8 @@
+use crate::fs::{atomic_write, ensure_parent_dirs};
 use crate::math::{MathStyle, html_escape, render_math};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use std::collections::HashSet;
-use std::fs::OpenOptions;
 use std::io::ErrorKind;
-use std::io::Write as _;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
@@ -84,7 +83,7 @@ pub(crate) fn resolve_doc_path(root: &Path, doc_id: &str) -> Result<PathBuf, Doc
 
 pub(crate) fn create_document(root: &Path, doc_id: &str, contents: &str) -> Result<(), DocError> {
     let doc_path = doc_id_to_path(doc_id).ok_or(DocError::BadPath)?;
-    ensure_parent_dirs(root, &doc_path)?;
+    ensure_parent_dirs(root, &doc_path).map_err(map_io_to_doc_error)?;
     let target = root.join(&doc_path);
 
     match std::fs::symlink_metadata(&target) {
@@ -979,37 +978,12 @@ fn detect_line_ending(contents: &str) -> &'static str {
     }
 }
 
-fn ensure_parent_dirs(root: &Path, doc_path: &Path) -> Result<(), DocError> {
-    let Some(parent) = doc_path.parent() else {
-        return Ok(());
-    };
-    let mut current = root.to_path_buf();
-    for component in parent.components() {
-        let component = match component {
-            Component::Normal(component) => component,
-            _ => return Err(DocError::BadPath),
-        };
-        current.push(component);
-        match std::fs::symlink_metadata(&current) {
-            Ok(metadata) => {
-                if metadata.file_type().is_symlink() {
-                    return Err(DocError::BadPath);
-                }
-                if !metadata.is_dir() {
-                    return Err(DocError::BadPath);
-                }
-                let resolved = std::fs::canonicalize(&current).map_err(DocError::Io)?;
-                if !resolved.starts_with(root) {
-                    return Err(DocError::BadPath);
-                }
-            }
-            Err(err) if err.kind() == ErrorKind::NotFound => {
-                std::fs::create_dir(&current).map_err(DocError::Io)?;
-            }
-            Err(err) => return Err(DocError::Io(err)),
-        }
+fn map_io_to_doc_error(err: std::io::Error) -> DocError {
+    if err.kind() == ErrorKind::InvalidInput {
+        DocError::BadPath
+    } else {
+        DocError::Io(err)
     }
-    Ok(())
 }
 
 pub(crate) fn rewrite_relative_md_links<'a>(event: Event<'a>, doc_id: &str) -> Event<'a> {
@@ -1164,45 +1138,6 @@ fn resolve_relative_path(doc_id: &str, dest_path: &str) -> Option<String> {
     Some(parts.join("/"))
 }
 
-pub(crate) fn atomic_write(path: &Path, contents: &str) -> std::io::Result<()> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| std::io::Error::other("missing parent directory"))?;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("document.md");
-    let pid = std::process::id();
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-
-    for attempt in 0..10u32 {
-        let temp_name = format!(".{}.tmp-{}-{}-{}", file_name, pid, nanos, attempt);
-        let temp_path = parent.join(temp_name);
-        match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp_path)
-        {
-            Ok(mut file) => {
-                file.write_all(contents.as_bytes())?;
-                file.flush()?;
-                std::fs::rename(&temp_path, path)?;
-                return Ok(());
-            }
-            Err(err) if err.kind() == ErrorKind::AlreadyExists => continue,
-            Err(err) => return Err(err),
-        }
-    }
-
-    Err(std::io::Error::new(
-        ErrorKind::AlreadyExists,
-        "failed to create temp file",
-    ))
-}
-
 pub(crate) fn normalize_newlines(contents: &str) -> String {
     if !contents.contains('\r') {
         return contents.to_string();
@@ -1222,6 +1157,7 @@ pub(crate) enum DocError {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+    use crate::test_support::create_temp_root;
 
     #[test]
     fn rewrite_relative_md_links__should_rewrite_relative_md_links() {
@@ -1835,16 +1771,5 @@ Edge: email@example.com and @not+valid and @ok-name.
 
         // Then
         assert!(result.html.contains("<table>"));
-    }
-
-    fn create_temp_root(test_name: &str) -> PathBuf {
-        let mut root = std::env::temp_dir();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time")
-            .as_nanos();
-        root.push(format!("mindex-{}-{}", test_name, nanos));
-        std::fs::create_dir_all(&root).expect("create temp dir");
-        root
     }
 }

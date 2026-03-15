@@ -154,17 +154,17 @@ Each task is a single focused PR.
 
 ### Code duplication
 
-- [ ] **Task D1: Consolidate `atomic_write`**
+- [x] **Task D1: Consolidate `atomic_write`**
   - Keep `atomic_write_bytes` in a shared location. Have `atomic_write` call it
     with `.as_bytes()`.
   - Acceptance criteria: Single implementation. All tests pass.
 
-- [ ] **Task D2: Consolidate `ensure_parent_dirs`**
+- [x] **Task D2: Consolidate `ensure_parent_dirs`**
   - Extract a shared implementation that returns `std::io::Error`, with callers
     mapping to their domain error type.
   - Acceptance criteria: Single implementation. All tests pass.
 
-- [ ] **Task D3: Extract shared test utility for temp dirs**
+- [x] **Task D3: Extract shared test utility for temp dirs**
   - Create a `#[cfg(test)]` helper module with `create_temp_root`.
   - Acceptance criteria: All 5 test modules use the shared helper. All tests
     pass.

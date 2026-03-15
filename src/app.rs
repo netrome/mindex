@@ -139,6 +139,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::documents::rewrite_relative_md_links;
     use crate::templates;
+    use crate::test_support::create_temp_root;
     use crate::types::directives;
     use argon2::password_hash::SaltString;
     use argon2::{Argon2, PasswordHasher};
@@ -1338,16 +1339,5 @@ password_hash = "{password_hash}"
 "#
         );
         std::fs::write(root.join("users.md"), contents).expect("write users.md");
-    }
-
-    fn create_temp_root(test_name: &str) -> PathBuf {
-        let mut root = std::env::temp_dir();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time")
-            .as_nanos();
-        root.push(format!("mindex-{}-{}", test_name, nanos));
-        std::fs::create_dir_all(&root).expect("create temp dir");
-        root
     }
 }
