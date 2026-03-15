@@ -126,15 +126,6 @@ pub(crate) fn search_documents(root: &Path, query: &str) -> std::io::Result<Vec<
     Ok(results)
 }
 
-fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
-    for line in contents.lines() {
-        if line.to_lowercase().contains(needle) {
-            return Some(line.trim().to_string());
-        }
-    }
-    None
-}
-
 pub(crate) struct RenderedDocument {
     pub(crate) html: String,
     pub(crate) has_mermaid: bool,
@@ -231,16 +222,6 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
     }
 }
 
-fn is_mermaid_info(info: &str) -> bool {
-    let language = info.split_whitespace().next().unwrap_or("");
-    language.eq_ignore_ascii_case("mermaid")
-}
-
-fn is_abc_info(info: &str) -> bool {
-    let language = info.split_whitespace().next().unwrap_or("");
-    language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
-}
-
 pub(crate) fn render_task_list_markdown(contents: &str, doc_id: &str) -> String {
     let mut output = String::with_capacity(contents.len());
     let mut in_fence = false;
@@ -292,6 +273,25 @@ pub(crate) fn render_task_list_markdown(contents: &str, doc_id: &str) -> String 
     }
 
     output
+}
+
+fn find_match_snippet(contents: &str, needle: &str) -> Option<String> {
+    for line in contents.lines() {
+        if line.to_lowercase().contains(needle) {
+            return Some(line.trim().to_string());
+        }
+    }
+    None
+}
+
+fn is_mermaid_info(info: &str) -> bool {
+    let language = info.split_whitespace().next().unwrap_or("");
+    language.eq_ignore_ascii_case("mermaid")
+}
+
+fn is_abc_info(info: &str) -> bool {
+    let language = info.split_whitespace().next().unwrap_or("");
+    language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
 }
 
 pub(crate) fn collect_mentions(contents: &str) -> Vec<(String, String)> {

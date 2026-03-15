@@ -190,7 +190,7 @@ Each task is a single focused PR.
   - "secyrity" -> "security"
   - Acceptance criteria: Typo fixed.
 
-- [ ] **Task DOC3: Create `docs/Resources/STYLE.md` code style guide**
+- [x] **Task DOC3: Create `docs/Resources/STYLE.md` code style guide**
   - Document the codebase conventions that are currently implicit. The guide
     should cover at least:
     - **Module ordering**: most significant items defined first. If function A

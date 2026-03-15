@@ -7,6 +7,7 @@ Optimize for: simplicity, hackability, minimal dependencies, and long-term maint
 - README.md
 - docs/Resources/INVARIANTS.md
 - docs/Resources/ARCHITECTURE.md
+- docs/Resources/STYLE.md
 - docs/Resources/Adrs/*
 - docs/Projects/TODO.md (current task only)
 
