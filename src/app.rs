@@ -425,13 +425,18 @@ message = "Check the daily log."
         let body = to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("read body");
+        let body_str = String::from_utf8_lossy(&body);
+        assert!(
+            !body_str.contains("password_hash"),
+            "response must not contain password_hash"
+        );
+
         let registries: directives::DirectiveRegistries =
             json_from_slice(&body).expect("parse json");
 
         let user = registries.users.get("marten").expect("user entry");
         assert_eq!(user.display_name.as_deref(), Some("Marten"));
         assert_eq!(user.email, "marten@example.com");
-        assert_eq!(user.password_hash, "hash");
 
         let subscriptions = registries
             .subscriptions

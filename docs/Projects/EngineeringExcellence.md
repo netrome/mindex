@@ -109,7 +109,7 @@ Each task is a single focused PR.
 
 ### Security
 
-- [ ] **Task S1: Stop leaking password hashes in debug endpoint**
+- [x] **Task S1: Stop leaking password hashes in debug endpoint**
   - Either exclude `password_hash` from serialization (e.g. `#[serde(skip)]`)
     or filter the response in the handler.
   - Acceptance criteria: `/api/debug/push/registry` response contains no
