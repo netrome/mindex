@@ -10,7 +10,7 @@ async fn main() {
             std::process::exit(code);
         }
     };
-    let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+    let addr = SocketAddr::from((config.host, config.port));
 
     println!("listening on http://{addr}");
     mindex::serve(addr, config).await;

@@ -56,6 +56,7 @@ pub(crate) fn run() -> RunOutcome {
 
     RunOutcome::Serve(mindex::config::AppConfig {
         root,
+        host: cli.host,
         port: cli.port,
         app_name: cli.app_name,
         icon_192: cli.icon_192,
@@ -79,6 +80,8 @@ struct Cli {
     command: Option<Command>,
     #[arg(long)]
     root: Option<PathBuf>,
+    #[arg(long, default_value = "127.0.0.1", env = "MINDEX_HOST")]
+    host: std::net::IpAddr,
     #[arg(long, default_value_t = 3000, env = "MINDEX_PORT")]
     port: u16,
     #[arg(long, default_value = "Mindex")]
@@ -323,6 +326,7 @@ mod tests {
         Cli {
             command: None,
             root: Some(PathBuf::from("/")),
+            host: std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
             port: 3000,
             app_name: "Mindex".to_string(),
             icon_192: None,

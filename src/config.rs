@@ -1,9 +1,11 @@
+use std::net::IpAddr;
 use std::path::PathBuf;
 use time::Duration;
 
 #[derive(Clone)]
 pub struct AppConfig {
     pub root: PathBuf,
+    pub host: IpAddr,
     pub port: u16,
     pub app_name: String,
     pub icon_192: Option<PathBuf>,
@@ -28,6 +30,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             root: "/".into(),
+            host: IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
             port: 3000,
             app_name: "Mindex".to_string(),
             icon_192: None,
