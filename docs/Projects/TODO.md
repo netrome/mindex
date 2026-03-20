@@ -13,6 +13,7 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] Anchor links (heading IDs for in-document navigation)
 - [x] Configurable host (default 127.0.0.1)
 - [x] Code syntax highlighting
 - [x] Configurable port (default 3000)

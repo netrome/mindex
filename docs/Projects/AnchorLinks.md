@@ -1,7 +1,7 @@
 # Anchor Links
 
 ## Status
-Accepted
+Done
 
 ## Goal
 Make in-document anchor links (e.g. `[Section](#section)`) navigate to the

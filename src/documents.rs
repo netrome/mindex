@@ -1,6 +1,7 @@
 use crate::fs::{atomic_write, ensure_parent_dirs};
 use crate::math::{MathStyle, html_escape, render_math};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::ErrorKind;
 use std::path::Component;
@@ -147,6 +148,11 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
     let mut has_code = false;
     let mut in_mermaid = false;
     let mut in_abc = false;
+    let mut in_heading = false;
+    let mut heading_level = pulldown_cmark::HeadingLevel::H1;
+    let mut heading_text = String::new();
+    let mut heading_events: Vec<Event> = Vec::new();
+    let mut seen_slugs: HashMap<String, usize> = HashMap::new();
     let mut mermaid_buffer = String::new();
     let mut abc_buffer = String::new();
     let mut events = Vec::new();
@@ -183,6 +189,40 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
                 Event::SoftBreak | Event::HardBreak => abc_buffer.push('\n'),
                 _ => {}
             }
+            continue;
+        }
+
+        if in_heading {
+            match event {
+                Event::End(TagEnd::Heading(..)) => {
+                    let slug = unique_slug(&heading_text, &mut seen_slugs);
+                    let tag = heading_level;
+                    events.push(Event::Html(format!("<{tag} id=\"{slug}\">").into()));
+                    events.append(&mut heading_events);
+                    events.push(Event::Html(format!("</{tag}>\n").into()));
+                    heading_text.clear();
+                    in_heading = false;
+                }
+                Event::Text(ref text) | Event::Code(ref text) => {
+                    heading_text.push_str(text);
+                    heading_events.push(event);
+                }
+                Event::SoftBreak | Event::HardBreak => {
+                    heading_text.push(' ');
+                    heading_events.push(event);
+                }
+                _ => {
+                    heading_events.push(event);
+                }
+            }
+            continue;
+        }
+
+        if let Event::Start(Tag::Heading { level, .. }) = event {
+            in_heading = true;
+            heading_level = level;
+            heading_text.clear();
+            heading_events.clear();
             continue;
         }
 
@@ -295,6 +335,30 @@ fn is_mermaid_info(info: &str) -> bool {
 fn is_abc_info(info: &str) -> bool {
     let language = info.split_whitespace().next().unwrap_or("");
     language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
+}
+
+fn heading_slug(text: &str) -> String {
+    let mut slug = String::with_capacity(text.len());
+    for ch in text.to_lowercase().chars() {
+        if ch.is_alphanumeric() || ch == '-' {
+            slug.push(ch);
+        } else if ch == ' ' {
+            slug.push('-');
+        }
+    }
+    slug
+}
+
+fn unique_slug(text: &str, seen: &mut HashMap<String, usize>) -> String {
+    let base = heading_slug(text);
+    let count = seen.entry(base.clone()).or_insert(0);
+    let slug = if *count == 0 {
+        base.clone()
+    } else {
+        format!("{base}-{count}")
+    };
+    *count += 1;
+    slug
 }
 
 pub(crate) fn collect_mentions(contents: &str) -> Vec<(String, String)> {
@@ -1715,7 +1779,7 @@ Edge: email@example.com and @not+valid and @ok-name.
         let result = render_document_html(markdown, "test.md");
 
         // Then
-        assert!(result.html.contains("<h1>Hello</h1>"));
+        assert!(result.html.contains("<h1 id=\"hello\">Hello</h1>"));
         assert!(result.html.contains("<p>A paragraph.</p>"));
         assert!(!result.has_mermaid);
         assert!(!result.has_abc);
@@ -1811,5 +1875,88 @@ Edge: email@example.com and @not+valid and @ok-name.
 
         // Then
         assert!(result.html.contains("<table>"));
+    }
+
+    // -- heading slugs --
+
+    #[test]
+    fn heading_slug__should_generate_github_flavored_slug() {
+        assert_eq!(heading_slug("Hello World"), "hello-world");
+        assert_eq!(heading_slug("2. Proposed Design"), "2-proposed-design");
+        assert_eq!(heading_slug("What is this?!"), "what-is-this");
+        assert_eq!(heading_slug("kebab-case"), "kebab-case");
+        assert_eq!(heading_slug("UPPER CASE"), "upper-case");
+        assert_eq!(heading_slug("a/b/c"), "abc");
+    }
+
+    #[test]
+    fn unique_slug__should_deduplicate() {
+        // Given
+        let mut seen = HashMap::new();
+
+        // When / Then
+        assert_eq!(unique_slug("Hello", &mut seen), "hello");
+        assert_eq!(unique_slug("Hello", &mut seen), "hello-1");
+        assert_eq!(unique_slug("Hello", &mut seen), "hello-2");
+        assert_eq!(unique_slug("Other", &mut seen), "other");
+    }
+
+    #[test]
+    fn render_document_html__should_add_id_to_headings() {
+        // Given
+        let markdown = "## 2. Proposed Design\n\nSome text.\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(
+            result
+                .html
+                .contains("<h2 id=\"2-proposed-design\">2. Proposed Design</h2>")
+        );
+    }
+
+    #[test]
+    fn render_document_html__should_preserve_inline_formatting_in_headings() {
+        // Given
+        let markdown = "## Hello **world**\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(
+            result
+                .html
+                .contains("<h2 id=\"hello-world\">Hello <strong>world</strong></h2>")
+        );
+    }
+
+    #[test]
+    fn render_document_html__should_deduplicate_heading_ids() {
+        // Given
+        let markdown = "## Section\n\n## Section\n\n## Section\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.html.contains("id=\"section\""));
+        assert!(result.html.contains("id=\"section-1\""));
+        assert!(result.html.contains("id=\"section-2\""));
+    }
+
+    #[test]
+    fn render_document_html__should_support_anchor_links_to_headings() {
+        // Given
+        let markdown = "## Target\n\n[Go](#target)\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.html.contains("<h2 id=\"target\">Target</h2>"));
+        assert!(result.html.contains("href=\"#target\""));
     }
 }
