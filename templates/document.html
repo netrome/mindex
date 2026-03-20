@@ -24,6 +24,12 @@
 
 {{ content|safe }}
 
+{% if has_code %}
+<link rel="stylesheet" href="/static/highlight.css">
+<script src="/static/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+{% endif %}
+
 {% if has_abc %}
 <script src="/static/abcjs.min.js"></script>
 {% endif %}

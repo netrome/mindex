@@ -78,6 +78,26 @@ pub(crate) async fn abcjs_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn highlight_script() -> axum::response::Response {
+    const HIGHLIGHT_JS_CONTENT: &str = include_str!("../assets/vendor/highlight.min.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(HIGHLIGHT_JS_CONTENT.into())
+        .unwrap()
+}
+
+pub(crate) async fn highlight_stylesheet() -> axum::response::Response {
+    const HIGHLIGHT_CSS_CONTENT: &str = include_str!("../assets/vendor/highlight.css");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "text/css")
+        .header("cache-control", "public, max-age=3600")
+        .body(HIGHLIGHT_CSS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn abc_render_script() -> axum::response::Response {
     const ABC_RENDER_JS_CONTENT: &str = include_str!("../assets/features/abc_render.js");
     axum::response::Response::builder()

@@ -179,6 +179,7 @@ pub(crate) async fn document_view(
         content: rendered.html,
         has_mermaid: rendered.has_mermaid,
         has_abc: rendered.has_abc,
+        has_code: rendered.has_code,
         git_enabled,
     })
 }

@@ -94,6 +94,8 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/static/app.js", get(assets::app_script))
         .route("/static/mermaid.min.js", get(assets::mermaid_script))
         .route("/static/abcjs.min.js", get(assets::abcjs_script))
+        .route("/static/highlight.min.js", get(assets::highlight_script))
+        .route("/static/highlight.css", get(assets::highlight_stylesheet))
         .route(
             "/static/features/todo_toggle.js",
             get(assets::todo_toggle_script),
@@ -584,6 +586,7 @@ password_hash = "hash"
             content: body,
             has_mermaid: false,
             has_abc: false,
+            has_code: false,
             git_enabled: false,
         };
         let html = template.render().unwrap();
@@ -760,6 +763,47 @@ C D E F | G A B c |
         let body = std::str::from_utf8(&body).expect("utf8");
         assert!(!body.contains(r#"/static/mermaid.min.js"#));
         assert!(!body.contains(r#"/static/abcjs.min.js"#));
+        assert!(!body.contains(r#"/static/highlight.min.js"#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn view_document__should_load_highlight_js_for_code_blocks() {
+        // Given
+        let root = create_temp_root("code-doc");
+        let markdown = "\
+```rust
+fn main() {
+    println!(\"Hello\");
+}
+```
+";
+        std::fs::write(root.join("code.md"), markdown).expect("write code.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/doc/code.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(body.contains(r#"<script src="/static/highlight.min.js"></script>"#));
+        assert!(body.contains(r#"href="/static/highlight.css""#));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

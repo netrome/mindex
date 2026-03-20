@@ -129,6 +129,7 @@ pub(crate) struct RenderedDocument {
     pub(crate) html: String,
     pub(crate) has_mermaid: bool,
     pub(crate) has_abc: bool,
+    pub(crate) has_code: bool,
 }
 
 pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocument {
@@ -143,6 +144,7 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
 
     let mut has_mermaid = false;
     let mut has_abc = false;
+    let mut has_code = false;
     let mut in_mermaid = false;
     let mut in_abc = false;
     let mut mermaid_buffer = String::new();
@@ -195,6 +197,7 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
                 abc_buffer.clear();
                 continue;
             }
+            has_code = true;
         }
 
         let event = match event {
@@ -218,6 +221,7 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
         html,
         has_mermaid,
         has_abc,
+        has_code,
     }
 }
 
@@ -1715,6 +1719,7 @@ Edge: email@example.com and @not+valid and @ok-name.
         assert!(result.html.contains("<p>A paragraph.</p>"));
         assert!(!result.has_mermaid);
         assert!(!result.has_abc);
+        assert!(!result.has_code);
     }
 
     #[test]
@@ -1742,6 +1747,46 @@ Edge: email@example.com and @not+valid and @ok-name.
         // Then
         assert!(result.has_abc);
         assert!(result.html.contains(r#"class="abc-notation"#));
+    }
+
+    #[test]
+    fn render_document_html__should_set_has_code_for_fenced_code_blocks() {
+        // Given
+        let markdown = "```rust\nfn main() {}\n```\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.has_code);
+        assert!(!result.has_mermaid);
+        assert!(!result.has_abc);
+    }
+
+    #[test]
+    fn render_document_html__should_not_set_has_code_for_mermaid_blocks() {
+        // Given
+        let markdown = "```mermaid\ngraph TD;\nA-->B;\n```\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(!result.has_code);
+        assert!(result.has_mermaid);
+    }
+
+    #[test]
+    fn render_document_html__should_not_set_has_code_for_abc_blocks() {
+        // Given
+        let markdown = "```abc\nX:1\nT:Test\nK:C\n```\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(!result.has_code);
+        assert!(result.has_abc);
     }
 
     #[test]

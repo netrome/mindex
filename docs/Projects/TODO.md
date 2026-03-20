@@ -4,7 +4,6 @@
 
 
 ## To do
-- [ ] Code syntax highligting
 - [ ] Public pages
 - [ ] Custom styling of pages
   - Allow embed ad-hoc styles on a page to "pimp it up".
@@ -14,6 +13,7 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] Code syntax highlighting
 - [x] Configurable port (default 3000)
 - [x] PWA refresh button
 - [x] ABC Notation

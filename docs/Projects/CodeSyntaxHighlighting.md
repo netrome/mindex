@@ -1,7 +1,7 @@
 # Code Syntax Highlighting
 
 ## Status
-Accepted
+Done
 
 ## Goal
 Render fenced code blocks with syntax highlighting so that keywords, strings,
@@ -121,7 +121,7 @@ is the pragmatic choice.
 
 ## Implementation plan
 
-### [ ] Task 1: Detect code blocks and set `has_code` flag
+### [x] Task 1: Detect code blocks and set `has_code` flag
 - In the pulldown-cmark event loop, track whether any non-mermaid, non-abc
   fenced code block is encountered.
 - Add `has_code: bool` to `RenderedDocument`.
@@ -129,31 +129,31 @@ is the pragmatic choice.
 - **Acceptance criteria**: `has_code` is true when a document contains a fenced
   code block with a language tag; false otherwise.
 
-### [ ] Task 2: Bundle highlight.js assets
+### [x] Task 2: Bundle highlight.js assets
 - Download highlight.js (core + common languages subset).
 - Add `highlight.min.js` and a CSS theme to `assets/vendor/`.
 - Register in `src/assets.rs`.
 - **Acceptance criteria**: Assets are served at `/static/highlight.min.js` and
   `/static/highlight.min.css`.
 
-### [ ] Task 3: Conditional loading in template
+### [x] Task 3: Conditional loading in template
 - Load highlight.js JS and CSS only when `has_code` is true.
 - Call `hljs.highlightAll()` after load.
 - **Acceptance criteria**: Documents with code blocks load highlight.js;
   documents without code blocks do not.
 
-### [ ] Task 4: Theme integration
+### [x] Task 4: Theme integration
 - Ensure highlighting looks good in both light and dark modes.
 - **Acceptance criteria**: Code blocks have distinct syntax colors in both
   themes; no contrast or readability issues.
 
-### [ ] Task 5: Tests
+### [x] Task 5: Tests
 - Markdown rendering test: `has_code` is set correctly for various block types.
 - Verify mermaid/abc blocks do not trigger `has_code`.
 - **Acceptance criteria**: Tests cover code blocks with language tags, bare code
   blocks, and mixed documents.
 
-### [ ] Task 6: Documentation
+### [x] Task 6: Documentation
 - Update README to mention syntax highlighting support.
 - Check off the TODO item.
 - **Acceptance criteria**: Users know which languages are supported.
