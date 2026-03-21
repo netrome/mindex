@@ -63,15 +63,24 @@ Update `document_list.html` to:
 
 #### 3. Text file viewer — new route `/view/{path}`
 
-A new read-only viewer page for structured text files. Thin handler pattern:
+A viewer page for structured text files with edit support. Thin handler pattern:
 
 - Validate extension is in the allowed text set.
 - Read file contents (reuse path-safety from `resolve_doc_path` / `resolve_file_path`).
 - Render in a template with a `<pre><code>` block.
 - Leverage the existing Highlight.js integration (already used for code blocks in markdown) for syntax highlighting.
 - Include breadcrumb navigation consistent with other pages.
+- Include an "Edit" link to `/edit-text/{path}`.
 
-No editing — these are view-only. Editing text formats is out of scope.
+#### 3b. Text file editor — `/edit-text/{path}`
+
+A simple edit page for text files, following the existing markdown edit pattern:
+
+- Reuse the same textarea + save form pattern from the markdown editor.
+- No markdown-specific post-processing (no mention scanning, no push notifications).
+- Path validation: accept only the allowed text extensions (`.json`, `.yaml`, `.yml`, `.toml`).
+- Save via `atomic_write()` (already file-type agnostic).
+- On save, redirect back to the viewer page.
 
 #### 4. `resolve_path()` — route non-markdown files
 
@@ -95,7 +104,6 @@ serve them with correct MIME types if needed:
 
 ### Non-goals
 
-- No editing of non-markdown files.
 - No new file upload types (upload remains image-only).
 - No search indexing of non-markdown files.
 - No markdown link rewriting for text files (only PDF rewriting exists today).
@@ -124,14 +132,16 @@ serve them with correct MIME types if needed:
 - Update `document_list.html` to render different icons and link targets per `FileKind`.
 - **AC**: Each file type shows a distinct icon and links to its correct route.
 
-### Task 3: Add text file viewer (`/view/{path}`)
-- New handler in `src/app/uploads.rs` (or a new `src/app/files.rs` — keep it simple).
+### Task 3: Add text file viewer and editor (`/view/{path}`, `/edit-text/{path}`)
+- New view handler: validate text extension, read file, render with syntax highlighting.
 - New template `text_view.html` with `<pre><code>` and Highlight.js class for the language.
-- Breadcrumb navigation matching other pages.
+- New edit handler: textarea + save form, `atomic_write()`, no markdown post-processing.
+- New template `text_edit.html` (stripped-down version of markdown edit — textarea + save, no preview).
+- Breadcrumb navigation matching other pages on both view and edit.
 - Path safety validation (reuse existing helpers).
 - Route registration in `src/app.rs`.
-- Add tests for the handler (valid file, missing file, disallowed extension, path traversal).
-- **AC**: Navigating to `/view/config.toml` renders the file with syntax highlighting and breadcrumbs.
+- Add tests for both handlers (valid file, missing file, disallowed extension, path traversal).
+- **AC**: `/view/config.toml` renders with syntax highlighting. "Edit" links to `/edit-text/config.toml` where the file can be edited and saved.
 
 ### Task 4: Extend `resolve_path()` to route non-markdown file types
 - Update `resolve_path()` in `src/app/documents.rs` to check extension and redirect.
