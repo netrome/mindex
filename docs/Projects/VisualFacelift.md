@@ -25,11 +25,19 @@ and hackable" philosophy.
   from better scale, weight, and spacing.
 - **No expensive CSS effects.** No `backdrop-blur`, no glassmorphism, no
   gradient fills. The app must stay fast on low-end mobile devices.
-- **No new dependencies.** Everything stays in `style.css`.
-- **Binary size stays the same.** We're editing existing CSS, not adding assets.
+- **No new dependencies.** Use the existing asset/template stack.
+- **Targeted non-CSS changes are allowed.** Minor template updates, theme chrome
+  updates, and vendor stylesheet adjustments are in scope when required to make
+  the facelift coherent.
+- **No material binary growth.** Avoid adding new assets unless they are
+  clearly justified.
 - **Mobile-friendly.** All changes must work at the 600px breakpoint.
 
-## Design principles (distilled from DESIGN.md brainstorm)
+## Design principles
+
+These principles are aligned with `docs/Resources/DesignSystem.md`. The
+archived brainstorm in `docs/Archive/DesignBrainstorm.md` is historical
+ideation, not the implementation spec.
 
 ### 1. Borders out, tonal shifts in
 Replace `1px solid` borders with background color differences and spacing.
@@ -47,7 +55,7 @@ for affordance). Even there, prefer subtle borders (low-opacity or
 
 ### 2. Intentional color palette
 Replace the generic blues/grays with a palette built around four accent colors
-(originally from the Dracula-inspired DESIGN.md brainstorm):
+(originally explored in the archived design brainstorm):
 
 | Role | Color | Hex | Usage |
 |---|---|---|---|
@@ -99,17 +107,18 @@ generous whitespace:
 ## What this is NOT
 - Not a redesign of layout or information architecture. The single-column
   800px max-width layout stays.
-- Not a rewrite of the template structure. HTML stays the same; only CSS
-  changes (and minor class additions if needed).
+- Not a rewrite of the template structure. Any template changes should stay
+  small and directly support the visual system.
 - Not a theming system or user-configurable colors. One light palette, one
   dark palette, system-preference detection.
-- Not a component library or design system. Just a more polished stylesheet.
+- Not a component library. Just a more polished visual system.
 
 ## Task breakdown
 
-### Task 1: CSS custom property cleanup
-Audit and restructure the CSS custom properties in `:root` / `[data-theme]` /
-`prefers-color-scheme` blocks:
+### Task 1: Theme token cleanup
+Audit and restructure theme tokens in `:root` / `[data-theme]` /
+`prefers-color-scheme` blocks and any dependent stylesheets/templates as
+needed:
 - Introduce the 3 surface tokens (`--surface-base`, `--surface-elevated`,
   `--surface-overlay`).
 - Introduce 3 text tokens (`--text-primary`, `--text-secondary`,
@@ -119,14 +128,15 @@ Audit and restructure the CSS custom properties in `:root` / `[data-theme]` /
 - Introduce `--color-border` (single subtle border color for the few places
   borders remain).
 - Define values for both light and dark themes.
-- Migrate existing rules to use the new tokens (replace hardcoded colors).
+- Migrate existing rules to use the new tokens (replace hardcoded colors where
+  practical).
 
 **Acceptance criteria:**
-- All color values flow through CSS custom properties.
-- No hardcoded hex colors remain in component rules.
+- Mindex-owned theme colors flow through CSS custom properties.
+- No hardcoded hex colors remain in Mindex component rules.
 - Light and dark themes both look correct.
 - No visual regression in any page (document, edit, search, git, directory
-  browser, login).
+  browser, login, upload, PDF, reorder, push-subscribe).
 
 ### Task 2: Color palette
 Apply the accent palette defined in section 2 above. Remaining work:
@@ -139,8 +149,8 @@ Apply the accent palette defined in section 2 above. Remaining work:
   #F1FA8C).
 - Light mode uses recognizably related variants of the same hues.
 - Sufficient contrast ratios for accessibility (WCAG AA for body text).
-- Code syntax highlighting (vendor/highlight.css) still looks good against the
-  new surface colors.
+- Code syntax highlighting is aligned with the new surface colors, whether via
+  targeted vendor stylesheet updates or explicit overrides.
 
 ### Task 3: Border reduction
 Systematically replace decorative borders with tonal shifts and spacing:
@@ -182,6 +192,8 @@ Systematically replace decorative borders with tonal shifts and spacing:
 - Test all pages in both themes at desktop and mobile widths.
 - Verify syntax highlighting, mermaid diagrams, ABC notation, and math
   rendering still look correct.
+- Verify shared theme chrome (for example the browser/PWA theme color) matches
+  the new palette where applicable.
 - Adjust any remaining rough edges.
 
 **Acceptance criteria:**
