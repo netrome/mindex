@@ -1,9 +1,9 @@
 const getDocId = () => {
     const path = window.location.pathname;
-    if (!path.startsWith("/doc/")) {
+    if (!path.startsWith("/d/")) {
         return "";
     }
-    return decodeURIComponent(path.slice(5));
+    return decodeURIComponent(path.slice(3));
 };
 
 const toggleTask = async (input, docId) => {
@@ -19,7 +19,7 @@ const toggleTask = async (input, docId) => {
             task_index: String(taskIndex),
             checked: desired ? "true" : "false",
         });
-        const response = await fetch("/api/doc/toggle-task", {
+        const response = await fetch("/api/d/toggle-task", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body,

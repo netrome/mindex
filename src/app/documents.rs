@@ -1,9 +1,8 @@
-use crate::config;
 use crate::documents::{
-    BlockKind, DocError, ReorderError, add_task_item_in_list, collect_markdown_paths,
-    collect_mentions, create_document, doc_id_from_path, line_count, lines_for_display,
-    load_document, normalize_newlines, render_document_html, reorder_range, resolve_doc_path,
-    scan_block_ranges, search_documents, toggle_task_item,
+    BlockKind, DocError, ReorderError, add_task_item_in_list, collect_mentions, create_document,
+    line_count, lines_for_display, list_directory, load_document, normalize_newlines,
+    render_document_html, reorder_range, resolve_doc_path, scan_block_ranges, search_documents,
+    toggle_task_item,
 };
 use crate::fs::atomic_write;
 use crate::push as push_service;
@@ -15,46 +14,86 @@ use axum::extract::Path as AxumPath;
 use axum::extract::Query;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::response::Redirect;
+use axum::response::{IntoResponse, Redirect, Response};
 use serde::Deserialize;
 
 use std::io::ErrorKind;
 
 use super::push::refresh_push_state;
 
-pub(crate) async fn document_list(
+pub(crate) async fn directory_browse_root(
     State(state): State<state::AppState>,
-) -> Result<templates::DocumentListTemplate, (StatusCode, &'static str)> {
-    let state::AppState {
-        config: config::AppConfig { root, app_name, .. },
-        git_dir,
-        ..
-    } = state;
-    let git_enabled = git_dir.is_some();
-    let paths = collect_markdown_paths(&root).map_err(|err| {
-        eprintln!("failed to list markdown files: {err}");
-        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+) -> Result<templates::DirectoryBrowseTemplate, (StatusCode, &'static str)> {
+    browse_directory(state, String::new())
+}
+
+pub(crate) async fn resolve_path(
+    State(state): State<state::AppState>,
+    AxumPath(path): AxumPath<String>,
+) -> Result<Response, (StatusCode, &'static str)> {
+    if path.ends_with(".md") {
+        document_view(state, path).map(IntoResponse::into_response)
+    } else {
+        browse_directory(state, path).map(IntoResponse::into_response)
+    }
+}
+
+fn browse_directory(
+    state: state::AppState,
+    current_dir: String,
+) -> Result<templates::DirectoryBrowseTemplate, (StatusCode, &'static str)> {
+    let git_enabled = state.git_dir.is_some();
+    let listing = list_directory(&state.config.root, &current_dir).map_err(|err| match err {
+        DocError::BadPath => (StatusCode::BAD_REQUEST, "invalid path"),
+        DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to list directory: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
     })?;
 
-    let mut doc_ids: Vec<String> = paths
-        .into_iter()
-        .filter_map(|path| doc_id_from_path(&root, &path))
-        .collect();
-    doc_ids.sort();
+    let parent_url = if current_dir.is_empty() {
+        None
+    } else {
+        match current_dir.rfind('/') {
+            Some(pos) => Some(format!("/d/{}", &current_dir[..pos])),
+            None => Some("/".to_string()),
+        }
+    };
 
-    Ok(templates::DocumentListTemplate {
-        app_name,
-        documents: doc_ids,
+    let path_prefix = if current_dir.is_empty() {
+        String::new()
+    } else {
+        format!("{current_dir}/")
+    };
+
+    Ok(templates::DirectoryBrowseTemplate {
+        app_name: state.config.app_name,
+        current_dir,
+        path_prefix,
+        parent_url,
+        directories: listing.directories,
+        files: listing.files,
         git_enabled,
     })
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct NewDocumentQuery {
+    pub(crate) dir: Option<String>,
+}
+
 pub(crate) async fn document_new(
     State(state): State<state::AppState>,
+    Query(query): Query<NewDocumentQuery>,
 ) -> templates::NewDocumentTemplate {
+    let doc_id = match query.dir {
+        Some(ref dir) if !dir.is_empty() => format!("{dir}/"),
+        _ => String::new(),
+    };
     templates::NewDocumentTemplate {
         app_name: state.config.app_name,
-        doc_id: String::new(),
+        doc_id,
         error: String::new(),
         git_enabled: state.git_dir.is_some(),
     }
@@ -158,13 +197,13 @@ pub(crate) struct SearchQuery {
     pub(crate) q: Option<String>,
 }
 
-pub(crate) async fn document_view(
-    State(state): State<state::AppState>,
-    AxumPath(doc_id): AxumPath<String>,
+fn document_view(
+    state: state::AppState,
+    doc_id: String,
 ) -> Result<templates::DocumentTemplate, (StatusCode, &'static str)> {
     let git_enabled = state.git_dir.is_some();
     let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
-        DocError::NotFound => (StatusCode::NOT_FOUND, "document not found"),
+        DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
         _ => {
             eprintln!("failed to load document {doc_id}: {err:?}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -421,7 +460,7 @@ pub(crate) async fn document_add_task(
         eprintln!("failed to reload push registries after add task: {err}");
     }
 
-    Ok(Redirect::to(&format!("/doc/{doc_id}")))
+    Ok(Redirect::to(&format!("/d/{doc_id}")))
 }
 
 #[derive(Debug, Deserialize)]

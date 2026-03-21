@@ -81,7 +81,7 @@ self.addEventListener('fetch', event => {
   }
 
   const isDocument = request.destination === 'document';
-  const networkFirst = (isDocument || url.pathname.startsWith('/doc/')) && !AUTH_ENABLED;
+  const networkFirst = (isDocument || url.pathname.startsWith('/d/')) && !AUTH_ENABLED;
 
   if (networkFirst) {
     event.respondWith(
@@ -215,7 +215,7 @@ function shouldCache(pathname) {
   }
 
   // Cache document views (but not edits)
-  if (pathname.startsWith('/doc/') || pathname === '/') {
+  if (pathname.startsWith('/d/') || pathname === '/') {
     return true;
   }
 

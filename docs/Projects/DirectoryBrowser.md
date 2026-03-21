@@ -1,7 +1,7 @@
 # Directory Browser
 
 ## Status
-Accepted
+Done
 
 ## Goal
 Replace the flat document list at `/` with a directory browser that shows the
@@ -123,10 +123,15 @@ update. No new dependencies.
 | URL | Shows |
 |---|---|
 | `/` | Root directory contents |
-| `/dir/notes` | Contents of `notes/` |
-| `/dir/notes/work` | Contents of `notes/work/` |
-| `/doc/notes/todo.md` | View document (unchanged) |
+| `/d/notes` | Contents of `notes/` |
+| `/d/notes/work` | Contents of `notes/work/` |
+| `/d/notes/todo.md` | View document |
 | `/new?dir=notes` | New document form, pre-filled with `notes/` |
+
+The `/d/{*path}` route is unified: if the path ends in `.md` it renders the
+document, otherwise it renders the directory browser. This means navigating
+between directories and documents is transparent — users don't need to know
+whether a path is a file or directory.
 
 ### Domain function
 

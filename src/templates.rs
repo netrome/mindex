@@ -3,9 +3,13 @@ use askama_web::WebTemplate;
 
 #[derive(Template, WebTemplate)]
 #[template(path = "document_list.html")]
-pub(crate) struct DocumentListTemplate {
+pub(crate) struct DirectoryBrowseTemplate {
     pub(crate) app_name: String,
-    pub(crate) documents: Vec<String>,
+    pub(crate) current_dir: String,
+    pub(crate) path_prefix: String,
+    pub(crate) parent_url: Option<String>,
+    pub(crate) directories: Vec<String>,
+    pub(crate) files: Vec<String>,
     pub(crate) git_enabled: bool,
 }
 

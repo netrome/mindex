@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}{{ app_name }}{% endblock %}
+{% block title %}{% if current_dir.is_empty() %}{{ app_name }}{% else %}{{ current_dir }} - {{ app_name }}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="nav">
     <a href="/">Documents</a>
-    <a href="/new">New</a>
+    <a href="/new{% if !current_dir.is_empty() %}?dir={{ current_dir }}{% endif %}">New</a>
     <a href="/upload">Upload</a>
     <a href="/search">Search</a>
     {% if git_enabled %}
@@ -20,15 +20,27 @@
     </button>
 </div>
 
+{% if current_dir.is_empty() %}
 <h1>Documents</h1>
-
-{% if documents.is_empty() %}
-    <p>No documents found.</p>
 {% else %}
-    <ul>
-    {% for doc_id in documents %}
-        <li><a href="/doc/{{ doc_id }}">{{ doc_id }}</a></li>
-    {% endfor %}
-    </ul>
+<h1>{{ current_dir }}/</h1>
+{% endif %}
+
+{% if let Some(parent_url) = parent_url %}
+<ul>
+    <li><a href="{{ parent_url }}">..</a></li>
+{% else %}
+<ul>
+{% endif %}
+{% for dir in directories %}
+    <li><a href="/d/{{ path_prefix }}{{ dir }}">{{ dir }}/</a></li>
+{% endfor %}
+{% for file in files %}
+    <li><a href="/d/{{ path_prefix }}{{ file }}">{{ file }}</a></li>
+{% endfor %}
+</ul>
+
+{% if directories.is_empty() && files.is_empty() && parent_url.is_none() %}
+    <p>No documents found.</p>
 {% endif %}
 {% endblock %}

@@ -22,7 +22,7 @@ const postReorder = async (docId, payload) => {
         insert_before_line: String(payload.insertBeforeLine),
         mode: payload.mode,
     });
-    const response = await fetch("/api/doc/reorder-range", {
+    const response = await fetch("/api/d/reorder-range", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,

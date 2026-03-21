@@ -50,7 +50,8 @@ pub fn app(config: config::AppConfig) -> Router {
     };
     push_service::maybe_start_scheduler(&state.config, registries_snapshot, push_handles);
     Router::new()
-        .route("/", get(documents::document_list))
+        .route("/", get(documents::directory_browse_root))
+        .route("/d/{*path}", get(documents::resolve_path))
         .route("/login", get(auth::login_form).post(auth::login_submit))
         .route("/logout", post(auth::logout))
         .route("/search", get(documents::document_search))
@@ -63,18 +64,14 @@ pub fn app(config: config::AppConfig) -> Router {
             get(documents::document_edit).post(documents::document_save),
         )
         .route("/reorder/{*path}", get(documents::document_reorder))
-        .route("/doc/{*path}", get(documents::document_view))
         .route("/git", get(git::git_view))
         .route("/git/commit", post(git::git_commit))
         .route("/git/push", post(git::git_push))
         .route("/git/pull", post(git::git_pull))
+        .route("/api/d/toggle-task", post(documents::document_toggle_task))
+        .route("/api/d/add-task", post(documents::document_add_task))
         .route(
-            "/api/doc/toggle-task",
-            post(documents::document_toggle_task),
-        )
-        .route("/api/doc/add-task", post(documents::document_add_task))
-        .route(
-            "/api/doc/reorder-range",
+            "/api/d/reorder-range",
             post(documents::document_reorder_range),
         )
         .route("/push/subscribe", get(push::push_subscribe))
@@ -282,7 +279,7 @@ pub(crate) mod tests {
         let app_config = auth_app_config(root.clone(), key_bytes);
         let password_hash = hash_password_for_test("secret");
         write_user_doc(&root, "marten", "marten@example.com", &password_hash);
-        let form = "name=marten&password=secret&next=%2Fdoc%2Fnote.md";
+        let form = "name=marten&password=secret&next=%2Fd%2Fnote.md";
 
         // When
         let response = app(app_config)
@@ -301,7 +298,7 @@ pub(crate) mod tests {
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         assert_eq!(
             response.headers().get(LOCATION).expect("location header"),
-            "/doc/note.md"
+            "/d/note.md"
         );
         let cookie = response.headers().get(SET_COOKIE).expect("set-cookie");
         let cookie = cookie.to_str().expect("cookie header");
@@ -547,12 +544,15 @@ password_hash = "hash"
     }
 
     #[test]
-    fn render_document_list__should_include_links() {
+    fn render_directory_browse__should_include_links() {
         // Given
-        let doc_ids = vec!["notes/a.md".to_string(), "b.md".to_string()];
-        let template = templates::DocumentListTemplate {
+        let template = templates::DirectoryBrowseTemplate {
             app_name: "Mindex".to_string(),
-            documents: doc_ids,
+            current_dir: String::new(),
+            path_prefix: String::new(),
+            parent_url: None,
+            directories: vec!["notes".to_string()],
+            files: vec!["b.md".to_string()],
             git_enabled: false,
         };
 
@@ -560,8 +560,31 @@ password_hash = "hash"
         let html = template.render().unwrap();
 
         // Then
-        assert!(html.contains(r#"<a href="/doc/notes/a.md">notes/a.md</a>"#));
-        assert!(html.contains(r#"<a href="/doc/b.md">b.md</a>"#));
+        assert!(html.contains(r#"<a href="/d/notes">notes/</a>"#));
+        assert!(html.contains(r#"<a href="/d/b.md">b.md</a>"#));
+    }
+
+    #[test]
+    fn render_directory_browse__should_show_parent_link_in_subdirectory() {
+        // Given
+        let template = templates::DirectoryBrowseTemplate {
+            app_name: "Mindex".to_string(),
+            current_dir: "notes".to_string(),
+            path_prefix: "notes/".to_string(),
+            parent_url: Some("/".to_string()),
+            directories: vec!["work".to_string()],
+            files: vec!["todo.md".to_string()],
+            git_enabled: false,
+        };
+
+        // When
+        let html = template.render().unwrap();
+
+        // Then
+        assert!(html.contains(r#"<a href="/">..</a>"#));
+        assert!(html.contains(r#"<a href="/d/notes/work">work/</a>"#));
+        assert!(html.contains(r#"<a href="/d/notes/todo.md">todo.md</a>"#));
+        assert!(html.contains("notes/"));
     }
 
     #[test]
@@ -670,7 +693,7 @@ flowchart TD
         let response = app(app_config)
             .oneshot(
                 Request::builder()
-                    .uri("/doc/diagram.md")
+                    .uri("/d/diagram.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -713,7 +736,7 @@ C D E F | G A B c |
         let response = app(app_config)
             .oneshot(
                 Request::builder()
-                    .uri("/doc/tune.md")
+                    .uri("/d/tune.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -748,7 +771,7 @@ C D E F | G A B c |
         let response = app(app_config)
             .oneshot(
                 Request::builder()
-                    .uri("/doc/note.md")
+                    .uri("/d/note.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -789,7 +812,7 @@ fn main() {
         let response = app(app_config)
             .oneshot(
                 Request::builder()
-                    .uri("/doc/code.md")
+                    .uri("/d/code.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -828,7 +851,7 @@ fn main() {
         let response = app(app_config)
             .oneshot(
                 Request::builder()
-                    .uri("/doc/notes/doc.md")
+                    .uri("/d/notes/doc.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -937,7 +960,7 @@ fn main() {
         let response = app(app_config)
             .oneshot(
                 Request::builder()
-                    .uri("/doc/missing.md")
+                    .uri("/d/missing.md")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -999,7 +1022,7 @@ fn main() {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/api/doc/reorder-range")
+                    .uri("/api/d/reorder-range")
                     .header("content-type", "application/x-www-form-urlencoded")
                     .body(Body::from(body))
                     .unwrap(),
@@ -1036,7 +1059,7 @@ text line 2
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/api/doc/reorder-range")
+                    .uri("/api/d/reorder-range")
                     .header("content-type", "application/x-www-form-urlencoded")
                     .body(Body::from(body))
                     .unwrap(),

@@ -60,6 +60,69 @@ pub(crate) fn doc_id_from_path(root: &Path, path: &Path) -> Option<String> {
     Some(parts.join("/"))
 }
 
+#[derive(Debug)]
+pub(crate) struct DirectoryListing {
+    pub(crate) directories: Vec<String>,
+    pub(crate) files: Vec<String>,
+}
+
+pub(crate) fn list_directory(
+    root: &Path,
+    relative_dir: &str,
+) -> Result<DirectoryListing, DocError> {
+    let dir_path = if relative_dir.is_empty() {
+        root.to_path_buf()
+    } else {
+        let rel = dir_to_path(relative_dir).ok_or(DocError::BadPath)?;
+        let candidate = root.join(rel);
+        let canonical = candidate.canonicalize().map_err(|err| match err.kind() {
+            ErrorKind::NotFound => DocError::NotFound,
+            _ => DocError::Io(err),
+        })?;
+        if !canonical.starts_with(root) {
+            return Err(DocError::BadPath);
+        }
+        canonical
+    };
+
+    if !dir_path.is_dir() {
+        return Err(DocError::NotFound);
+    }
+
+    let mut directories = Vec::new();
+    let mut files = Vec::new();
+
+    for entry in std::fs::read_dir(&dir_path).map_err(DocError::Io)? {
+        let entry = entry.map_err(DocError::Io)?;
+        let file_type = entry.file_type().map_err(DocError::Io)?;
+
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        let name = entry.file_name();
+        let name_str = match name.to_str() {
+            Some(s) => s,
+            None => continue,
+        };
+
+        if name_str.starts_with('.') {
+            continue;
+        }
+
+        if file_type.is_dir() {
+            directories.push(name_str.to_string());
+        } else if file_type.is_file() && name_str.ends_with(".md") {
+            files.push(name_str.to_string());
+        }
+    }
+
+    directories.sort();
+    files.sort();
+
+    Ok(DirectoryListing { directories, files })
+}
+
 pub(crate) fn load_document(root: &Path, doc_id: &str) -> Result<String, DocError> {
     let path = resolve_doc_path(root, doc_id)?;
     std::fs::read_to_string(&path).map_err(|err| match err.kind() {
@@ -891,7 +954,7 @@ fn leading_indent(line: &str) -> usize {
 fn render_task_list_form(doc_id: &str, list_index: usize) -> String {
     let escaped_doc_id = html_escape(doc_id);
     format!(
-        "<form class=\"todo-quick-add\" method=\"post\" action=\"/api/doc/add-task\">\
+        "<form class=\"todo-quick-add\" method=\"post\" action=\"/api/d/add-task\">\
 <input type=\"hidden\" name=\"doc_id\" value=\"{escaped_doc_id}\" />\
 <input type=\"hidden\" name=\"list_index\" value=\"{list_index}\" />\
 <button type=\"submit\">+</button>\
@@ -902,6 +965,20 @@ fn render_task_list_form(doc_id: &str, list_index: usize) -> String {
 
 fn is_task_list_marker(line: &str) -> bool {
     line.trim() == "+"
+}
+
+fn dir_to_path(dir: &str) -> Option<PathBuf> {
+    if dir.is_empty() {
+        return Some(PathBuf::new());
+    }
+    let path = Path::new(dir);
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => {}
+            _ => return None,
+        }
+    }
+    Some(path.to_path_buf())
 }
 
 fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
@@ -1119,7 +1196,7 @@ fn rewrite_relative_md_link(doc_id: &str, dest_url: &str) -> Option<String> {
     let (prefix, resolved) = if path_part.ends_with(".md") {
         let resolved = resolve_relative_path(doc_id, path_part)?;
         doc_id_to_path(&resolved)?;
-        ("/doc/", resolved)
+        ("/d/", resolved)
     } else if has_extension_ignore_ascii_case(path_part, ".pdf") {
         let resolved = resolve_relative_path(doc_id, path_part)?;
         ("/pdf/", resolved)
@@ -1249,10 +1326,10 @@ mod tests {
         pulldown_cmark::html::push_html(&mut body, parser);
 
         // Then
-        assert!(body.contains(r#"href="/doc/notes/b.md""#));
-        assert!(body.contains(r#"href="/doc/c.md""#));
-        assert!(body.contains(r#"href="/doc/notes/d.md""#));
-        assert!(body.contains(r#"href="/doc/notes/b.md#section""#));
+        assert!(body.contains(r#"href="/d/notes/b.md""#));
+        assert!(body.contains(r#"href="/d/c.md""#));
+        assert!(body.contains(r#"href="/d/notes/d.md""#));
+        assert!(body.contains(r#"href="/d/notes/b.md#section""#));
         assert!(body.contains(r#"href="/pdf/notes/tickets/show.pdf""#));
         assert!(body.contains(r#"href="/pdf/notes/tickets/show.PDF#page=3""#));
         assert!(body.contains(r#"href="/pdf/ticket.pdf#page=2""#));
@@ -1428,6 +1505,127 @@ Final.\n";
             doc_ids,
             vec!["a.md".to_string(), "visible/b.md".to_string()]
         );
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    // -- list_directory --
+
+    #[test]
+    fn list_directory__should_list_root_contents() {
+        // Given
+        let root = create_temp_root("listdir-root");
+        std::fs::write(root.join("a.md"), "# A").expect("write");
+        std::fs::write(root.join("b.md"), "# B").expect("write");
+        std::fs::create_dir_all(root.join("notes")).expect("mkdir");
+        std::fs::write(root.join("notes/c.md"), "# C").expect("write");
+
+        // When
+        let listing = list_directory(&root, "").expect("list root");
+
+        // Then
+        assert_eq!(listing.directories, vec!["notes"]);
+        assert_eq!(listing.files, vec!["a.md", "b.md"]);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn list_directory__should_list_subdirectory_contents() {
+        // Given
+        let root = create_temp_root("listdir-sub");
+        std::fs::create_dir_all(root.join("notes/work")).expect("mkdir");
+        std::fs::write(root.join("notes/todo.md"), "# Todo").expect("write");
+        std::fs::write(root.join("notes/ideas.md"), "# Ideas").expect("write");
+
+        // When
+        let listing = list_directory(&root, "notes").expect("list notes");
+
+        // Then
+        assert_eq!(listing.directories, vec!["work"]);
+        assert_eq!(listing.files, vec!["ideas.md", "todo.md"]);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn list_directory__should_exclude_hidden_entries() {
+        // Given
+        let root = create_temp_root("listdir-hidden");
+        std::fs::write(root.join("a.md"), "# A").expect("write");
+        std::fs::create_dir_all(root.join(".git")).expect("mkdir .git");
+        std::fs::write(root.join(".secret.md"), "# Secret").expect("write");
+
+        // When
+        let listing = list_directory(&root, "").expect("list root");
+
+        // Then
+        assert!(listing.directories.is_empty());
+        assert_eq!(listing.files, vec!["a.md"]);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn list_directory__should_exclude_non_md_files() {
+        // Given
+        let root = create_temp_root("listdir-nonmd");
+        std::fs::write(root.join("a.md"), "# A").expect("write");
+        std::fs::write(root.join("b.txt"), "B").expect("write");
+        std::fs::write(root.join("c.pdf"), "C").expect("write");
+
+        // When
+        let listing = list_directory(&root, "").expect("list root");
+
+        // Then
+        assert_eq!(listing.files, vec!["a.md"]);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn list_directory__should_exclude_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        // Given
+        let root = create_temp_root("listdir-symlink");
+        std::fs::write(root.join("a.md"), "# A").expect("write");
+        symlink(root.join("a.md"), root.join("link.md")).expect("symlink");
+
+        // When
+        let listing = list_directory(&root, "").expect("list root");
+
+        // Then
+        assert_eq!(listing.files, vec!["a.md"]);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn list_directory__should_reject_path_traversal() {
+        // Given
+        let root = create_temp_root("listdir-traversal");
+
+        // When
+        let err = list_directory(&root, "../").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn list_directory__should_return_not_found_for_missing_directory() {
+        // Given
+        let root = create_temp_root("listdir-missing");
+
+        // When
+        let err = list_directory(&root, "nonexistent").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::NotFound));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
