@@ -111,6 +111,31 @@ fn build_breadcrumbs(current_dir: &str) -> Vec<templates::BreadcrumbSegment> {
     breadcrumbs
 }
 
+/// Build breadcrumbs for a document page. All directory segments become links
+/// (the document filename itself is the "current" item, rendered in the template).
+fn build_breadcrumbs_for_doc(parent_dir: &str) -> Vec<templates::BreadcrumbSegment> {
+    let mut breadcrumbs = vec![templates::BreadcrumbSegment {
+        name: "Documents".to_string(),
+        url: "/".to_string(),
+    }];
+
+    if !parent_dir.is_empty() {
+        for (i, segment) in parent_dir.split('/').enumerate() {
+            let path = parent_dir
+                .split('/')
+                .take(i + 1)
+                .collect::<Vec<_>>()
+                .join("/");
+            breadcrumbs.push(templates::BreadcrumbSegment {
+                name: segment.to_string(),
+                url: format!("/d/{path}"),
+            });
+        }
+    }
+
+    breadcrumbs
+}
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct NewDocumentQuery {
     pub(crate) dir: Option<String>,
@@ -245,9 +270,19 @@ fn document_view(
 
     let rendered = render_document_html(&contents, &doc_id);
 
+    let doc_name = doc_id.rsplit('/').next().unwrap_or(&doc_id).to_string();
+
+    let parent_dir = match doc_id.rfind('/') {
+        Some(pos) => &doc_id[..pos],
+        None => "",
+    };
+    let breadcrumbs = build_breadcrumbs_for_doc(parent_dir);
+
     Ok(templates::DocumentTemplate {
         app_name: state.config.app_name,
         doc_id,
+        doc_name,
+        breadcrumbs,
         content: rendered.html,
         has_mermaid: rendered.has_mermaid,
         has_abc: rendered.has_abc,

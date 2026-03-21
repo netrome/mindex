@@ -618,6 +618,11 @@ password_hash = "hash"
         let template = templates::DocumentTemplate {
             app_name: "Mindex".to_string(),
             doc_id: "table.md".to_string(),
+            doc_name: "table.md".to_string(),
+            breadcrumbs: vec![templates::BreadcrumbSegment {
+                name: "Documents".to_string(),
+                url: "/".to_string(),
+            }],
             content: body,
             has_mermaid: false,
             has_abc: false,

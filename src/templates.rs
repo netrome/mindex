@@ -46,6 +46,8 @@ pub(crate) struct ServiceWorkerTemplate {
 pub(crate) struct DocumentTemplate {
     pub(crate) app_name: String,
     pub(crate) doc_id: String,
+    pub(crate) doc_name: String,
+    pub(crate) breadcrumbs: Vec<BreadcrumbSegment>,
     pub(crate) content: String,
     pub(crate) has_mermaid: bool,
     pub(crate) has_abc: bool,

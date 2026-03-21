@@ -22,6 +22,14 @@
     </button>
 </div>
 
+<nav class="breadcrumbs" aria-label="Document path">
+    {% for crumb in breadcrumbs %}
+    <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+    {% endfor %}
+    <span class="breadcrumb-current">{{ doc_name }}</span>
+</nav>
+
 {{ content|safe }}
 
 {% if has_code %}
