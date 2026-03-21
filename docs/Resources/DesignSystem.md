@@ -90,6 +90,21 @@ Use a consistent token vocabulary across shared stylesheets and overrides.
 - `--color-success`: confirmations, positive notices, and completed states
 - `--color-highlight`: search matches, tags, and content highlights
 
+### Accent usage
+
+Use the four accent colors by role, not decoratively.
+
+- Purple (`--color-primary`) is the structural accent: links, focus rings,
+  section dividers, active outlines, and other navigational emphasis.
+- Pink (`--color-secondary`) is for active mode chrome and high-attention
+  secondary actions, such as edit/reorder/theme-style toggles.
+- Green (`--color-success`) is for affirmative actions and completed states:
+  save, create, refresh, success notices, and completed task indicators.
+- Yellow (`--color-highlight`) is for discovery and utility emphasis: search,
+  copy-style utilities, pending/status chips, inline highlights, and markers.
+- Within one local control group, prefer one dominant accent and keep the rest
+  neutral unless there is a clear semantic reason to mix colors.
+
 ### Supporting tokens
 
 - `--color-border`: subtle functional border color
