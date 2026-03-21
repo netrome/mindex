@@ -1,7 +1,7 @@
 # Split `documents.rs` into submodules
 
 ## Status
-Design
+Done
 
 ## Goal
 Break `src/documents.rs` (2,301 LOC) into focused submodules to improve
@@ -125,34 +125,34 @@ Each task is a single commit within one PR. The PR is kept as a single
 unit because the intermediate states (half-extracted module) aren't
 meaningful to review independently.
 
-- [ ] **T1: Create `documents/paths.rs`**
+- [x] **T1: Create `documents/paths.rs`**
   Move path resolution functions and directory listing. Re-export from parent.
   - AC: `cargo nextest run` passes, no changes to any file outside
     `src/documents.rs` and `src/documents/`.
 
-- [ ] **T2: Create `documents/search.rs`**
+- [x] **T2: Create `documents/search.rs`**
   Move search and mention extraction. Re-export from parent.
   - AC: search tests pass.
 
-- [ ] **T3: Create `documents/tasks.rs`**
+- [x] **T3: Create `documents/tasks.rs`**
   Move task list manipulation and mention helpers. Re-export from parent.
   - AC: task toggle/add tests pass.
 
-- [ ] **T4: Create `documents/editing.rs`**
+- [x] **T4: Create `documents/editing.rs`**
   Move block scanning, reordering, and line-segment utilities. Re-export from parent.
   - AC: reorder tests pass.
 
-- [ ] **T5: Create `documents/rendering.rs`**
+- [x] **T5: Create `documents/rendering.rs`**
   Move rendering, link rewriting, and heading ID generation. Re-export from parent.
   - AC: rendering tests pass.
 
-- [ ] **T6: Clean up parent `documents.rs`**
+- [x] **T6: Clean up parent `documents.rs`**
   Verify re-exports are complete. Remove dead code. Ensure parent is
   ~350 LOC or less.
   - AC: `cargo fmt && cargo clippy --all-targets --all-features && cargo nextest run`
     all green. No caller changes outside `src/documents*`.
 
-- [ ] **T7: Update docs**
+- [x] **T7: Update docs**
   Update `docs/Resources/ARCHITECTURE.md` to reflect the new submodule
   structure. Check off task in TODO.md.
   - AC: ARCHITECTURE.md lists all `documents/*.rs` submodules.

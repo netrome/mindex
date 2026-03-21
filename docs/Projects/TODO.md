@@ -12,6 +12,7 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] [Split documents.rs](017-SplitDocuments.md)
 - [x] [File uploads](018-FileUploads.md)
 - [x] [File type support in directory browser](016-FileTypeSupport.md)
 - [x] [Directory browser UX](015-DirectoryBrowserUX.md) (breadcrumbs + card grid)

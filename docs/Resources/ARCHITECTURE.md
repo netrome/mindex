@@ -28,7 +28,12 @@ Mindex is a single-process web server that:
 
 ### Domain logic
 
-- `src/documents.rs` — markdown loading, rendering, search, editing, path resolution
+- `src/documents.rs` — document loading/creation, shared utilities, re-exports
+  - `src/documents/paths.rs` — path resolution, directory listing, file kind detection
+  - `src/documents/rendering.rs` — markdown-to-HTML rendering, link rewriting, heading IDs
+  - `src/documents/editing.rs` — block scanning and reordering
+  - `src/documents/tasks.rs` — task list toggle/add, mention extraction
+  - `src/documents/search.rs` — full-text search
 - `src/directives.rs` — parses user/notification directive blocks from markdown files
 - `src/uploads.rs` — image upload storage and path resolution
 - `src/git.rs` — git status, commit, and remote operations
