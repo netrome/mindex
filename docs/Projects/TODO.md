@@ -12,6 +12,7 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] [Directory browser UX](DirectoryBrowserUX.md) (breadcrumbs + card grid)
 - [x] [Visual facelift](VisualFacelift.md)
 - [x] Directory browser (navigate directories instead of flat file list)
 - [x] Anchor links (heading IDs for in-document navigation)

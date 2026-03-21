@@ -1,13 +1,20 @@
 use askama::Template;
 use askama_web::WebTemplate;
 
+pub(crate) struct BreadcrumbSegment {
+    pub(crate) name: String,
+    pub(crate) url: String,
+}
+
 #[derive(Template, WebTemplate)]
 #[template(path = "document_list.html")]
 pub(crate) struct DirectoryBrowseTemplate {
     pub(crate) app_name: String,
     pub(crate) current_dir: String,
+    pub(crate) current_dir_name: String,
     pub(crate) path_prefix: String,
     pub(crate) parent_url: Option<String>,
+    pub(crate) breadcrumbs: Vec<BreadcrumbSegment>,
     pub(crate) directories: Vec<String>,
     pub(crate) files: Vec<String>,
     pub(crate) git_enabled: bool,

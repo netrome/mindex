@@ -67,15 +67,48 @@ fn directory_browse(
         format!("{current_dir}/")
     };
 
+    let breadcrumbs = build_breadcrumbs(&current_dir);
+
+    let current_dir_name = current_dir
+        .rsplit('/')
+        .next()
+        .unwrap_or(&current_dir)
+        .to_string();
+
     Ok(templates::DirectoryBrowseTemplate {
         app_name: state.config.app_name,
         current_dir,
+        current_dir_name,
         path_prefix,
         parent_url,
+        breadcrumbs,
         directories: listing.directories,
         files: listing.files,
         git_enabled,
     })
+}
+
+fn build_breadcrumbs(current_dir: &str) -> Vec<templates::BreadcrumbSegment> {
+    let mut breadcrumbs = vec![templates::BreadcrumbSegment {
+        name: "Documents".to_string(),
+        url: "/".to_string(),
+    }];
+
+    if !current_dir.is_empty() {
+        let segments: Vec<&str> = current_dir.split('/').collect();
+        // All segments except the last become links
+        for (i, segment) in segments.iter().enumerate() {
+            if i < segments.len() - 1 {
+                let path = segments[..=i].join("/");
+                breadcrumbs.push(templates::BreadcrumbSegment {
+                    name: segment.to_string(),
+                    url: format!("/d/{path}"),
+                });
+            }
+        }
+    }
+
+    breadcrumbs
 }
 
 #[derive(Debug, Deserialize)]

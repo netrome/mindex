@@ -549,8 +549,10 @@ password_hash = "hash"
         let template = templates::DirectoryBrowseTemplate {
             app_name: "Mindex".to_string(),
             current_dir: String::new(),
+            current_dir_name: String::new(),
             path_prefix: String::new(),
             parent_url: None,
+            breadcrumbs: vec![],
             directories: vec!["notes".to_string()],
             files: vec!["b.md".to_string()],
             git_enabled: false,
@@ -560,8 +562,10 @@ password_hash = "hash"
         let html = template.render().unwrap();
 
         // Then
-        assert!(html.contains(r#"<a href="/d/notes">notes/</a>"#));
-        assert!(html.contains(r#"<a href="/d/b.md">b.md</a>"#));
+        assert!(html.contains(r#"href="/d/notes""#));
+        assert!(html.contains("notes"));
+        assert!(html.contains(r#"href="/d/b.md""#));
+        assert!(html.contains("b.md"));
     }
 
     #[test]
@@ -570,8 +574,13 @@ password_hash = "hash"
         let template = templates::DirectoryBrowseTemplate {
             app_name: "Mindex".to_string(),
             current_dir: "notes".to_string(),
+            current_dir_name: "notes".to_string(),
             path_prefix: "notes/".to_string(),
             parent_url: Some("/".to_string()),
+            breadcrumbs: vec![templates::BreadcrumbSegment {
+                name: "Documents".to_string(),
+                url: "/".to_string(),
+            }],
             directories: vec!["work".to_string()],
             files: vec!["todo.md".to_string()],
             git_enabled: false,
@@ -581,10 +590,13 @@ password_hash = "hash"
         let html = template.render().unwrap();
 
         // Then
-        assert!(html.contains(r#"<a href="/">..</a>"#));
-        assert!(html.contains(r#"<a href="/d/notes/work">work/</a>"#));
-        assert!(html.contains(r#"<a href="/d/notes/todo.md">todo.md</a>"#));
-        assert!(html.contains("notes/"));
+        assert!(html.contains(r#"href="/""#));
+        assert!(html.contains("Documents"));
+        assert!(html.contains("notes"));
+        assert!(html.contains(r#"href="/d/notes/work""#));
+        assert!(html.contains("work"));
+        assert!(html.contains(r#"href="/d/notes/todo.md""#));
+        assert!(html.contains("todo.md"));
     }
 
     #[test]

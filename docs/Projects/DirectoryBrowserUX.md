@@ -1,7 +1,7 @@
 # Directory Browser UX
 
 ## Status
-Proposed
+Done
 
 ## Goal
 Improve the directory browser with breadcrumb navigation and a card-based layout
@@ -86,7 +86,7 @@ Replace the `<ul>` file list with a CSS grid of cards. Each card contains:
 
 ## Task breakdown
 
-### Task 1: Breadcrumb navigation
+### Task 1: Breadcrumb navigation [x]
 - Add `BreadcrumbSegment` struct (or tuple) with `name` and `url` fields.
 - Add `breadcrumbs: Vec<BreadcrumbSegment>` to `DirectoryBrowseTemplate`.
 - Build the breadcrumb list in the `directory_browse` handler from `current_dir`.
@@ -102,7 +102,7 @@ Replace the `<ul>` file list with a CSS grid of cards. Each card contains:
 - Breadcrumbs wrap gracefully on narrow screens.
 - Existing tests pass, no visual regression on other pages.
 
-### Task 2: Card grid layout
+### Task 2: Card grid layout [x]
 - Replace the `<ul>` in `document_list.html` with a CSS grid of card elements.
 - Add inline SVG icons: folder (directories), document (`.md` files), back/up
   (parent `..` link).
@@ -118,7 +118,7 @@ Replace the `<ul>` file list with a CSS grid of cards. Each card contains:
 - Empty directory state ("No documents found.") still works.
 - Existing tests pass.
 
-### Task 3: Polish and verify
+### Task 3: Polish and verify [x]
 - Test both themes (light + dark) at desktop and mobile widths.
 - Ensure breadcrumbs + cards work together for deeply nested directories.
 - Verify no regressions on document view, edit, search, or other pages.
