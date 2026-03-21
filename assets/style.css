@@ -13,6 +13,8 @@
     --color-success: #1f8a55;
     --color-success-hover: #176c42;
     --color-highlight: #d0ac16;
+    --color-highlight-ink: #6f5900;
+    --color-highlight-text: #2d2502;
     --color-border: #d8d0df;
     --color-border-soft: rgb(216 208 223 / 0.55);
     --color-border-strong: rgb(216 208 223 / 0.8);
@@ -29,12 +31,16 @@
     --link-color: var(--color-primary);
     --link-hover: var(--color-primary-hover);
     --link-underline: rgb(125 63 199 / 0.26);
+    --accent-primary-soft: rgb(125 63 199 / 0.1);
+    --accent-secondary-soft: rgb(201 58 141 / 0.1);
+    --accent-success-soft: rgb(31 138 85 / 0.12);
+    --accent-highlight-soft: rgb(208 172 22 / 0.16);
     --input-bg: var(--surface-overlay);
     --input-border-hover: #bbb0c8;
-    --surface-row: rgb(125 63 199 / 0.04);
-    --surface-row-hover: rgb(125 63 199 / 0.08);
-    --surface-handle: rgb(125 63 199 / 0.08);
-    --surface-handle-active: rgb(125 63 199 / 0.16);
+    --surface-row: rgb(34 31 45 / 0.035);
+    --surface-row-hover: rgb(34 31 45 / 0.06);
+    --surface-handle: rgb(34 31 45 / 0.06);
+    --surface-handle-active: rgb(125 63 199 / 0.14);
     --focus-ring: rgb(125 63 199 / 0.24);
     --syntax-text: #2b2238;
     --syntax-keyword: #c93a8d;
@@ -68,6 +74,8 @@
         --color-success: #50fa7b;
         --color-success-hover: #75ff98;
         --color-highlight: #f1fa8c;
+        --color-highlight-ink: #f1fa8c;
+        --color-highlight-text: #26220b;
         --color-border: #3a3347;
         --color-border-soft: rgb(58 51 71 / 0.55);
         --color-border-strong: rgb(58 51 71 / 0.8);
@@ -84,11 +92,15 @@
         --link-color: var(--color-primary);
         --link-hover: var(--color-highlight);
         --link-underline: rgb(189 147 249 / 0.28);
+        --accent-primary-soft: rgb(189 147 249 / 0.14);
+        --accent-secondary-soft: rgb(255 121 198 / 0.14);
+        --accent-success-soft: rgb(80 250 123 / 0.14);
+        --accent-highlight-soft: rgb(241 250 140 / 0.16);
         --input-bg: #1c1724;
         --input-border-hover: #534862;
-        --surface-row: rgb(189 147 249 / 0.08);
-        --surface-row-hover: rgb(189 147 249 / 0.13);
-        --surface-handle: rgb(189 147 249 / 0.12);
+        --surface-row: rgb(243 238 248 / 0.03);
+        --surface-row-hover: rgb(243 238 248 / 0.05);
+        --surface-handle: rgb(243 238 248 / 0.06);
         --surface-handle-active: rgb(189 147 249 / 0.22);
         --focus-ring: rgb(189 147 249 / 0.32);
         --syntax-text: #efe8f8;
@@ -123,6 +135,8 @@
     --color-success: #1f8a55;
     --color-success-hover: #176c42;
     --color-highlight: #d0ac16;
+    --color-highlight-ink: #6f5900;
+    --color-highlight-text: #2d2502;
     --color-border: #d8d0df;
     --color-border-soft: rgb(216 208 223 / 0.55);
     --color-border-strong: rgb(216 208 223 / 0.8);
@@ -139,12 +153,16 @@
     --link-color: var(--color-primary);
     --link-hover: var(--color-primary-hover);
     --link-underline: rgb(125 63 199 / 0.26);
+    --accent-primary-soft: rgb(125 63 199 / 0.1);
+    --accent-secondary-soft: rgb(201 58 141 / 0.1);
+    --accent-success-soft: rgb(31 138 85 / 0.12);
+    --accent-highlight-soft: rgb(208 172 22 / 0.16);
     --input-bg: var(--surface-overlay);
     --input-border-hover: #bbb0c8;
-    --surface-row: rgb(125 63 199 / 0.04);
-    --surface-row-hover: rgb(125 63 199 / 0.08);
-    --surface-handle: rgb(125 63 199 / 0.08);
-    --surface-handle-active: rgb(125 63 199 / 0.16);
+    --surface-row: rgb(34 31 45 / 0.035);
+    --surface-row-hover: rgb(34 31 45 / 0.06);
+    --surface-handle: rgb(34 31 45 / 0.06);
+    --surface-handle-active: rgb(125 63 199 / 0.14);
     --focus-ring: rgb(125 63 199 / 0.24);
     --syntax-text: #2b2238;
     --syntax-keyword: #c93a8d;
@@ -177,6 +195,8 @@
     --color-success: #50fa7b;
     --color-success-hover: #75ff98;
     --color-highlight: #f1fa8c;
+    --color-highlight-ink: #f1fa8c;
+    --color-highlight-text: #26220b;
     --color-border: #3a3347;
     --color-border-soft: rgb(58 51 71 / 0.55);
     --color-border-strong: rgb(58 51 71 / 0.8);
@@ -193,11 +213,15 @@
     --link-color: var(--color-primary);
     --link-hover: var(--color-highlight);
     --link-underline: rgb(189 147 249 / 0.28);
+    --accent-primary-soft: rgb(189 147 249 / 0.14);
+    --accent-secondary-soft: rgb(255 121 198 / 0.14);
+    --accent-success-soft: rgb(80 250 123 / 0.14);
+    --accent-highlight-soft: rgb(241 250 140 / 0.16);
     --input-bg: #1c1724;
     --input-border-hover: #534862;
-    --surface-row: rgb(189 147 249 / 0.08);
-    --surface-row-hover: rgb(189 147 249 / 0.13);
-    --surface-handle: rgb(189 147 249 / 0.12);
+    --surface-row: rgb(243 238 248 / 0.03);
+    --surface-row-hover: rgb(243 238 248 / 0.05);
+    --surface-handle: rgb(243 238 248 / 0.06);
     --surface-handle-active: rgb(189 147 249 / 0.22);
     --focus-ring: rgb(189 147 249 / 0.32);
     --syntax-text: #efe8f8;
@@ -253,22 +277,26 @@ h6 {
 
 h1 {
     font-size: clamp(2rem, 5vw, 2.7rem);
-    font-weight: 780;
-    letter-spacing: -0.045em;
+    font-weight: 690;
+    letter-spacing: -0.035em;
     margin-top: 0;
     margin-bottom: 1.35rem;
 }
 
 h2 {
     font-size: clamp(1.45rem, 3vw, 1.8rem);
-    font-weight: 700;
-    letter-spacing: -0.03em;
+    font-weight: 620;
+    letter-spacing: -0.02em;
+    padding-left: 0.85rem;
+    border-left: 4px solid var(--color-primary);
 }
 
 h3 {
-    font-size: 1.2rem;
-    font-weight: 680;
-    letter-spacing: -0.018em;
+    font-size: 1.02rem;
+    font-weight: 620;
+    letter-spacing: 0.085em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
 }
 
 h4,
@@ -276,7 +304,7 @@ h5,
 h6 {
     color: var(--text-secondary);
     font-size: 1rem;
-    font-weight: 650;
+    font-weight: 580;
 }
 
 p,
@@ -301,6 +329,10 @@ ol {
 
 li + li {
     margin-top: 0.35rem;
+}
+
+li::marker {
+    color: var(--color-highlight);
 }
 
 a {
@@ -350,8 +382,26 @@ a:hover {
 }
 
 .nav a:hover {
-    background: var(--surface-row);
+    background: var(--accent-primary-soft);
     color: var(--text-primary);
+}
+
+.nav a[href="/new"]:hover,
+.nav a[href^="/upload"]:hover {
+    background: var(--accent-success-soft);
+    color: var(--color-success);
+}
+
+.nav a[href^="/search"]:hover {
+    background: var(--accent-highlight-soft);
+    color: var(--color-highlight-ink);
+}
+
+.nav a[href^="/git"]:hover,
+.nav a[href^="/push/subscribe"]:hover,
+.nav a[href^="/edit"]:hover {
+    background: var(--accent-secondary-soft);
+    color: var(--color-secondary);
 }
 
 .theme-toggle,
@@ -371,10 +421,27 @@ a:hover {
         border-color 120ms ease;
 }
 
+.theme-toggle {
+    color: var(--color-secondary);
+}
+
 .theme-toggle:hover,
 .pwa-refresh:hover {
-    background: var(--surface-row);
     color: var(--text-primary);
+}
+
+.theme-toggle:hover {
+    background: var(--accent-secondary-soft);
+    color: var(--color-secondary);
+}
+
+.pwa-refresh {
+    color: var(--color-success);
+}
+
+.pwa-refresh:hover {
+    background: var(--accent-success-soft);
+    color: var(--color-success);
 }
 
 label {
@@ -442,7 +509,7 @@ a:focus-visible {
 }
 
 button {
-    background: var(--color-primary);
+    background: var(--color-success);
     color: var(--button-text);
     padding: 0.8rem 1.2rem;
     border: 1px solid transparent;
@@ -460,7 +527,7 @@ button {
 }
 
 button:hover {
-    background: var(--color-primary-hover);
+    background: var(--color-success-hover);
 }
 
 button:active {
@@ -473,7 +540,8 @@ textarea[readonly] {
 }
 
 code {
-    background: var(--color-code-bg);
+    background: var(--accent-highlight-soft);
+    color: var(--color-highlight-ink);
     padding: 0.16rem 0.42rem;
     border-radius: 8px;
     font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
@@ -578,8 +646,8 @@ pre code {
 }
 
 .pdf-actions a:hover {
-    background: var(--surface-overlay);
-    color: var(--link-color);
+    background: var(--accent-primary-soft);
+    color: var(--color-primary);
 }
 
 .pdf-viewer-frame {
@@ -647,7 +715,7 @@ pre code {
 }
 
 .reorder-toolbar-label {
-    color: var(--text-secondary);
+    color: var(--color-secondary);
     font-size: 0.94rem;
     font-weight: 650;
 }
@@ -669,7 +737,7 @@ pre code {
 }
 
 .reorder-mode-toggle[aria-pressed="true"] {
-    background: var(--color-primary);
+    background: var(--color-secondary);
     border-color: transparent;
     color: var(--button-text);
 }
@@ -770,6 +838,7 @@ pre code {
     font-size: 0.75em;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    color: var(--color-highlight-ink);
 }
 
 .reorder-row-text,
@@ -849,7 +918,8 @@ td + td {
 
 th {
     background: var(--surface-elevated);
-    font-weight: 650;
+    color: var(--color-primary);
+    font-weight: 620;
 }
 
 tr {
@@ -866,10 +936,17 @@ tr:last-child td {
 
 blockquote {
     padding: 0.8rem 1rem;
-    border-left: 4px solid var(--color-primary);
+    border-left: 4px solid var(--color-secondary);
     background: var(--surface-elevated);
     color: var(--text-secondary);
     border-radius: 0 14px 14px 0;
+}
+
+mark {
+    background: var(--accent-highlight-soft);
+    color: var(--color-highlight-ink);
+    padding: 0.06rem 0.22rem;
+    border-radius: 6px;
 }
 
 .mermaid,
@@ -932,6 +1009,30 @@ pre.math-error {
     box-shadow: inset 0 0 0 1px var(--color-border-soft);
 }
 
+.search-form button,
+[data-copy-url],
+[data-copy-markdown],
+#copy-button {
+    background: var(--color-highlight);
+    color: var(--color-highlight-text);
+}
+
+.search-form button:hover,
+[data-copy-url]:hover,
+[data-copy-markdown]:hover,
+#copy-button:hover {
+    background: var(--color-highlight-ink);
+    color: var(--surface-base);
+}
+
+#test-button {
+    background: var(--color-secondary);
+}
+
+#test-button:hover {
+    background: var(--color-secondary-hover);
+}
+
 form p {
     color: var(--text-secondary);
 }
@@ -977,6 +1078,11 @@ hr {
 
     h2 {
         font-size: 1.35rem;
+        padding-left: 0.7rem;
+    }
+
+    h3 {
+        font-size: 0.95rem;
     }
 
     textarea {
