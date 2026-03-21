@@ -263,18 +263,6 @@ fn is_abc_info(info: &str) -> bool {
     language.eq_ignore_ascii_case("abc") || language.eq_ignore_ascii_case("abcjs")
 }
 
-fn heading_slug(text: &str) -> String {
-    let mut slug = String::with_capacity(text.len());
-    for ch in text.to_lowercase().chars() {
-        if ch.is_alphanumeric() || ch == '-' {
-            slug.push(ch);
-        } else if ch == ' ' {
-            slug.push('-');
-        }
-    }
-    slug
-}
-
 fn unique_slug(text: &str, seen: &mut HashMap<String, usize>) -> String {
     let base = heading_slug(text);
     let count = seen.entry(base.clone()).or_insert(0);
@@ -284,6 +272,18 @@ fn unique_slug(text: &str, seen: &mut HashMap<String, usize>) -> String {
         format!("{base}-{count}")
     };
     *count += 1;
+    slug
+}
+
+fn heading_slug(text: &str) -> String {
+    let mut slug = String::with_capacity(text.len());
+    for ch in text.to_lowercase().chars() {
+        if ch.is_alphanumeric() || ch == '-' {
+            slug.push(ch);
+        } else if ch == ' ' {
+            slug.push('-');
+        }
+    }
     slug
 }
 

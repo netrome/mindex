@@ -2,38 +2,6 @@ use super::DocError;
 use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum FileKind {
-    Document,
-    Pdf,
-    Image,
-    Text,
-}
-
-impl FileKind {
-    pub(crate) fn from_extension(ext: &str) -> Option<Self> {
-        match ext.to_ascii_lowercase().as_str() {
-            "md" => Some(Self::Document),
-            "pdf" => Some(Self::Pdf),
-            "png" | "jpg" | "jpeg" | "gif" | "webp" => Some(Self::Image),
-            "json" | "yaml" | "yml" | "toml" => Some(Self::Text),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct DirectoryFile {
-    pub(crate) name: String,
-    pub(crate) kind: FileKind,
-}
-
-#[derive(Debug)]
-pub(crate) struct DirectoryListing {
-    pub(crate) directories: Vec<String>,
-    pub(crate) files: Vec<DirectoryFile>,
-}
-
 pub(crate) fn collect_markdown_paths(root: &Path) -> std::io::Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     collect_markdown_paths_recursive(root, &mut paths)?;
@@ -64,6 +32,38 @@ pub(crate) fn highlight_lang_for_extension(ext: &str) -> &'static str {
         "yaml" | "yml" => "yaml",
         "toml" => "toml",
         _ => "plaintext",
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct DirectoryListing {
+    pub(crate) directories: Vec<String>,
+    pub(crate) files: Vec<DirectoryFile>,
+}
+
+#[derive(Debug)]
+pub(crate) struct DirectoryFile {
+    pub(crate) name: String,
+    pub(crate) kind: FileKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FileKind {
+    Document,
+    Pdf,
+    Image,
+    Text,
+}
+
+impl FileKind {
+    pub(crate) fn from_extension(ext: &str) -> Option<Self> {
+        match ext.to_ascii_lowercase().as_str() {
+            "md" => Some(Self::Document),
+            "pdf" => Some(Self::Pdf),
+            "png" | "jpg" | "jpeg" | "gif" | "webp" => Some(Self::Image),
+            "json" | "yaml" | "yml" | "toml" => Some(Self::Text),
+            _ => None,
+        }
     }
 }
 

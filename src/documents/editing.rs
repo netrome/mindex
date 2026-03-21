@@ -1,6 +1,13 @@
 use super::{detect_line_ending, is_fence_line, split_line_ending};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockRange {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) kind: BlockKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockKind {
     Fence,
     Table,
@@ -8,29 +15,6 @@ pub(crate) enum BlockKind {
     Heading,
     Paragraph,
     Blank,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BlockRange {
-    pub(crate) start: usize,
-    pub(crate) end: usize,
-    pub(crate) kind: BlockKind,
-}
-
-#[derive(Debug)]
-pub(crate) enum ReorderError {
-    InvalidRange,
-}
-
-pub(crate) fn line_count(contents: &str) -> usize {
-    split_lines_preserve(contents).len()
-}
-
-pub(crate) fn lines_for_display(contents: &str) -> Vec<String> {
-    split_lines_preserve(contents)
-        .into_iter()
-        .map(|segment| segment.text)
-        .collect()
 }
 
 pub(crate) fn scan_block_ranges(contents: &str) -> Vec<BlockRange> {
@@ -129,6 +113,11 @@ pub(crate) fn scan_block_ranges(contents: &str) -> Vec<BlockRange> {
     blocks
 }
 
+#[derive(Debug)]
+pub(crate) enum ReorderError {
+    InvalidRange,
+}
+
 pub(crate) fn reorder_range(
     contents: &str,
     start_line: usize,
@@ -154,6 +143,17 @@ pub(crate) fn reorder_range(
     segments.splice(target..target, moved);
 
     Ok(Some(join_lines_preserve(&segments, contents)))
+}
+
+pub(crate) fn line_count(contents: &str) -> usize {
+    split_lines_preserve(contents).len()
+}
+
+pub(crate) fn lines_for_display(contents: &str) -> Vec<String> {
+    split_lines_preserve(contents)
+        .into_iter()
+        .map(|segment| segment.text)
+        .collect()
 }
 
 #[derive(Clone)]

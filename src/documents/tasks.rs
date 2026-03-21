@@ -240,12 +240,12 @@ fn is_mention_boundary(bytes: &[u8], at: usize) -> bool {
     !is_username_char(bytes[at - 1])
 }
 
-fn is_username_start(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_'
-}
-
 fn is_username_char(byte: u8) -> bool {
     is_username_start(byte) || byte == b'-'
+}
+
+fn is_username_start(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
 }
 
 #[cfg(test)]
