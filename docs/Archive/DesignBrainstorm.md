@@ -3,7 +3,7 @@
 This document is historical ideation that informed the visual facelift project.
 It is not an active specification for Mindex. The active design guidance lives
 in `docs/Resources/DesignSystem.md`, and implementation scope lives in
-`docs/Projects/VisualFacelift.md`.
+`docs/Projects/014-VisualFacelift.md`.
 
 # Design System Strategy: The Digital Atelier
 

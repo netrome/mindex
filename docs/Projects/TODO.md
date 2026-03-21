@@ -12,9 +12,9 @@
 - [ ] Code execution/scripting
 
 ## Done
-- [x] [File type support in directory browser](FileTypeSupport.md)
-- [x] [Directory browser UX](DirectoryBrowserUX.md) (breadcrumbs + card grid)
-- [x] [Visual facelift](VisualFacelift.md)
+- [x] [File type support in directory browser](016-FileTypeSupport.md)
+- [x] [Directory browser UX](015-DirectoryBrowserUX.md) (breadcrumbs + card grid)
+- [x] [Visual facelift](014-VisualFacelift.md)
 - [x] Directory browser (navigate directories instead of flat file list)
 - [x] Anchor links (heading IDs for in-document navigation)
 - [x] Configurable host (default 127.0.0.1)
