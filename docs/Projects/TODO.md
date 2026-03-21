@@ -1,7 +1,7 @@
 # TODO
 
 ## In progress
-
+- [ ] [Visual facelift](VisualFacelift.md)
 
 ## To do
 - [ ] Public pages
