@@ -33,6 +33,20 @@ and hackable" philosophy.
   clearly justified.
 - **Mobile-friendly.** All changes must work at the 600px breakpoint.
 
+## Implementation surface
+
+The expected implementation surface is small but not limited to a single file.
+Likely touch points include:
+
+- `assets/style.css`
+- `assets/vendor/highlight.css` or explicit Mindex-owned highlight overrides
+- `templates/base.html`
+- `templates/document.html`
+- `templates/manifest.json`
+
+Additional template changes are acceptable if they are small, visual in nature,
+and directly required to keep the facelift coherent across existing pages.
+
 ## Design principles
 
 These principles are aligned with `docs/Resources/DesignSystem.md`. The
@@ -111,7 +125,7 @@ generous whitespace:
   small and directly support the visual system.
 - Not a theming system or user-configurable colors. One light palette, one
   dark palette, system-preference detection.
-- Not a component library. Just a more polished visual system.
+- Not a reusable component library or generalized theming framework.
 
 ## Task breakdown
 
@@ -143,6 +157,7 @@ Apply the accent palette defined in section 2 above. Remaining work:
 - Derive light-mode variants of the four accent colors (darker/more saturated).
 - Choose surface tones for the 3 levels (both themes).
 - Choose text hierarchy colors (both themes).
+- Decide how syntax highlighting will be aligned with the palette.
 
 **Acceptance criteria:**
 - Dark mode uses the specified accent colors (#BD93F9, #FF79C6, #50FA7B,
@@ -151,6 +166,14 @@ Apply the accent palette defined in section 2 above. Remaining work:
 - Sufficient contrast ratios for accessibility (WCAG AA for body text).
 - Code syntax highlighting is aligned with the new surface colors, whether via
   targeted vendor stylesheet updates or explicit overrides.
+
+**Implementation note:**
+- Decide one approach up front:
+  - Update `assets/vendor/highlight.css` directly, keeping it consistent with
+    the chosen palette.
+  - Or add explicit Mindex-owned highlight overrides and keep the vendor file
+    mostly intact.
+- Do not leave highlight styling split across ad-hoc competing rules.
 
 ### Task 3: Border reduction
 Systematically replace decorative borders with tonal shifts and spacing:
@@ -207,6 +230,7 @@ Systematically replace decorative borders with tonal shifts and spacing:
 - Template/HTML restructuring.
 - New UI components or features.
 - User-selectable themes or accent colors.
+- A reusable component library or generalized theming framework.
 
 ## Risks and limitations
 - The dark-mode accents are pinned, but light-mode derivations are still
@@ -216,3 +240,38 @@ Systematically replace decorative borders with tonal shifts and spacing:
   borders where they genuinely help readability.
 - Third-party vendor CSS (highlight.js theme) may need minor tweaks if surface
   colors change significantly.
+
+## Manual verification
+
+Check each surface in both light and dark themes, at desktop width and at or
+below the 600px mobile breakpoint.
+
+### Pages
+
+- document view
+- edit
+- search
+- directory browser
+- login
+- upload
+- PDF viewer
+- reorder
+- git
+- push-subscribe
+
+### Content cases
+
+- headings and body text hierarchy
+- buttons, inputs, textareas, and notices
+- tables
+- blockquotes
+- inline code and fenced code with syntax highlighting
+- mermaid diagrams
+- ABC notation
+- math rendering
+- drag/drop affordances in reorder mode
+
+### Theme chrome
+
+- browser theme color from `templates/base.html`
+- PWA manifest colors from `templates/manifest.json`

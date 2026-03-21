@@ -65,6 +65,42 @@ small, file-backed, hackable web app.
 - Third-party rendered content, such as syntax highlighting, mermaid diagrams,
   math, and ABC notation, should visually fit the surrounding surfaces.
 
+## Theme tokens
+
+Use a consistent token vocabulary across shared stylesheets and overrides.
+
+### Surfaces
+
+- `--surface-base`: page background
+- `--surface-elevated`: raised containers such as nav, cards, code blocks, and
+  grouped panels
+- `--surface-overlay`: highest-prominence surface for transient or specially
+  focused UI
+
+### Text
+
+- `--text-primary`: default body text and primary headings
+- `--text-secondary`: supporting headings, metadata, and less prominent copy
+- `--text-muted`: placeholders, disabled text, and low-emphasis helper text
+
+### Accent colors
+
+- `--color-primary`: links, active states, primary buttons, and focus rings
+- `--color-secondary`: sparing emphasis for high-value or destructive actions
+- `--color-success`: confirmations, positive notices, and completed states
+- `--color-highlight`: search matches, tags, and content highlights
+
+### Supporting tokens
+
+- `--color-border`: subtle functional border color
+- `--color-code-bg`: fallback code surface when a dedicated code token is
+  needed
+- `--color-notice-bg`: notice surface
+- `--color-notice-text`: notice foreground text
+
+Project-specific docs may introduce additional tokens when justified, but they
+should extend this vocabulary rather than inventing an unrelated naming scheme.
+
 ## Scope
 
 - This guidance applies to shared UI assets, templates, and theme-related
