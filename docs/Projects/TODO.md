@@ -12,6 +12,7 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] [File uploads](018-FileUploads.md)
 - [x] [File type support in directory browser](016-FileTypeSupport.md)
 - [x] [Directory browser UX](015-DirectoryBrowserUX.md) (breadcrumbs + card grid)
 - [x] [Visual facelift](014-VisualFacelift.md)

@@ -145,6 +145,7 @@ pub(crate) struct PushSubscribeTemplate {
 pub(crate) struct UploadTemplate {
     pub(crate) app_name: String,
     pub(crate) git_enabled: bool,
+    pub(crate) directory: String,
 }
 
 #[derive(Template, WebTemplate)]

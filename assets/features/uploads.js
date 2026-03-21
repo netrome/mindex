@@ -5,6 +5,7 @@ const initUploads = () => {
     }
 
     const input = root.querySelector("[data-upload-input]");
+    const dirField = root.querySelector("[data-upload-dir]");
     const button = root.querySelector("[data-upload-button]");
     const status = root.querySelector("[data-upload-status]");
     const output = root.querySelector("[data-upload-output]");
@@ -33,7 +34,7 @@ const initUploads = () => {
     const uploadFile = async () => {
         const file = input.files && input.files[0];
         if (!file) {
-            setStatus("Select an image to upload.", "error");
+            setStatus("Select a file to upload.", "error");
             return;
         }
 
@@ -41,12 +42,18 @@ const initUploads = () => {
         output.hidden = true;
 
         try {
+            const headers = {
+                "Content-Type": file.type || "application/octet-stream",
+                "X-Upload-Filename": file.name || "file",
+            };
+            const dir = dirField && dirField.value.trim();
+            if (dir) {
+                headers["X-Upload-Directory"] = dir;
+            }
+
             const response = await fetch("/api/uploads", {
                 method: "POST",
-                headers: {
-                    "Content-Type": file.type || "application/octet-stream",
-                    "X-Upload-Filename": file.name || "image",
-                },
+                headers,
                 body: file,
             });
 

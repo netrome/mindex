@@ -14,7 +14,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 - ABC notation rendering via fenced `abc`/`abcjs` code blocks (client-side)
 - Full-text search across documents
 - Edit and save Markdown from the browser
-- Image uploads via `/upload` (returns markdown link)
+- File uploads via `/upload` — images, PDFs, and text files to any directory (returns markdown link)
 - Paste images directly into the editor (uploads and inserts markdown)
 - View PDFs stored under root, with in-app viewer and explicit open/download actions
 - Reorder mode (`/reorder/<doc>.md`) with block/line drag + drop

@@ -1,7 +1,7 @@
 # File Uploads
 
 ## Status
-Proposed
+Implemented
 
 ## Goal
 Allow uploading arbitrary files (PDFs, images, etc.) to a specific directory via the web UI, so that e.g. a PDF on a phone can be uploaded directly to the right place.
@@ -117,7 +117,7 @@ Paste continues to call `POST /api/uploads` without `X-Upload-Directory`, so ima
 
 ## Implementation plan
 
-### Task 1: Generalize upload storage to accept a target directory
+### ~~Task 1: Generalize upload storage to accept a target directory~~ Done
 - Add a `store_file` function (or extend `store_upload`) that accepts an optional target directory and original filename.
 - Sanitize filename, handle collisions with numeric suffix.
 - Validate target directory path safety.
@@ -125,23 +125,23 @@ Paste continues to call `POST /api/uploads` without `X-Upload-Directory`, so ima
 - Add tests for: target directory upload, filename collision, path traversal rejection, unsupported type rejection.
 - **AC**: Files can be stored in a specified directory under root. Existing image upload behavior is preserved when no directory is specified.
 
-### Task 2: Extend the upload API endpoint
+### ~~Task 2: Extend the upload API endpoint~~ Done
 - Accept `X-Upload-Directory` header.
 - Return appropriate markdown (image link vs regular link).
 - Add integration tests.
 - **AC**: `POST /api/uploads` with `X-Upload-Directory: receipts/2026` stores the file in that directory. Without the header, behavior is unchanged.
 
-### Task 3: Update the upload page
+### ~~Task 3: Update the upload page~~ Done
 - Rename to "Upload file", remove image-only restriction.
 - Add directory text field, pre-fill from `?dir=` query param.
 - Update JS to send `X-Upload-Directory` header.
 - **AC**: User can upload a PDF to a specific directory from the upload page. Page works on mobile.
 
-### Task 4: Add upload link to directory browser
+### ~~Task 4: Add upload link to directory browser~~ Done
 - Add an "Upload" link to the directory browser template that navigates to `/upload?dir=<path>`.
 - **AC**: Clicking "Upload" from a directory page opens the upload page with the directory pre-filled.
 
-### Task 5: Documentation
+### ~~Task 5: Documentation~~ Done
 - Update README (upload section, supported file types).
 - Update `docs/Projects/TODO.md`.
 - **AC**: README accurately describes the file upload feature.

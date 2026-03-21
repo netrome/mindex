@@ -20,14 +20,19 @@
     </button>
 </div>
 
-<h1>Upload image</h1>
+<h1>Upload file</h1>
 
 <div class="upload-card" data-upload>
-    <p>Select an image to upload. The markdown snippet will reference the file
-    stored under <code>mindex-uploads/</code>.</p>
+    <p>Select a file to upload. When a directory is specified, the file is stored
+    there; otherwise it goes to <code>mindex-uploads/</code>.</p>
 
     <div class="upload-field">
-        <input type="file" accept="image/*" data-upload-input />
+        <label for="upload-dir">Directory</label>
+        <input id="upload-dir" type="text" placeholder="mindex-uploads/" value="{{ directory }}" data-upload-dir />
+    </div>
+
+    <div class="upload-field">
+        <input type="file" data-upload-input />
         <button type="button" data-upload-button>Upload</button>
     </div>
 

@@ -64,6 +64,7 @@ pub(crate) enum UploadError {
 
 pub(crate) struct StoredUpload {
     pub(crate) rel_path: String,
+    pub(crate) is_image: bool,
 }
 
 pub(crate) fn store_upload(
@@ -110,7 +111,58 @@ pub(crate) fn store_upload(
             continue;
         }
         atomic_write_bytes(&target, bytes).map_err(UploadError::Io)?;
-        return Ok(StoredUpload { rel_path });
+        return Ok(StoredUpload {
+            rel_path,
+            is_image: true,
+        });
+    }
+
+    Err(UploadError::Io(std::io::Error::new(
+        ErrorKind::AlreadyExists,
+        "failed to allocate upload name",
+    )))
+}
+
+pub(crate) fn store_file(
+    root: &Path,
+    bytes: &[u8],
+    filename: Option<&str>,
+    target_dir: &str,
+) -> Result<StoredUpload, UploadError> {
+    if bytes.is_empty() {
+        return Err(UploadError::EmptyBody);
+    }
+
+    let extension = filename
+        .and_then(|name| Path::new(name).extension())
+        .and_then(|ext| ext.to_str())
+        .ok_or(UploadError::UnsupportedType)?;
+
+    if !is_recognized_extension(extension) {
+        return Err(UploadError::UnsupportedType);
+    }
+
+    let safe_dir = relative_path_to_path(target_dir).ok_or(UploadError::BadPath)?;
+    let base = sanitize_filename(filename);
+
+    let is_image = ImageType::from_extension(extension).is_some();
+
+    // Try the original filename first, then add numeric suffixes.
+    for attempt in 0..10u32 {
+        let file_name = if attempt == 0 {
+            base.clone()
+        } else {
+            add_numeric_suffix(&base, attempt)
+        };
+        let rel_path = format!("{}/{}", safe_dir.display(), file_name);
+        let rel_path_buf = Path::new(&rel_path);
+        ensure_parent_dirs(root, rel_path_buf).map_err(map_io_to_upload_error)?;
+        let target = root.join(rel_path_buf);
+        if target.exists() {
+            continue;
+        }
+        atomic_write_bytes(&target, bytes).map_err(UploadError::Io)?;
+        return Ok(StoredUpload { rel_path, is_image });
     }
 
     Err(UploadError::Io(std::io::Error::new(
@@ -289,6 +341,53 @@ fn relative_path_to_path(rel_path: &str) -> Option<PathBuf> {
     Some(components.iter().collect())
 }
 
+fn is_recognized_extension(ext: &str) -> bool {
+    matches!(
+        ext.to_ascii_lowercase().as_str(),
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "pdf" | "json" | "yaml" | "yml" | "toml"
+    )
+}
+
+fn sanitize_filename(filename: Option<&str>) -> String {
+    let raw = filename.unwrap_or("file");
+    let name = Path::new(raw)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+
+    let mut out = String::with_capacity(name.len());
+    let mut last_dash = false;
+
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '.' || ch == '_' {
+            last_dash = false;
+            out.push(ch);
+        } else {
+            if last_dash || out.is_empty() {
+                continue;
+            }
+            last_dash = true;
+            out.push('-');
+        }
+    }
+
+    let trimmed = out.trim_matches('-');
+    if trimmed.is_empty() {
+        "file".to_string()
+    } else if trimmed.len() > 80 {
+        trimmed[..80].to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn add_numeric_suffix(filename: &str, n: u32) -> String {
+    match filename.rfind('.') {
+        Some(dot) => format!("{}-{}{}", &filename[..dot], n, &filename[dot..]),
+        None => format!("{}-{}", filename, n),
+    }
+}
+
 fn map_io_to_upload_error(err: std::io::Error) -> UploadError {
     if err.kind() == ErrorKind::InvalidInput {
         UploadError::BadPath
@@ -333,5 +432,128 @@ mod tests {
         assert!(matches!(result, Err(UploadError::BadPath)));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn store_file__should_write_to_target_directory() {
+        // Given
+        let root = create_temp_root("file-upload-dir");
+        let bytes = b"%PDF-1.4 fake pdf content";
+
+        // When
+        let stored =
+            store_file(&root, bytes, Some("invoice.pdf"), "receipts/2026").expect("store file");
+
+        // Then
+        assert_eq!(stored.rel_path, "receipts/2026/invoice.pdf");
+        assert!(root.join(&stored.rel_path).exists());
+        assert!(!stored.is_image);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn store_file__should_add_suffix_on_collision() {
+        // Given
+        let root = create_temp_root("file-upload-collision");
+        let dir = root.join("docs");
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        std::fs::write(dir.join("report.pdf"), b"existing").expect("write");
+
+        // When
+        let stored =
+            store_file(&root, b"%PDF new", Some("report.pdf"), "docs").expect("store file");
+
+        // Then
+        assert_eq!(stored.rel_path, "docs/report-1.pdf");
+        assert!(root.join(&stored.rel_path).exists());
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn store_file__should_reject_traversal_in_directory() {
+        // Given
+        let root = create_temp_root("file-upload-traversal");
+
+        // When
+        let result = store_file(&root, b"%PDF", Some("file.pdf"), "../outside");
+
+        // Then
+        assert!(matches!(result, Err(UploadError::BadPath)));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn store_file__should_reject_unsupported_extension() {
+        // Given
+        let root = create_temp_root("file-upload-unsupported");
+
+        // When
+        let result = store_file(&root, b"binary data", Some("malware.exe"), "uploads");
+
+        // Then
+        assert!(matches!(result, Err(UploadError::UnsupportedType)));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn store_file__should_reject_empty_body() {
+        // Given
+        let root = create_temp_root("file-upload-empty");
+
+        // When
+        let result = store_file(&root, b"", Some("doc.pdf"), "uploads");
+
+        // Then
+        assert!(matches!(result, Err(UploadError::EmptyBody)));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn store_file__should_mark_images() {
+        // Given
+        let root = create_temp_root("file-upload-image");
+        let bytes = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+
+        // When
+        let stored = store_file(&root, &bytes, Some("photo.png"), "images").expect("store file");
+
+        // Then
+        assert!(stored.is_image);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn sanitize_filename__should_preserve_extension() {
+        assert_eq!(
+            sanitize_filename(Some("My Report (2).pdf")),
+            "My-Report-2-.pdf"
+        );
+        assert_eq!(sanitize_filename(Some("invoice.pdf")), "invoice.pdf");
+        assert_eq!(
+            sanitize_filename(Some("hello world.json")),
+            "hello-world.json"
+        );
+    }
+
+    #[test]
+    fn sanitize_filename__should_handle_no_filename() {
+        assert_eq!(sanitize_filename(None), "file");
+    }
+
+    #[test]
+    fn add_numeric_suffix__should_insert_before_extension() {
+        assert_eq!(add_numeric_suffix("report.pdf", 1), "report-1.pdf");
+        assert_eq!(add_numeric_suffix("report.pdf", 3), "report-3.pdf");
+    }
+
+    #[test]
+    fn add_numeric_suffix__should_append_when_no_extension() {
+        assert_eq!(add_numeric_suffix("README", 2), "README-2");
     }
 }

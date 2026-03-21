@@ -32,12 +32,19 @@ pub(crate) struct FileQuery {
     pub(crate) download: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct UploadFormQuery {
+    pub(crate) dir: Option<String>,
+}
+
 pub(crate) async fn upload_form(
     State(state): State<state::AppState>,
+    Query(query): Query<UploadFormQuery>,
 ) -> Result<templates::UploadTemplate, (StatusCode, &'static str)> {
     Ok(templates::UploadTemplate {
         app_name: state.config.app_name,
         git_enabled: state.git_dir.is_some(),
+        directory: query.dir.unwrap_or_default(),
     })
 }
 
@@ -136,8 +143,18 @@ pub(crate) async fn upload_image(
     let filename = headers
         .get("x-upload-filename")
         .and_then(|value| value.to_str().ok());
+    let target_dir = headers
+        .get("x-upload-directory")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty());
 
-    let stored = match uploads::store_upload(&state.config.root, &body, content_type, filename) {
+    let stored = if let Some(dir) = target_dir {
+        uploads::store_file(&state.config.root, &body, filename, dir)
+    } else {
+        uploads::store_upload(&state.config.root, &body, content_type, filename)
+    };
+
+    let stored = match stored {
         Ok(stored) => stored,
         Err(uploads::UploadError::EmptyBody) => {
             return Err((
@@ -151,7 +168,7 @@ pub(crate) async fn upload_image(
             return Err((
                 StatusCode::UNSUPPORTED_MEDIA_TYPE,
                 Json(UploadErrorResponse {
-                    error: "unsupported image type",
+                    error: "unsupported file type",
                 }),
             ));
         }
@@ -184,7 +201,15 @@ pub(crate) async fn upload_image(
     };
 
     let url = format!("/file/{}", stored.rel_path);
-    let markdown = format!("![]({})", stored.rel_path);
+    let display_name = Path::new(&stored.rel_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&stored.rel_path);
+    let markdown = if stored.is_image {
+        format!("![]({})", stored.rel_path)
+    } else {
+        format!("[{}]({})", display_name, stored.rel_path)
+    };
 
     Ok(Json(UploadResponse {
         path: stored.rel_path,
