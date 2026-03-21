@@ -60,10 +60,46 @@ pub(crate) fn doc_id_from_path(root: &Path, path: &Path) -> Option<String> {
     Some(parts.join("/"))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FileKind {
+    Document,
+    Pdf,
+    Image,
+    Text,
+}
+
+impl FileKind {
+    pub(crate) fn from_extension(ext: &str) -> Option<Self> {
+        match ext.to_ascii_lowercase().as_str() {
+            "md" => Some(Self::Document),
+            "pdf" => Some(Self::Pdf),
+            "png" | "jpg" | "jpeg" | "gif" | "webp" => Some(Self::Image),
+            "json" | "yaml" | "yml" | "toml" => Some(Self::Text),
+            _ => None,
+        }
+    }
+}
+
+/// Returns the Highlight.js language identifier for a file extension.
+pub(crate) fn highlight_lang_for_extension(ext: &str) -> &'static str {
+    match ext.to_ascii_lowercase().as_str() {
+        "json" => "json",
+        "yaml" | "yml" => "yaml",
+        "toml" => "toml",
+        _ => "plaintext",
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct DirectoryFile {
+    pub(crate) name: String,
+    pub(crate) kind: FileKind,
+}
+
 #[derive(Debug)]
 pub(crate) struct DirectoryListing {
     pub(crate) directories: Vec<String>,
-    pub(crate) files: Vec<String>,
+    pub(crate) files: Vec<DirectoryFile>,
 }
 
 pub(crate) fn list_directory(
@@ -112,13 +148,22 @@ pub(crate) fn list_directory(
 
         if file_type.is_dir() {
             directories.push(name_str.to_string());
-        } else if file_type.is_file() && name_str.ends_with(".md") {
-            files.push(name_str.to_string());
+        } else if file_type.is_file() {
+            let kind = Path::new(name_str)
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .and_then(FileKind::from_extension);
+            if let Some(kind) = kind {
+                files.push(DirectoryFile {
+                    name: name_str.to_string(),
+                    kind,
+                });
+            }
         }
     }
 
     directories.sort();
-    files.sort();
+    files.sort_by(|a, b| a.name.cmp(&b.name));
 
     Ok(DirectoryListing { directories, files })
 }
@@ -143,6 +188,35 @@ pub(crate) fn resolve_doc_path(root: &Path, doc_id: &str) -> Result<PathBuf, Doc
         return Err(DocError::NotFound);
     }
     Ok(resolved)
+}
+
+pub(crate) fn is_text_extension(ext: &str) -> bool {
+    matches!(
+        ext.to_ascii_lowercase().as_str(),
+        "json" | "yaml" | "yml" | "toml"
+    )
+}
+
+pub(crate) fn resolve_text_file_path(root: &Path, file_id: &str) -> Result<PathBuf, DocError> {
+    let path = text_file_id_to_path(file_id).ok_or(DocError::BadPath)?;
+    let joined = root.join(path);
+    let resolved = match std::fs::canonicalize(&joined) {
+        Ok(path) => path,
+        Err(err) if err.kind() == ErrorKind::NotFound => return Err(DocError::NotFound),
+        Err(err) => return Err(DocError::Io(err)),
+    };
+    if !resolved.starts_with(root) {
+        return Err(DocError::NotFound);
+    }
+    Ok(resolved)
+}
+
+pub(crate) fn load_text_file(root: &Path, file_id: &str) -> Result<String, DocError> {
+    let path = resolve_text_file_path(root, file_id)?;
+    std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => DocError::NotFound,
+        _ => DocError::Io(err),
+    })
 }
 
 pub(crate) fn create_document(root: &Path, doc_id: &str, contents: &str) -> Result<(), DocError> {
@@ -998,6 +1072,24 @@ fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
     Some(path.to_path_buf())
 }
 
+fn text_file_id_to_path(file_id: &str) -> Option<PathBuf> {
+    if file_id.is_empty() {
+        return None;
+    }
+    let path = Path::new(file_id);
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => {}
+            _ => return None,
+        }
+    }
+    let ext = path.extension()?.to_str()?;
+    if !is_text_extension(ext) {
+        return None;
+    }
+    Some(path.to_path_buf())
+}
+
 struct TaskLineParts<'a> {
     prefix: &'a str,
     suffix: &'a str,
@@ -1525,7 +1617,8 @@ Final.\n";
 
         // Then
         assert_eq!(listing.directories, vec!["notes"]);
-        assert_eq!(listing.files, vec!["a.md", "b.md"]);
+        let names: Vec<&str> = listing.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["a.md", "b.md"]);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
@@ -1543,7 +1636,8 @@ Final.\n";
 
         // Then
         assert_eq!(listing.directories, vec!["work"]);
-        assert_eq!(listing.files, vec!["ideas.md", "todo.md"]);
+        let names: Vec<&str> = listing.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["ideas.md", "todo.md"]);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
@@ -1561,24 +1655,70 @@ Final.\n";
 
         // Then
         assert!(listing.directories.is_empty());
-        assert_eq!(listing.files, vec!["a.md"]);
+        let names: Vec<&str> = listing.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["a.md"]);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[test]
-    fn list_directory__should_exclude_non_md_files() {
+    fn list_directory__should_exclude_unrecognized_extensions() {
         // Given
         let root = create_temp_root("listdir-nonmd");
         std::fs::write(root.join("a.md"), "# A").expect("write");
         std::fs::write(root.join("b.txt"), "B").expect("write");
-        std::fs::write(root.join("c.pdf"), "C").expect("write");
+        std::fs::write(root.join("c.rs"), "fn main() {}").expect("write");
 
         // When
         let listing = list_directory(&root, "").expect("list root");
 
         // Then
-        assert_eq!(listing.files, vec!["a.md"]);
+        let names: Vec<&str> = listing.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["a.md"]);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn list_directory__should_include_all_recognized_file_types() {
+        // Given
+        let root = create_temp_root("listdir-filetypes");
+        std::fs::write(root.join("doc.md"), "# Doc").expect("write");
+        std::fs::write(root.join("scan.pdf"), "pdf").expect("write");
+        std::fs::write(root.join("photo.png"), "png").expect("write");
+        std::fs::write(root.join("config.json"), "{}").expect("write");
+        std::fs::write(root.join("data.yaml"), "key: val").expect("write");
+        std::fs::write(root.join("settings.toml"), "[s]").expect("write");
+        std::fs::write(root.join("unknown.xyz"), "?").expect("write");
+
+        // When
+        let listing = list_directory(&root, "").expect("list root");
+
+        // Then
+        let names: Vec<&str> = listing.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "config.json",
+                "data.yaml",
+                "doc.md",
+                "photo.png",
+                "scan.pdf",
+                "settings.toml"
+            ]
+        );
+        let kinds: Vec<FileKind> = listing.files.iter().map(|f| f.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                FileKind::Text,
+                FileKind::Text,
+                FileKind::Document,
+                FileKind::Image,
+                FileKind::Pdf,
+                FileKind::Text,
+            ]
+        );
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
@@ -1597,7 +1737,8 @@ Final.\n";
         let listing = list_directory(&root, "").expect("list root");
 
         // Then
-        assert_eq!(listing.files, vec!["a.md"]);
+        let names: Vec<&str> = listing.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["a.md"]);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

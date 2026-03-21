@@ -119,7 +119,7 @@ serve them with correct MIME types if needed:
 
 ## Task breakdown
 
-### Task 1: Extend `list_directory()` to return all recognized file types
+### ~~Task 1: Extend `list_directory()` to return all recognized file types~~ Done
 - Introduce `FileKind` enum and `DirectoryFile` struct in `src/documents.rs`.
 - Update `list_directory()` filter to include recognized extensions.
 - Update `DirectoryListing` to use `Vec<DirectoryFile>` for files.
@@ -127,12 +127,12 @@ serve them with correct MIME types if needed:
 - Add tests for the new filtering logic.
 - **AC**: Directory listing includes `.md`, `.pdf`, image, and text files. Unknown extensions are excluded.
 
-### Task 2: Update directory template with per-type icons and links
+### ~~Task 2: Update directory template with per-type icons and links~~ Done
 - Update `DirectoryBrowseTemplate` in `src/templates.rs`.
 - Update `document_list.html` to render different icons and link targets per `FileKind`.
 - **AC**: Each file type shows a distinct icon and links to its correct route.
 
-### Task 3: Add text file viewer and editor (`/view/{path}`, `/edit-text/{path}`)
+### ~~Task 3: Add text file viewer and editor (`/view/{path}`, `/edit-text/{path}`)~~ Done
 - New view handler: validate text extension, read file, render with syntax highlighting.
 - New template `text_view.html` with `<pre><code>` and Highlight.js class for the language.
 - New edit handler: textarea + save form, `atomic_write()`, no markdown post-processing.
@@ -143,10 +143,10 @@ serve them with correct MIME types if needed:
 - Add tests for both handlers (valid file, missing file, disallowed extension, path traversal).
 - **AC**: `/view/config.toml` renders with syntax highlighting. "Edit" links to `/edit-text/config.toml` where the file can be edited and saved.
 
-### Task 4: Extend `resolve_path()` to route non-markdown file types
+### ~~Task 4: Extend `resolve_path()` to route non-markdown file types~~ Done
 - Update `resolve_path()` in `src/app/documents.rs` to check extension and redirect.
 - **AC**: `/d/notes/config.toml` redirects to `/view/notes/config.toml`. `/d/scan.pdf` redirects to `/pdf/scan.pdf`.
 
-### Task 5: Extend `content_type_for_path()` for text formats
+### ~~Task 5: Extend `content_type_for_path()` for text formats~~ Done
 - Add JSON, YAML, TOML MIME types.
 - **AC**: `/file/config.json` serves with `application/json` content type.

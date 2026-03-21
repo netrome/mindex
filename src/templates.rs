@@ -1,8 +1,16 @@
 use askama::Template;
 use askama_web::WebTemplate;
 
+pub(crate) use crate::documents::FileKind;
+
 pub(crate) struct BreadcrumbSegment {
     pub(crate) name: String,
+    pub(crate) url: String,
+}
+
+pub(crate) struct DirectoryFileEntry {
+    pub(crate) name: String,
+    pub(crate) kind: FileKind,
     pub(crate) url: String,
 }
 
@@ -16,7 +24,7 @@ pub(crate) struct DirectoryBrowseTemplate {
     pub(crate) parent_url: Option<String>,
     pub(crate) breadcrumbs: Vec<BreadcrumbSegment>,
     pub(crate) directories: Vec<String>,
-    pub(crate) files: Vec<String>,
+    pub(crate) files: Vec<DirectoryFileEntry>,
     pub(crate) git_enabled: bool,
 }
 
@@ -146,6 +154,28 @@ pub(crate) struct PdfTemplate {
     pub(crate) pdf_path: String,
     pub(crate) pdf_url: String,
     pub(crate) download_url: String,
+    pub(crate) git_enabled: bool,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "text_view.html")]
+pub(crate) struct TextViewTemplate {
+    pub(crate) app_name: String,
+    pub(crate) file_id: String,
+    pub(crate) file_name: String,
+    pub(crate) breadcrumbs: Vec<BreadcrumbSegment>,
+    pub(crate) contents: String,
+    pub(crate) highlight_lang: String,
+    pub(crate) git_enabled: bool,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "text_edit.html")]
+pub(crate) struct TextEditTemplate {
+    pub(crate) app_name: String,
+    pub(crate) file_id: String,
+    pub(crate) contents: String,
+    pub(crate) notice: String,
     pub(crate) git_enabled: bool,
 }
 

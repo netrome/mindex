@@ -16,6 +16,7 @@ mod auth;
 mod documents;
 mod git;
 mod push;
+mod text_files;
 mod uploads;
 
 pub fn app(config: config::AppConfig) -> Router {
@@ -64,6 +65,11 @@ pub fn app(config: config::AppConfig) -> Router {
             get(documents::document_edit).post(documents::document_save),
         )
         .route("/reorder/{*path}", get(documents::document_reorder))
+        .route("/view/{*path}", get(text_files::text_view))
+        .route(
+            "/edit-text/{*path}",
+            get(text_files::text_edit).post(text_files::text_save),
+        )
         .route("/git", get(git::git_view))
         .route("/git/commit", post(git::git_commit))
         .route("/git/push", post(git::git_push))
@@ -554,7 +560,11 @@ password_hash = "hash"
             parent_url: None,
             breadcrumbs: vec![],
             directories: vec!["notes".to_string()],
-            files: vec!["b.md".to_string()],
+            files: vec![templates::DirectoryFileEntry {
+                name: "b.md".to_string(),
+                kind: templates::FileKind::Document,
+                url: "/d/b.md".to_string(),
+            }],
             git_enabled: false,
         };
 
@@ -582,7 +592,11 @@ password_hash = "hash"
                 url: "/".to_string(),
             }],
             directories: vec!["work".to_string()],
-            files: vec!["todo.md".to_string()],
+            files: vec![templates::DirectoryFileEntry {
+                name: "todo.md".to_string(),
+                kind: templates::FileKind::Document,
+                url: "/d/notes/todo.md".to_string(),
+            }],
             git_enabled: false,
         };
 

@@ -168,7 +168,19 @@ pub(crate) fn content_type_for_path(rel_path: &str) -> Option<&'static str> {
     if ext.eq_ignore_ascii_case("pdf") {
         return Some("application/pdf");
     }
+    if let Some(ct) = text_content_type(ext) {
+        return Some(ct);
+    }
     ImageType::from_extension(ext).map(ImageType::content_type)
+}
+
+fn text_content_type(ext: &str) -> Option<&'static str> {
+    match ext.to_ascii_lowercase().as_str() {
+        "json" => Some("application/json"),
+        "yaml" | "yml" => Some("text/yaml"),
+        "toml" => Some("text/plain"),
+        _ => None,
+    }
 }
 
 fn detect_image_type(

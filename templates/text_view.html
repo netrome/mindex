@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}{{ file_id }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Back</a>
+    <a href="/new">New</a>
+    <a href="/upload">Upload</a>
+    <a href="/edit-text/{{ file_id }}">Edit</a>
+    <a href="/search">Search</a>
+    {% if git_enabled %}
+    <a href="/git">Git</a>
+    {% endif %}
+    <a href="/push/subscribe">Push</a>
+    <button type="button" class="pwa-refresh" data-pwa-refresh>
+        Refresh
+    </button>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+        Theme
+    </button>
+</div>
+
+<nav class="breadcrumbs" aria-label="File path">
+    {% for crumb in breadcrumbs %}
+    <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+    {% endfor %}
+    <span class="breadcrumb-current">{{ file_name }}</span>
+</nav>
+
+<pre><code class="language-{{ highlight_lang }}">{{ contents }}</code></pre>
+
+<link rel="stylesheet" href="/static/highlight.css">
+<script src="/static/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+{% endblock %}

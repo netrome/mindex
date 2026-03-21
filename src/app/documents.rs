@@ -1,8 +1,8 @@
 use crate::documents::{
-    BlockKind, DocError, ReorderError, add_task_item_in_list, collect_mentions, create_document,
-    line_count, lines_for_display, list_directory, load_document, normalize_newlines,
-    render_document_html, reorder_range, resolve_doc_path, scan_block_ranges, search_documents,
-    toggle_task_item,
+    BlockKind, DocError, FileKind, ReorderError, add_task_item_in_list, collect_mentions,
+    create_document, line_count, lines_for_display, list_directory, load_document,
+    normalize_newlines, render_document_html, reorder_range, resolve_doc_path, scan_block_ranges,
+    search_documents, toggle_task_item,
 };
 use crate::fs::atomic_write;
 use crate::push as push_service;
@@ -31,10 +31,15 @@ pub(crate) async fn resolve_path(
     State(state): State<state::AppState>,
     AxumPath(path): AxumPath<String>,
 ) -> Result<Response, (StatusCode, &'static str)> {
-    if path.ends_with(".md") {
-        document_view(state, path).map(IntoResponse::into_response)
-    } else {
-        directory_browse(state, path).map(IntoResponse::into_response)
+    let ext = std::path::Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str());
+    match ext.and_then(FileKind::from_extension) {
+        Some(FileKind::Document) => document_view(state, path).map(IntoResponse::into_response),
+        Some(FileKind::Pdf) => Ok(Redirect::to(&format!("/pdf/{path}")).into_response()),
+        Some(FileKind::Image) => Ok(Redirect::to(&format!("/file/{path}")).into_response()),
+        Some(FileKind::Text) => Ok(Redirect::to(&format!("/view/{path}")).into_response()),
+        None => directory_browse(state, path).map(IntoResponse::into_response),
     }
 }
 
@@ -75,6 +80,25 @@ fn directory_browse(
         .unwrap_or(&current_dir)
         .to_string();
 
+    let files = listing
+        .files
+        .into_iter()
+        .map(|f| {
+            let full_path = format!("{path_prefix}{}", f.name);
+            let url = match f.kind {
+                FileKind::Document => format!("/d/{full_path}"),
+                FileKind::Pdf => format!("/pdf/{full_path}"),
+                FileKind::Image => format!("/file/{full_path}"),
+                FileKind::Text => format!("/view/{full_path}"),
+            };
+            templates::DirectoryFileEntry {
+                name: f.name,
+                kind: f.kind,
+                url,
+            }
+        })
+        .collect();
+
     Ok(templates::DirectoryBrowseTemplate {
         app_name: state.config.app_name,
         current_dir,
@@ -83,7 +107,7 @@ fn directory_browse(
         parent_url,
         breadcrumbs,
         directories: listing.directories,
-        files: listing.files,
+        files,
         git_enabled,
     })
 }
