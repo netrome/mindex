@@ -675,8 +675,8 @@ pre code {
 .git-diff,
 .todo-quick-add,
 .reorder-empty,
-#status:empty,
-#status:not(:empty) {
+#push-status:empty,
+#push-status:not(:empty) {
     border-radius: 16px;
 }
 
@@ -1102,12 +1102,12 @@ pre.math-error {
     margin: 1rem 0;
 }
 
-#status {
+#push-status {
     min-height: 1.25rem;
     margin-bottom: 1rem;
 }
 
-#status:not(:empty) {
+#push-status:not(:empty) {
     padding: 0.9rem 1rem;
     background: var(--surface-elevated);
     color: var(--text-secondary);

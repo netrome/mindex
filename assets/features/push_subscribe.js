@@ -1,5 +1,5 @@
 export const initPushSubscribe = () => {
-    const statusEl = document.getElementById("status");
+    const statusEl = document.getElementById("push-status");
     const subscribeButton = document.getElementById("subscribe-button");
     const copyButton = document.getElementById("copy-button");
     const usernameInput = document.getElementById("username");
