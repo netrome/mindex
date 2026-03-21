@@ -24,7 +24,7 @@ use super::push::refresh_push_state;
 pub(crate) async fn directory_browse_root(
     State(state): State<state::AppState>,
 ) -> Result<templates::DirectoryBrowseTemplate, (StatusCode, &'static str)> {
-    browse_directory(state, String::new())
+    directory_browse(state, String::new())
 }
 
 pub(crate) async fn resolve_path(
@@ -34,11 +34,11 @@ pub(crate) async fn resolve_path(
     if path.ends_with(".md") {
         document_view(state, path).map(IntoResponse::into_response)
     } else {
-        browse_directory(state, path).map(IntoResponse::into_response)
+        directory_browse(state, path).map(IntoResponse::into_response)
     }
 }
 
-fn browse_directory(
+fn directory_browse(
     state: state::AppState,
     current_dir: String,
 ) -> Result<templates::DirectoryBrowseTemplate, (StatusCode, &'static str)> {
