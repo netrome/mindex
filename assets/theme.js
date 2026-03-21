@@ -3,6 +3,7 @@
     const root = document.documentElement;
     const togglesSelector = "[data-theme-toggle]";
     const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 
     const storedTheme = () => {
         const value = localStorage.getItem(storageKey);
@@ -18,6 +19,7 @@
         document.querySelectorAll(togglesSelector).forEach((button) => {
             const isDark = theme === "dark";
             button.setAttribute("aria-pressed", isDark ? "true" : "false");
+            button.textContent = isDark ? "Light" : "Dark";
             button.setAttribute(
                 "title",
                 isDark ? "Switch to light theme" : "Switch to dark theme"
@@ -25,9 +27,24 @@
         });
     };
 
+    const updateThemeColor = () => {
+        if (!themeColorMeta) {
+            return;
+        }
+
+        const color = getComputedStyle(root)
+            .getPropertyValue("--theme-color")
+            .trim();
+
+        if (color) {
+            themeColorMeta.setAttribute("content", color);
+        }
+    };
+
     const applyTheme = (theme) => {
         root.setAttribute("data-theme", theme);
         updateToggles(theme);
+        updateThemeColor();
     };
 
     const init = () => {

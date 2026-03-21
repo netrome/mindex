@@ -1,7 +1,6 @@
 # TODO
 
 ## In progress
-- [ ] [Visual facelift](VisualFacelift.md)
 
 ## To do
 - [ ] Public pages
@@ -13,6 +12,7 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] [Visual facelift](VisualFacelift.md)
 - [x] Directory browser (navigate directories instead of flat file list)
 - [x] Anchor links (heading IDs for in-document navigation)
 - [x] Configurable host (default 127.0.0.1)

@@ -1,7 +1,7 @@
 # Visual Facelift
 
 ## Status
-To do
+Done
 
 ## Goal
 Give Mindex a more polished, cohesive visual identity without adding

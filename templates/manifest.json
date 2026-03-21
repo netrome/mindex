@@ -4,8 +4,8 @@
   "description": "A markdown knowledge base for browsing, searching, and editing documents",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "background_color": "#f5f1eb",
+  "theme_color": "#7d3fc7",
   "orientation": "portrait-primary",
   "icons": [
     {
