@@ -20,9 +20,7 @@
     </button>
 </div>
 
-{% if current_dir.is_empty() %}
-<h1>Documents</h1>
-{% else %}
+{% if !current_dir.is_empty() %}
 <nav class="breadcrumbs" aria-label="Directory path">
     {% for crumb in breadcrumbs %}
     <a href="{{ crumb.url }}">{{ crumb.name }}</a>
