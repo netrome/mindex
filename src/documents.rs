@@ -3,6 +3,7 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 mod editing;
+mod magent;
 mod paths;
 mod rendering;
 mod search;

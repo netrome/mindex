@@ -311,6 +311,7 @@ fn document_view(
         has_mermaid: rendered.has_mermaid,
         has_abc: rendered.has_abc,
         has_code: rendered.has_code,
+        has_magent: rendered.has_magent,
         git_enabled,
     })
 }

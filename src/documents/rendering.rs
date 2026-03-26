@@ -10,10 +10,12 @@ pub(crate) struct RenderedDocument {
     pub(crate) has_mermaid: bool,
     pub(crate) has_abc: bool,
     pub(crate) has_code: bool,
+    pub(crate) has_magent: bool,
 }
 
 pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocument {
-    let rendered = render_task_list_markdown(markdown, doc_id);
+    let (magent_processed, has_magent) = super::magent::render_magent_blocks(markdown);
+    let rendered = render_task_list_markdown(&magent_processed, doc_id);
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_MATH);
@@ -141,6 +143,7 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
         has_mermaid,
         has_abc,
         has_code,
+        has_magent,
     }
 }
 
@@ -532,6 +535,7 @@ mod tests {
         assert!(!result.has_mermaid);
         assert!(!result.has_abc);
         assert!(!result.has_code);
+        assert!(!result.has_magent);
     }
 
     #[test]
@@ -706,5 +710,59 @@ mod tests {
         // Then
         assert!(result.html.contains("<h2 id=\"target\">Target</h2>"));
         assert!(result.html.contains("href=\"#target\""));
+    }
+
+    // -- magent integration ---
+
+    #[test]
+    fn render_document_html__should_set_has_magent_for_magent_responses() {
+        // Given
+        let markdown = "\
+# Notes
+
+@magent hello
+
+<magent-response>
+Hi there!
+</magent-response>
+";
+
+        // When
+        let result = render_document_html(markdown, "notes.md");
+
+        // Then
+        assert!(result.has_magent);
+        assert!(result.html.contains("class=\"magent-response\""));
+        assert!(result.html.contains("Hi there!"));
+        assert!(!result.html.contains("<magent-response>"));
+    }
+
+    #[test]
+    fn render_document_html__should_render_magent_with_thinking_and_tool_calls() {
+        // Given
+        let markdown = "\
+<magent-response>
+<magent-thinking>
+Let me search for this.
+</magent-thinking>
+<magent-tool-call tool=\"search\">
+<magent-input>query</magent-input>
+</magent-tool-call>
+<magent-tool-result tool=\"search\">
+Found 3 results.
+</magent-tool-result>
+The answer is here.
+</magent-response>
+";
+
+        // When
+        let result = render_document_html(markdown, "test.md");
+
+        // Then
+        assert!(result.has_magent);
+        assert!(result.html.contains("class=\"magent-thinking\""));
+        assert!(result.html.contains("class=\"magent-tool-call\""));
+        assert!(result.html.contains("class=\"magent-tool-result\""));
+        assert!(result.html.contains("The answer is here."));
     }
 }

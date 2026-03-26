@@ -641,6 +641,7 @@ password_hash = "hash"
             has_mermaid: false,
             has_abc: false,
             has_code: false,
+            has_magent: false,
             git_enabled: false,
         };
         let html = template.render().unwrap();
