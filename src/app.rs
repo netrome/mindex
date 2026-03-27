@@ -1698,7 +1698,7 @@ password_hash = "{password_hash}"
     // -----------------------------------------------------------------------
 
     #[tokio::test]
-    async fn accept_magent_edit__should_apply_edit_and_return_no_content() {
+    async fn accept_magent_edit__should_update_status_and_return_no_content() {
         let root = create_temp_root("accept-edit-api");
         let doc = "\
 Some text with old-url here.
@@ -1732,8 +1732,8 @@ Fixed the URL:
 
         assert_eq!(response.status(), StatusCode::NO_CONTENT);
         let updated = std::fs::read_to_string(root.join("note.md")).expect("read");
-        // The body text should have been replaced.
-        assert!(updated.contains("Some text with new-url here."));
+        // The body text should NOT be modified — magent handles the actual edit.
+        assert!(updated.contains("Some text with old-url here."));
         // The edit block status should now be "accepted".
         assert!(updated.contains("status=\"accepted\""));
 
