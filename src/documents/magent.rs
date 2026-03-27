@@ -267,6 +267,7 @@ fn render_markdown_fragment(text: &str) -> String {
     }
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_MATH);
     let parser = Parser::new_ext(text, options);
     let mut html = String::new();
     pulldown_cmark::html::push_html(&mut html, parser);

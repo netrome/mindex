@@ -223,7 +223,7 @@ end of the document. Magent picks it up on the next file-watch cycle.
 
 ## Implementation plan
 
-### [ ] Task 1: Magent block pre-processor
+### [x] Task 1: Magent block pre-processor
 - Implement `render_magent_blocks(markdown: &str) -> (String, bool)` that
   parses `<magent-*>` blocks and emits structured HTML.
 - Handle nested structures: thinking, tool calls, and edits inside
