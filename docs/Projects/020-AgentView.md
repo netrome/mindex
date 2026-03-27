@@ -260,7 +260,7 @@ Expanded state — one insert point expanded into an input form:
   Typing a question and submitting inserts `@magent <query>` at the
   correct source line. Page reload confirms the directive is in place.
 
-### [ ] Task 4: Accept-edit in agent view
+### [x] Task 4: Accept-edit in agent view
 - Move accept-button logic into `assets/features/agent.js`.
 - Wire accept buttons on `.magent-edit[data-status="proposed"]` elements
   to `POST /api/d/accept-magent-edit`.

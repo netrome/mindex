@@ -85,13 +85,55 @@ const createForm = (insertPoint, docId) => {
     });
 };
 
-export const initAgent = () => {
-    const docId = getDocId();
-    if (!docId) return;
-
+const initInsertPoints = (docId) => {
     document.querySelectorAll(".agent-insert-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
             createForm(btn.closest(".agent-insert-point"), docId);
         });
     });
+};
+
+const acceptEdit = async (btn, docId) => {
+    const edit = btn.closest(".magent-edit");
+    const editIndex = edit.dataset.editIndex;
+    btn.disabled = true;
+
+    try {
+        const body = new URLSearchParams({
+            doc_id: docId,
+            edit_index: editIndex,
+        });
+        const response = await fetch("/api/d/accept-magent-edit", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body,
+        });
+        if (!response.ok) {
+            throw new Error("Failed to accept edit");
+        }
+        edit.dataset.status = "accepted";
+        btn.textContent = "Accepted";
+    } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+    }
+};
+
+const initAcceptButtons = (docId) => {
+    document.querySelectorAll('.magent-edit[data-status="proposed"]').forEach((edit) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "magent-accept-btn";
+        btn.textContent = "Accept";
+        edit.appendChild(btn);
+        btn.addEventListener("click", () => acceptEdit(btn, docId));
+    });
+};
+
+export const initAgent = () => {
+    const docId = getDocId();
+    if (!docId) return;
+
+    initInsertPoints(docId);
+    initAcceptButtons(docId);
 };
