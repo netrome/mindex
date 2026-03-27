@@ -1569,4 +1569,173 @@ password_hash = "{password_hash}"
         );
         std::fs::write(root.join("users.md"), contents).expect("write users.md");
     }
+
+    // -----------------------------------------------------------------------
+    // insert-magent-directive API
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn insert_magent_directive__should_insert_at_correct_line() {
+        let root = create_temp_root("insert-directive");
+        std::fs::write(root.join("note.md"), "# Title\nParagraph\n").expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        let body = "doc_id=note.md&after_line=0&directive=summarize";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/insert-magent-directive")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        let updated = std::fs::read_to_string(root.join("note.md")).expect("read");
+        assert!(updated.contains("@magent summarize"));
+        // Directive should be after "# Title" and before "Paragraph".
+        let title_pos = updated.find("# Title").unwrap();
+        let dir_pos = updated.find("@magent summarize").unwrap();
+        let para_pos = updated.find("Paragraph").unwrap();
+        assert!(title_pos < dir_pos);
+        assert!(dir_pos < para_pos);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn insert_magent_directive__should_append_at_end_of_file() {
+        let root = create_temp_root("insert-directive-end");
+        std::fs::write(root.join("note.md"), "Line one\nLine two\n").expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        let body = "doc_id=note.md&after_line=2&directive=ask";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/insert-magent-directive")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        let updated = std::fs::read_to_string(root.join("note.md")).expect("read");
+        assert!(updated.trim_end().ends_with("@magent ask"));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn insert_magent_directive__should_reject_empty_directive() {
+        let root = create_temp_root("insert-directive-empty");
+        std::fs::write(root.join("note.md"), "Content\n").expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        let body = "doc_id=note.md&after_line=0&directive=+";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/insert-magent-directive")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body.replace('+', " ")))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn insert_magent_directive__should_reject_path_traversal() {
+        let root = create_temp_root("insert-directive-traversal");
+        std::fs::write(root.join("note.md"), "Content\n").expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        let body = "doc_id=../etc/passwd&after_line=0&directive=test";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/insert-magent-directive")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    // -----------------------------------------------------------------------
+    // accept-magent-edit API
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn accept_magent_edit__should_apply_edit_and_return_no_content() {
+        let root = create_temp_root("accept-edit-api");
+        let doc = "\
+Some text with old-url here.
+
+<magent-response>
+Fixed the URL:
+<magent-edit status=\"proposed\">
+<magent-search>old-url</magent-search>
+<magent-replace>new-url</magent-replace>
+</magent-edit>
+</magent-response>
+";
+        std::fs::write(root.join("note.md"), doc).expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        let body = "doc_id=note.md&edit_index=0";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/accept-magent-edit")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        let updated = std::fs::read_to_string(root.join("note.md")).expect("read");
+        // The body text should have been replaced.
+        assert!(updated.contains("Some text with new-url here."));
+        // The edit block status should now be "accepted".
+        assert!(updated.contains("status=\"accepted\""));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
 }

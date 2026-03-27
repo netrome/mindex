@@ -267,7 +267,7 @@ Expanded state — one insert point expanded into an input form:
 - **Acceptance criteria:** Accept buttons in the agent view work
   correctly. Clicking "Accept" applies the edit and updates the UI.
 
-### [ ] Task 5: Tests
+### [x] Task 5: Tests
 - `strip_magent_blocks()` unit tests: responses stripped, directives
   kept, nested responses, no magent content.
 - Agent view handler tests: block merging with magent responses,

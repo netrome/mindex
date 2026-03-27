@@ -552,9 +552,10 @@ fn find_proposed_edit(
 
 /// Insert `@magent {directive}` after the given 0-based line index.
 ///
-/// `after_line` of 0 inserts after the first line; `after_line` equal to the
-/// total line count appends to the end. Returns `None` if `after_line` is out
-/// of range or `directive` is empty after trimming.
+/// `after_line` is a 0-based line index: 0 inserts after the first line, 1
+/// after the second, etc. `after_line` equal to the total line count appends
+/// to the end. Returns `None` if `after_line` is out of range or `directive`
+/// is empty after trimming.
 pub(crate) fn insert_directive(
     contents: &str,
     after_line: usize,
@@ -578,7 +579,8 @@ pub(crate) fn insert_directive(
     let mut output = String::with_capacity(contents.len() + insertion.len());
 
     // Collect everything up to and including the target line.
-    for seg in &segments[..after_line] {
+    let split = (after_line + 1).min(line_count);
+    for seg in &segments[..split] {
         output.push_str(seg);
     }
 
@@ -590,7 +592,7 @@ pub(crate) fn insert_directive(
     output.push_str(&insertion);
 
     // Append remaining lines.
-    for seg in &segments[after_line..] {
+    for seg in &segments[split..] {
         output.push_str(seg);
     }
 
@@ -1279,5 +1281,60 @@ completely different content
 </magent-response>
 ";
         assert!(accept_magent_edit(doc, 0).is_none());
+    }
+
+    // -----------------------------------------------------------------------
+    // insert_directive
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn insert_directive__should_insert_after_given_line() {
+        let doc = "# Title\nParagraph one.\nParagraph two.\n";
+        // after_line=1 → insert after "Paragraph one." (line 1, 0-indexed).
+        let result = insert_directive(doc, 1, "summarize").unwrap();
+        let lines: Vec<&str> = result.lines().collect();
+        let dir_idx = lines
+            .iter()
+            .position(|l| *l == "@magent summarize")
+            .unwrap();
+        let para_one_idx = lines.iter().position(|l| *l == "Paragraph one.").unwrap();
+        let para_two_idx = lines.iter().position(|l| *l == "Paragraph two.").unwrap();
+        assert!(para_one_idx < dir_idx);
+        assert!(dir_idx < para_two_idx);
+    }
+
+    #[test]
+    fn insert_directive__should_insert_at_end_of_file() {
+        let doc = "Line one\nLine two\n";
+        // after_line == line_count (2) means append at end.
+        let result = insert_directive(doc, 2, "summarize").unwrap();
+        assert!(result.ends_with("@magent summarize\n"));
+    }
+
+    #[test]
+    fn insert_directive__should_insert_after_first_line() {
+        let doc = "First line\nSecond line\n";
+        // after_line=0 → insert after "First line" (line 0).
+        let result = insert_directive(doc, 0, "hello").unwrap();
+        let lines: Vec<&str> = result.lines().collect();
+        let first_idx = lines.iter().position(|l| *l == "First line").unwrap();
+        let dir_idx = lines.iter().position(|l| *l == "@magent hello").unwrap();
+        let second_idx = lines.iter().position(|l| *l == "Second line").unwrap();
+        assert!(first_idx < dir_idx);
+        assert!(dir_idx < second_idx);
+    }
+
+    #[test]
+    fn insert_directive__should_return_none_for_empty_directive() {
+        let doc = "Some content\n";
+        assert!(insert_directive(doc, 0, "").is_none());
+        assert!(insert_directive(doc, 0, "   ").is_none());
+    }
+
+    #[test]
+    fn insert_directive__should_return_none_for_out_of_range() {
+        let doc = "One\nTwo\n";
+        // 2 lines, so after_line=3 is out of range.
+        assert!(insert_directive(doc, 3, "ask").is_none());
     }
 }
