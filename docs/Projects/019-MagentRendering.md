@@ -236,7 +236,7 @@ end of the document. Magent picks it up on the next file-watch cycle.
   `.magent-tool-call`, and `.magent-edit` containers. The `has_magent` flag
   is set correctly. Documents without magent blocks are unaffected.
 
-### [ ] Task 2: Template and conditional loading
+### [x] Task 2: Template and conditional loading
 - Add `has_magent` to `RenderedDocument` and pass it to the template.
 - Conditionally load `magent.js` when `has_magent` is true.
 - **Acceptance criteria:** Magent JS is loaded only on pages with magent

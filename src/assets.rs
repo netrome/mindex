@@ -178,6 +178,16 @@ pub(crate) async fn sw_register_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn magent_script() -> axum::response::Response {
+    const MAGENT_JS_CONTENT: &str = include_str!("../assets/features/magent.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(MAGENT_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn service_worker(
     State(state): State<state::AppState>,
 ) -> axum::response::Response {

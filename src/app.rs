@@ -107,6 +107,7 @@ pub fn app(config: config::AppConfig) -> Router {
             "/static/features/abc_render.js",
             get(assets::abc_render_script),
         )
+        .route("/static/features/magent.js", get(assets::magent_script))
         .route("/static/features/reorder.js", get(assets::reorder_script))
         .route(
             "/static/features/push_subscribe.js",
@@ -819,6 +820,49 @@ C D E F | G A B c |
         assert!(!body.contains(r#"/static/mermaid.min.js"#));
         assert!(!body.contains(r#"/static/abcjs.min.js"#));
         assert!(!body.contains(r#"/static/highlight.min.js"#));
+        assert!(!body.contains(r#"/static/features/magent.js"#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn view_document__should_load_magent_js_for_magent_responses() {
+        // Given
+        let root = create_temp_root("magent-doc");
+        let markdown = "\
+@magent hello
+
+<magent-response>
+Hi there!
+</magent-response>
+";
+        std::fs::write(root.join("chat.md"), markdown).expect("write chat.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/d/chat.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(body.contains(r#"class="magent-response""#));
+        assert!(
+            body.contains(r#"<script type="module" src="/static/features/magent.js"></script>"#)
+        );
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
