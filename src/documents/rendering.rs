@@ -11,12 +11,11 @@ pub(crate) struct RenderedDocument {
     pub(crate) has_mermaid: bool,
     pub(crate) has_abc: bool,
     pub(crate) has_code: bool,
-    pub(crate) has_magent: bool,
 }
 
 pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocument {
-    let (magent_processed, has_magent) = super::magent::render_magent_blocks(markdown);
-    let rendered = render_task_list_markdown(&magent_processed, doc_id);
+    let stripped = super::magent::strip_magent_blocks(markdown);
+    let rendered = render_task_list_markdown(&stripped, doc_id);
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_MATH);
@@ -144,7 +143,6 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
         has_mermaid,
         has_abc,
         has_code,
-        has_magent,
     }
 }
 
@@ -536,7 +534,6 @@ mod tests {
         assert!(!result.has_mermaid);
         assert!(!result.has_abc);
         assert!(!result.has_code);
-        assert!(!result.has_magent);
     }
 
     #[test]
@@ -713,10 +710,10 @@ mod tests {
         assert!(result.html.contains("href=\"#target\""));
     }
 
-    // -- magent integration ---
+    // -- magent stripping ---
 
     #[test]
-    fn render_document_html__should_set_has_magent_for_magent_responses() {
+    fn render_document_html__should_strip_magent_responses() {
         // Given
         let markdown = "\
 # Notes
@@ -731,15 +728,14 @@ Hi there!
         // When
         let result = render_document_html(markdown, "notes.md");
 
-        // Then
-        assert!(result.has_magent);
-        assert!(result.html.contains("class=\"magent-response\""));
-        assert!(result.html.contains("Hi there!"));
-        assert!(!result.html.contains("<magent-response>"));
+        // Then — directive line is kept, response block is stripped
+        assert!(result.html.contains("@magent hello"));
+        assert!(!result.html.contains("magent-response"));
+        assert!(!result.html.contains("Hi there!"));
     }
 
     #[test]
-    fn render_document_html__should_render_magent_with_thinking_and_tool_calls() {
+    fn render_document_html__should_strip_magent_with_thinking_and_tool_calls() {
         // Given
         let markdown = "\
 <magent-response>
@@ -759,11 +755,10 @@ The answer is here.
         // When
         let result = render_document_html(markdown, "test.md");
 
-        // Then
-        assert!(result.has_magent);
-        assert!(result.html.contains("class=\"magent-thinking\""));
-        assert!(result.html.contains("class=\"magent-tool-call\""));
-        assert!(result.html.contains("class=\"magent-tool-result\""));
-        assert!(result.html.contains("The answer is here."));
+        // Then — entire response block is stripped
+        assert!(!result.html.contains("magent-thinking"));
+        assert!(!result.html.contains("magent-tool-call"));
+        assert!(!result.html.contains("magent-tool-result"));
+        assert!(!result.html.contains("The answer is here."));
     }
 }

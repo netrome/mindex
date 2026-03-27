@@ -60,7 +60,6 @@ pub(crate) struct DocumentTemplate {
     pub(crate) has_mermaid: bool,
     pub(crate) has_abc: bool,
     pub(crate) has_code: bool,
-    pub(crate) has_magent: bool,
     pub(crate) git_enabled: bool,
 }
 

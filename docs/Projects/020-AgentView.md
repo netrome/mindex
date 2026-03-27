@@ -224,7 +224,7 @@ Expanded state — one insert point expanded into an input form:
 
 ## Implementation plan
 
-### [ ] Task 1: Strip magent blocks from normal view
+### [x] Task 1: Strip magent blocks from normal view
 - Add `strip_magent_blocks(markdown: &str) -> String` to
   `src/documents/magent.rs`. Same structure as `render_magent_blocks` but
   removes response blocks instead of transforming them.

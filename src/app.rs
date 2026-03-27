@@ -111,7 +111,6 @@ pub fn app(config: config::AppConfig) -> Router {
             "/static/features/abc_render.js",
             get(assets::abc_render_script),
         )
-        .route("/static/features/magent.js", get(assets::magent_script))
         .route("/static/features/reorder.js", get(assets::reorder_script))
         .route(
             "/static/features/push_subscribe.js",
@@ -646,7 +645,6 @@ password_hash = "hash"
             has_mermaid: false,
             has_abc: false,
             has_code: false,
-            has_magent: false,
             git_enabled: false,
         };
         let html = template.render().unwrap();
@@ -824,13 +822,12 @@ C D E F | G A B c |
         assert!(!body.contains(r#"/static/mermaid.min.js"#));
         assert!(!body.contains(r#"/static/abcjs.min.js"#));
         assert!(!body.contains(r#"/static/highlight.min.js"#));
-        assert!(!body.contains(r#"/static/features/magent.js"#));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[tokio::test]
-    async fn view_document__should_load_magent_js_for_magent_responses() {
+    async fn view_document__should_strip_magent_responses() {
         // Given
         let root = create_temp_root("magent-doc");
         let markdown = "\
@@ -863,10 +860,11 @@ Hi there!
             .await
             .expect("read body");
         let body = std::str::from_utf8(&body).expect("utf8");
-        assert!(body.contains(r#"class="magent-response""#));
-        assert!(
-            body.contains(r#"<script type="module" src="/static/features/magent.js"></script>"#)
-        );
+        // The directive line should be visible as regular text.
+        assert!(body.contains("@magent hello"));
+        // The response block should be stripped entirely.
+        assert!(!body.contains("magent-response"));
+        assert!(!body.contains("Hi there!"));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

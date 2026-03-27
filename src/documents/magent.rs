@@ -8,12 +8,66 @@
 use crate::html;
 use pulldown_cmark::{Options, Parser};
 
+/// Strip `<magent-response>...</magent-response>` blocks from raw markdown.
+///
+/// Removes response blocks entirely (outside fenced code blocks) while
+/// preserving all other content — including `@magent` directive lines, which
+/// render naturally as paragraphs.
+pub(super) fn strip_magent_blocks(markdown: &str) -> String {
+    let mut output = String::with_capacity(markdown.len());
+    let mut in_fence = false;
+    let mut depth: usize = 0;
+    let mut discard_buf = String::new();
+
+    for segment in markdown.split_inclusive('\n') {
+        let (line, _) = super::split_line_ending(segment);
+
+        if depth == 0 {
+            if super::is_fence_line(line) {
+                in_fence = !in_fence;
+            }
+
+            if !in_fence && is_response_open(line) {
+                depth = 1;
+                discard_buf.clear();
+                continue;
+            }
+
+            output.push_str(segment);
+        } else if is_response_close(line) {
+            depth -= 1;
+            if depth == 0 {
+                discard_buf.clear();
+            } else {
+                discard_buf.push_str(segment);
+            }
+        } else {
+            if is_response_open(line) {
+                depth += 1;
+            }
+            discard_buf.push_str(segment);
+        }
+    }
+
+    // Unclosed response block: output raw content so nothing is silently lost.
+    if depth > 0 {
+        output.push_str("<magent-response>\n");
+        output.push_str(&discard_buf);
+    }
+
+    output
+}
+
 /// Pre-process magent response blocks in raw markdown.
 ///
 /// Finds `<magent-response>...</magent-response>` blocks (outside fenced code
 /// blocks) and replaces them with structured HTML. Returns the processed
 /// markdown and whether any magent blocks were found.
-pub(super) fn render_magent_blocks(markdown: &str) -> (String, bool) {
+///
+/// Not called from the normal document view (which uses `strip_magent_blocks`),
+/// but will be used by the agent view.
+#[allow(dead_code)]
+pub(crate) fn render_magent_blocks(markdown: &str) -> (String, bool) {
     let mut output = String::with_capacity(markdown.len());
     let mut has_magent = false;
     let mut in_fence = false;
@@ -450,6 +504,142 @@ fn find_proposed_edit(
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+
+    // -- strip_magent_blocks --------------------------------------------------
+
+    #[test]
+    fn strip_magent_blocks__no_magent_content() {
+        let md = "# Hello\n\nA paragraph.\n";
+        let result = strip_magent_blocks(md);
+        assert_eq!(result, md);
+    }
+
+    #[test]
+    fn strip_magent_blocks__removes_response_keeps_directive() {
+        let md = "\
+@magent hello
+
+<magent-response>
+Hello there!
+</magent-response>
+";
+        let result = strip_magent_blocks(md);
+
+        assert!(result.contains("@magent hello"));
+        assert!(!result.contains("magent-response"));
+        assert!(!result.contains("Hello there!"));
+    }
+
+    #[test]
+    fn strip_magent_blocks__removes_nested_content() {
+        let md = "\
+<magent-response>
+<magent-thinking>
+Reasoning here.
+</magent-thinking>
+<magent-tool-call tool=\"search\">
+<magent-input>query</magent-input>
+</magent-tool-call>
+The answer.
+</magent-response>
+";
+        let result = strip_magent_blocks(md);
+
+        assert!(!result.contains("magent-thinking"));
+        assert!(!result.contains("magent-tool-call"));
+        assert!(!result.contains("The answer."));
+        assert!(result.trim().is_empty());
+    }
+
+    #[test]
+    fn strip_magent_blocks__skips_fenced_code_blocks() {
+        let md = "\
+```
+<magent-response>
+This should not be stripped.
+</magent-response>
+```
+";
+        let result = strip_magent_blocks(md);
+
+        assert!(result.contains("<magent-response>"));
+        assert!(result.contains("This should not be stripped."));
+    }
+
+    #[test]
+    fn strip_magent_blocks__multiple_responses() {
+        let md = "\
+Text before.
+
+<magent-response>
+First.
+</magent-response>
+
+<magent-response>
+Second.
+</magent-response>
+
+Text after.
+";
+        let result = strip_magent_blocks(md);
+
+        assert!(result.contains("Text before."));
+        assert!(result.contains("Text after."));
+        assert!(!result.contains("First."));
+        assert!(!result.contains("Second."));
+    }
+
+    #[test]
+    fn strip_magent_blocks__unclosed_response_preserved() {
+        let md = "\
+<magent-response>
+Unclosed content.
+";
+        let result = strip_magent_blocks(md);
+
+        assert!(result.contains("<magent-response>"));
+        assert!(result.contains("Unclosed content."));
+    }
+
+    #[test]
+    fn strip_magent_blocks__nested_response_tags() {
+        let md = "\
+<magent-response>
+<magent-tool-result tool=\"search\">
+<magent-response>
+Nested.
+</magent-response>
+</magent-tool-result>
+Outer text.
+</magent-response>
+";
+        let result = strip_magent_blocks(md);
+
+        assert!(!result.contains("Nested."));
+        assert!(!result.contains("Outer text."));
+        assert!(result.trim().is_empty());
+    }
+
+    #[test]
+    fn strip_magent_blocks__preserves_surrounding_markdown() {
+        let md = "\
+# Title
+
+Some text before.
+
+<magent-response>
+Answer.
+</magent-response>
+
+More text after.
+";
+        let result = strip_magent_blocks(md);
+
+        assert!(result.starts_with("# Title\n"));
+        assert!(result.contains("Some text before."));
+        assert!(result.contains("More text after."));
+        assert!(!result.contains("Answer."));
+    }
 
     // -- render_magent_blocks -------------------------------------------------
 
