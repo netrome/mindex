@@ -320,22 +320,17 @@ pub(crate) fn accept_magent_edit(contents: &str, edit_index: usize) -> Option<St
     output.push_str(&replace);
     let after_match = match_pos + search.len();
 
-    // Now emit the rest, but swap the edit block's status to "accepted".
-    if after_match <= edit_start {
-        output.push_str(&contents[after_match..edit_start]);
-        let edit_block = &contents[edit_start..edit_tag_end];
-        output.push_str(&edit_block.replacen("status=\"proposed\"", "status=\"accepted\"", 1));
-        output.push_str(&contents[edit_tag_end..]);
-    } else {
-        // Match is after the edit block (shouldn't normally happen but handle it).
-        let edit_block = &contents[after_match.min(edit_start)..edit_tag_end.min(after_match)];
-        output.push_str(&contents[after_match..].replacen(
-            "status=\"proposed\"",
-            "status=\"accepted\"",
-            1,
-        ));
-        let _ = edit_block; // suppress unused warning
+    // The search text should appear in the body before the edit block. If it
+    // doesn't, refuse to apply — reconstructing the document would be fragile.
+    if after_match > edit_start {
+        return None;
     }
+
+    // Emit the rest, swapping the edit block's status to "accepted".
+    output.push_str(&contents[after_match..edit_start]);
+    let edit_block = &contents[edit_start..edit_tag_end];
+    output.push_str(&edit_block.replacen("status=\"proposed\"", "status=\"accepted\"", 1));
+    output.push_str(&contents[edit_tag_end..]);
 
     Some(output)
 }
@@ -398,7 +393,11 @@ fn collect_response_regions(contents: &str) -> Vec<(usize, usize)> {
     regions
 }
 
-/// Locate the Nth proposed edit block and return (search, replace, block_start, block_end).
+/// Locate the Nth edit block and return (search, replace, block_start, block_end).
+///
+/// The index counts *all* `<magent-edit>` blocks (proposed and accepted) to
+/// match the `data-edit-index` attribute emitted during rendering. Returns
+/// `None` if the block at `target_index` is not proposed.
 fn find_proposed_edit(
     contents: &str,
     target_index: usize,
@@ -413,21 +412,19 @@ fn find_proposed_edit(
         };
         let tag_str = &contents[abs..abs + gt + 1];
 
-        // Only match proposed edits.
-        if !tag_str.contains("status=\"proposed\"") {
-            search_from = abs + gt + 1;
-            continue;
-        }
-
         let content_start = abs + gt + 1;
         let close_tag = "</magent-edit>";
         let Some(close_offset) = contents[content_start..].find(close_tag) else {
             break;
         };
         let block_end = content_start + close_offset + close_tag.len();
-        let inner = &contents[content_start..content_start + close_offset];
 
         if current == target_index {
+            // Only accept proposed edits.
+            if !tag_str.contains("status=\"proposed\"") {
+                return None;
+            }
+            let inner = &contents[content_start..content_start + close_offset];
             let search = extract_inner(inner, "magent-search")?;
             let replace = extract_inner(inner, "magent-replace")?;
             return Some((
@@ -799,7 +796,7 @@ AAA BBB
     }
 
     #[test]
-    fn accept_magent_edit__should_skip_already_accepted() {
+    fn accept_magent_edit__should_reject_already_accepted_index() {
         let doc = "\
 old-thing new-thing
 
@@ -814,9 +811,11 @@ old-thing new-thing
 </magent-edit>
 </magent-response>
 ";
-        // Index 0 should target the first *proposed* edit (skipping accepted).
-        let result = accept_magent_edit(doc, 0).expect("should succeed");
+        // Index 0 is the already-accepted edit — should return None.
+        assert!(accept_magent_edit(doc, 0).is_none());
 
+        // Index 1 is the proposed edit — should apply.
+        let result = accept_magent_edit(doc, 1).expect("should succeed");
         assert!(result.contains("old-thing NEW-THING"));
     }
 
@@ -833,6 +832,49 @@ text
 </magent-response>
 ";
         assert!(accept_magent_edit(doc, 5).is_none());
+    }
+
+    #[test]
+    fn accept_magent_edit__index_matches_rendering_order_not_proposed_only() {
+        let doc = "\
+AAA BBB
+
+<magent-response>
+<magent-edit status=\"accepted\">
+<magent-search>old</magent-search>
+<magent-replace>new</magent-replace>
+</magent-edit>
+<magent-edit status=\"proposed\">
+<magent-search>BBB</magent-search>
+<magent-replace>bbb</magent-replace>
+</magent-edit>
+</magent-response>
+";
+        // The proposed edit is the second block (data-edit-index="1" in rendered HTML).
+        // Accepting index 1 should target it.
+        let result = accept_magent_edit(doc, 1).expect("should succeed");
+        assert!(result.contains("AAA bbb"));
+
+        // Index 0 is the already-accepted edit — should return None.
+        assert!(accept_magent_edit(doc, 0).is_none());
+    }
+
+    #[test]
+    fn accept_magent_edit__body_match_after_edit_block_returns_none() {
+        // Contrived: the search text appears only after the edit block.
+        let doc = "\
+<magent-response>
+<magent-edit status=\"proposed\">
+<magent-search>AFTER</magent-search>
+<magent-replace>after</magent-replace>
+</magent-edit>
+</magent-response>
+
+AFTER
+";
+        // The match is in the body but after the edit block. The function should
+        // return None rather than risk corrupting the document.
+        assert!(accept_magent_edit(doc, 0).is_none());
     }
 
     #[test]
