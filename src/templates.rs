@@ -100,8 +100,10 @@ pub(crate) struct AgentViewTemplate {
 
 pub(crate) struct AgentBlock {
     pub(crate) html: String,
+    pub(crate) start_line: usize,
     pub(crate) end_line: usize,
     pub(crate) is_magent: bool,
+    pub(crate) is_directive: bool,
 }
 
 #[derive(Template, WebTemplate)]

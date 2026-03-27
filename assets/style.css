@@ -1280,6 +1280,31 @@ hr {
     margin-bottom: 0;
 }
 
+.agent-block-directive {
+    position: relative;
+}
+
+.magent-remove-btn {
+    position: absolute;
+    top: 0.25rem;
+    right: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 1rem;
+    line-height: 1;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 0;
+}
+
+.magent-remove-btn:hover {
+    color: #c0392b;
+    background: rgba(192, 57, 43, 0.1);
+}
+
 .agent-insert-point {
     display: flex;
     align-items: center;

@@ -2,8 +2,9 @@ use crate::documents::{
     BlockKind, DocError, FileKind, MagentRegion, ReorderError, accept_magent_edit,
     add_task_item_in_list, collect_mentions, create_document, find_magent_regions,
     insert_directive, line_count, lines_for_display, list_directory, load_document,
-    normalize_newlines, render_document_html, render_magent_blocks, render_markdown_snippet,
-    reorder_range, resolve_doc_path, scan_block_ranges, search_documents, toggle_task_item,
+    normalize_newlines, remove_magent_interaction, render_document_html, render_magent_blocks,
+    render_markdown_snippet, reorder_range, resolve_doc_path, scan_block_ranges, search_documents,
+    toggle_task_item,
 };
 use crate::fs::atomic_write;
 use crate::push as push_service;
@@ -443,8 +444,10 @@ fn build_agent_blocks(
             let (html, _) = render_magent_blocks(&raw_text);
             result.push(templates::AgentBlock {
                 html,
+                start_line: region.start_line,
                 end_line: region.end_line,
                 is_magent: true,
+                is_directive: false,
             });
 
             // Skip all scan blocks within this region.
@@ -457,11 +460,15 @@ fn build_agent_blocks(
         } else {
             // Regular content block.
             let text = lines[block.start..=block.end].join("\n");
+            let is_directive =
+                block.start == block.end && text.trim_start().starts_with("@magent ");
             let html = render_markdown_snippet(&text, doc_id);
             result.push(templates::AgentBlock {
                 html,
+                start_line: block.start,
                 end_line: block.end,
                 is_magent: false,
+                is_directive,
             });
             block_idx += 1;
         }
@@ -676,6 +683,52 @@ pub(crate) async fn document_insert_magent_directive(
 
     if let Err(err) = refresh_push_state(&state) {
         eprintln!("failed to reload push registries after insert: {err}");
+    }
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct RemoveMagentInteractionForm {
+    pub(crate) doc_id: String,
+    pub(crate) directive_line: usize,
+}
+
+pub(crate) async fn document_remove_magent_interaction(
+    State(state): State<state::AppState>,
+    Form(form): Form<RemoveMagentInteractionForm>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let doc_id = form.doc_id.trim();
+    if doc_id.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "doc_id is required"));
+    }
+
+    let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let contents = std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let updated = remove_magent_interaction(&contents, form.directive_line)
+        .ok_or((StatusCode::NOT_FOUND, "interaction not found"))?;
+
+    atomic_write(&path, &updated).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after remove: {err}");
     }
 
     Ok(StatusCode::NO_CONTENT)

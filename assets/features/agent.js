@@ -130,10 +130,48 @@ const initAcceptButtons = (docId) => {
     });
 };
 
+const removeInteraction = async (btn, docId) => {
+    const block = btn.closest(".agent-block-directive");
+    const directiveLine = block.dataset.directiveLine;
+    btn.disabled = true;
+
+    try {
+        const body = new URLSearchParams({
+            doc_id: docId,
+            directive_line: directiveLine,
+        });
+        const response = await fetch("/api/d/remove-magent-interaction", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body,
+        });
+        if (!response.ok) {
+            throw new Error("Failed to remove interaction");
+        }
+        window.location.reload();
+    } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+    }
+};
+
+const initRemoveButtons = (docId) => {
+    document.querySelectorAll(".agent-block-directive").forEach((block) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "magent-remove-btn";
+        btn.textContent = "\u00d7";
+        btn.title = "Remove interaction";
+        block.appendChild(btn);
+        btn.addEventListener("click", () => removeInteraction(btn, docId));
+    });
+};
+
 export const initAgent = () => {
     const docId = getDocId();
     if (!docId) return;
 
     initInsertPoints(docId);
     initAcceptButtons(docId);
+    initRemoveButtons(docId);
 };

@@ -30,7 +30,7 @@
     <div class="agent-empty">Document is empty.</div>
     {% else %}
     {% for block in blocks %}
-    <div class="agent-block{% if block.is_magent %} agent-block-magent{% endif %}">
+    <div class="agent-block{% if block.is_magent %} agent-block-magent{% endif %}{% if block.is_directive %} agent-block-directive{% endif %}"{% if block.is_directive %} data-directive-line="{{ block.start_line }}"{% endif %}>
         {{ block.html|safe }}
     </div>
     {% if !loop.last %}

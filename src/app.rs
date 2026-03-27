@@ -84,6 +84,10 @@ pub fn app(config: config::AppConfig) -> Router {
             "/api/d/insert-magent-directive",
             post(documents::document_insert_magent_directive),
         )
+        .route(
+            "/api/d/remove-magent-interaction",
+            post(documents::document_remove_magent_interaction),
+        )
         .route("/api/d/add-task", post(documents::document_add_task))
         .route(
             "/api/d/reorder-range",

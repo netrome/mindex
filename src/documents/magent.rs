@@ -473,6 +473,69 @@ fn find_proposed_edit(
 }
 
 // ---------------------------------------------------------------------------
+// Remove interaction (directive + response)
+// ---------------------------------------------------------------------------
+
+/// Remove a magent interaction starting at the given 0-based line index.
+///
+/// The line at `directive_line` must start with `@magent `. This function
+/// removes that line, any immediately following blank lines, and the next
+/// `<magent-response>...</magent-response>` block (if it directly follows).
+/// Returns the updated document or `None` if the line is out of range or
+/// is not a directive.
+pub(crate) fn remove_magent_interaction(contents: &str, directive_line: usize) -> Option<String> {
+    let segments: Vec<&str> = contents.split_inclusive('\n').collect();
+    let line_count = segments.len();
+
+    if directive_line >= line_count {
+        return None;
+    }
+
+    // The target line must be a directive.
+    let trimmed = segments[directive_line].trim();
+    if !trimmed.starts_with("@magent ") {
+        return None;
+    }
+
+    // Walk forward: skip blank lines, then consume a <magent-response> block.
+    let mut remove_end = directive_line + 1;
+
+    // Skip blank lines.
+    while remove_end < line_count && segments[remove_end].trim().is_empty() {
+        remove_end += 1;
+    }
+
+    // If next non-blank line opens a <magent-response>, consume until its close.
+    if remove_end < line_count && segments[remove_end].trim().starts_with("<magent-response") {
+        let mut depth = 1usize;
+        remove_end += 1;
+        while remove_end < line_count && depth > 0 {
+            let line = segments[remove_end].trim();
+            if line.starts_with("<magent-response") {
+                depth += 1;
+            } else if line.starts_with("</magent-response>") {
+                depth -= 1;
+            }
+            remove_end += 1;
+        }
+    }
+
+    // Also consume trailing blank lines after the removed region.
+    while remove_end < line_count && segments[remove_end].trim().is_empty() {
+        remove_end += 1;
+    }
+
+    let mut output = String::with_capacity(contents.len());
+    for (i, seg) in segments.iter().enumerate() {
+        if i < directive_line || i >= remove_end {
+            output.push_str(seg);
+        }
+    }
+
+    Some(output)
+}
+
+// ---------------------------------------------------------------------------
 // Directive insertion (for agent view)
 // ---------------------------------------------------------------------------
 
@@ -1233,5 +1296,68 @@ no search or replace tags here
         let doc = "One\nTwo\n";
         // 2 lines, so after_line=3 is out of range.
         assert!(insert_directive(doc, 3, "ask").is_none());
+    }
+
+    // -----------------------------------------------------------------------
+    // remove_magent_interaction
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn remove_magent_interaction__should_remove_directive_and_response() {
+        let doc = "\
+# Title
+
+@magent summarize
+
+<magent-response>
+Here is a summary.
+</magent-response>
+
+More text.
+";
+        let result = remove_magent_interaction(doc, 2).expect("should succeed");
+        assert_eq!(result, "# Title\n\nMore text.\n");
+    }
+
+    #[test]
+    fn remove_magent_interaction__should_remove_directive_only_when_no_response() {
+        let doc = "\
+# Title
+
+@magent summarize
+
+Some other text.
+";
+        let result = remove_magent_interaction(doc, 2).expect("should succeed");
+        assert_eq!(result, "# Title\n\nSome other text.\n");
+    }
+
+    #[test]
+    fn remove_magent_interaction__should_return_none_for_non_directive_line() {
+        let doc = "# Title\nSome text.\n";
+        assert!(remove_magent_interaction(doc, 0).is_none());
+    }
+
+    #[test]
+    fn remove_magent_interaction__should_return_none_for_out_of_range() {
+        let doc = "@magent ask\n";
+        assert!(remove_magent_interaction(doc, 5).is_none());
+    }
+
+    #[test]
+    fn remove_magent_interaction__should_handle_nested_response() {
+        let doc = "\
+@magent fix
+
+<magent-response>
+<magent-response>
+nested
+</magent-response>
+</magent-response>
+
+After.
+";
+        let result = remove_magent_interaction(doc, 0).expect("should succeed");
+        assert_eq!(result, "After.\n");
     }
 }
