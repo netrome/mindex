@@ -168,6 +168,16 @@ pub(crate) async fn editor_paste_upload_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn agent_script() -> axum::response::Response {
+    const AGENT_JS_CONTENT: &str = include_str!("../assets/features/agent.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(AGENT_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn sw_register_script() -> axum::response::Response {
     const SW_REGISTER_JS_CONTENT: &str = include_str!("../assets/features/sw_register.js");
     axum::response::Response::builder()

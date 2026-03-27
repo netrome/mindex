@@ -1,5 +1,5 @@
 const AUTH_ENABLED = {{ auth_enabled }};
-const CACHE_NAME = AUTH_ENABLED ? 'mindex-auth-v1' : 'mindex-v1';
+const CACHE_NAME = AUTH_ENABLED ? 'mindex-auth-v2' : 'mindex-v2';
 const CACHE_PREFIX = 'mindex-';
 const STATIC_ASSETS = [
   '/static/style.css',
