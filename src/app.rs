@@ -117,6 +117,7 @@ pub fn app(config: config::AppConfig) -> Router {
             get(assets::abc_render_script),
         )
         .route("/static/features/reorder.js", get(assets::reorder_script))
+        .route("/static/features/agent.js", get(assets::agent_script))
         .route(
             "/static/features/push_subscribe.js",
             get(assets::push_subscribe_script),
