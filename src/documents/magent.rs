@@ -878,6 +878,20 @@ AFTER
     }
 
     #[test]
+    fn accept_magent_edit__should_return_none_for_malformed_edit() {
+        let doc = "\
+some text
+
+<magent-response>
+<magent-edit status=\"proposed\">
+no search or replace tags here
+</magent-edit>
+</magent-response>
+";
+        assert!(accept_magent_edit(doc, 0).is_none());
+    }
+
+    #[test]
     fn accept_magent_edit__should_return_none_when_search_not_found() {
         let doc = "\
 completely different content

@@ -259,7 +259,7 @@ end of the document. Magent picks it up on the next file-watch cycle.
   file, updates the status to "accepted", and the UI reflects the change
   (button disappears or shows "Accepted").
 
-### [ ] Task 5: Tests
+### [x] Task 5: Tests
 - Pre-processor unit tests: simple response, nested thinking, tool calls,
   edit blocks, mixed content, documents with no magent content.
 - API endpoint tests: successful accept, edit not found, path traversal
