@@ -116,8 +116,7 @@ pub(super) fn strip_magent_blocks(markdown: &str) -> String {
 /// markdown and whether any magent blocks were found.
 ///
 /// Not called from the normal document view (which uses `strip_magent_blocks`),
-/// but will be used by the agent view.
-#[allow(dead_code)]
+/// but used by the agent view to render response blocks with full structure.
 pub(crate) fn render_magent_blocks(markdown: &str) -> (String, bool) {
     let mut output = String::with_capacity(markdown.len());
     let mut has_magent = false;
@@ -545,6 +544,57 @@ fn find_proposed_edit(
     }
 
     None
+}
+
+// ---------------------------------------------------------------------------
+// Directive insertion (for agent view)
+// ---------------------------------------------------------------------------
+
+/// Insert `@magent {directive}` after the given 0-based line index.
+///
+/// `after_line` of 0 inserts after the first line; `after_line` equal to the
+/// total line count appends to the end. Returns `None` if `after_line` is out
+/// of range or `directive` is empty after trimming.
+pub(crate) fn insert_directive(
+    contents: &str,
+    after_line: usize,
+    directive: &str,
+) -> Option<String> {
+    let directive = directive.trim();
+    if directive.is_empty() {
+        return None;
+    }
+
+    let segments: Vec<&str> = contents.split_inclusive('\n').collect();
+    let line_count = segments.len();
+
+    // after_line == line_count means "append at end".
+    if after_line > line_count {
+        return None;
+    }
+
+    let insertion = format!("\n@magent {}\n", directive);
+
+    let mut output = String::with_capacity(contents.len() + insertion.len());
+
+    // Collect everything up to and including the target line.
+    for seg in &segments[..after_line] {
+        output.push_str(seg);
+    }
+
+    // Ensure the preceding content ends with a newline before we insert.
+    if !output.is_empty() && !output.ends_with('\n') {
+        output.push('\n');
+    }
+
+    output.push_str(&insertion);
+
+    // Append remaining lines.
+    for seg in &segments[after_line..] {
+        output.push_str(seg);
+    }
+
+    Some(output)
 }
 
 // ---------------------------------------------------------------------------

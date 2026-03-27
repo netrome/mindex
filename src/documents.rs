@@ -15,7 +15,7 @@ pub(crate) use editing::{
     scan_block_ranges,
 };
 pub(crate) use magent::{
-    MagentRegion, accept_magent_edit, find_magent_regions, render_magent_blocks,
+    MagentRegion, accept_magent_edit, find_magent_regions, insert_directive, render_magent_blocks,
 };
 #[allow(unused_imports)]
 pub(crate) use paths::{

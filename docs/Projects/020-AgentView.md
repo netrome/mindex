@@ -251,7 +251,7 @@ Expanded state — one insert point expanded into an input form:
   Magent responses are rendered with collapsed thinking/tool-calls and
   styled edits.
 
-### [ ] Task 3: Insert-directive API and JS
+### [x] Task 3: Insert-directive API and JS
 - Implement `POST /api/d/insert-magent-directive` endpoint.
 - In `assets/features/agent.js`: wire "+" buttons to expand into input
   forms, handle form submission, POST to API.

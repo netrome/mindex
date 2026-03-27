@@ -6,6 +6,7 @@ import { initPwaRefresh } from "./features/pwa_refresh.js";
 import { initUploads } from "./features/uploads.js";
 import { initEditorPasteUploads } from "./features/editor_paste_upload.js";
 import { initAbcRender } from "./features/abc_render.js";
+import { initAgent } from "./features/agent.js";
 
 const init = () => {
     initTodoToggle();
@@ -16,6 +17,7 @@ const init = () => {
     initUploads();
     initEditorPasteUploads();
     initAbcRender();
+    initAgent();
 };
 
 if (document.readyState === "loading") {

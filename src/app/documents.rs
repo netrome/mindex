@@ -1,9 +1,9 @@
 use crate::documents::{
     BlockKind, DocError, FileKind, MagentRegion, ReorderError, accept_magent_edit,
-    add_task_item_in_list, collect_mentions, create_document, find_magent_regions, line_count,
-    lines_for_display, list_directory, load_document, normalize_newlines, render_document_html,
-    render_magent_blocks, render_markdown_snippet, reorder_range, resolve_doc_path,
-    scan_block_ranges, search_documents, toggle_task_item,
+    add_task_item_in_list, collect_mentions, create_document, find_magent_regions,
+    insert_directive, line_count, lines_for_display, list_directory, load_document,
+    normalize_newlines, render_document_html, render_magent_blocks, render_markdown_snippet,
+    reorder_range, resolve_doc_path, scan_block_ranges, search_documents, toggle_task_item,
 };
 use crate::fs::atomic_write;
 use crate::push as push_service;
@@ -629,6 +629,53 @@ pub(crate) async fn document_accept_magent_edit(
 
     if let Err(err) = refresh_push_state(&state) {
         eprintln!("failed to reload push registries after accept: {err}");
+    }
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct InsertMagentDirectiveForm {
+    pub(crate) doc_id: String,
+    pub(crate) after_line: usize,
+    pub(crate) directive: String,
+}
+
+pub(crate) async fn document_insert_magent_directive(
+    State(state): State<state::AppState>,
+    Form(form): Form<InsertMagentDirectiveForm>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let doc_id = form.doc_id.trim();
+    if doc_id.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "doc_id is required"));
+    }
+
+    let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let contents = std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let updated = insert_directive(&contents, form.after_line, &form.directive)
+        .ok_or((StatusCode::BAD_REQUEST, "invalid line or empty directive"))?;
+
+    atomic_write(&path, &updated).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after insert: {err}");
     }
 
     Ok(StatusCode::NO_CONTENT)
