@@ -242,7 +242,7 @@ end of the document. Magent picks it up on the next file-watch cycle.
 - **Acceptance criteria:** Magent JS is loaded only on pages with magent
   content. Pages without magent content are unchanged.
 
-### [ ] Task 3: CSS styling
+### [x] Task 3: CSS styling
 - Style `.magent-response` (accent border, background).
 - Style `.magent-thinking`, `.magent-tool-call`, `.magent-tool-result`
   `<details>` blocks (subtle, de-emphasized when collapsed).
