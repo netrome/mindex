@@ -17,37 +17,44 @@ pub(super) fn render_magent_blocks(markdown: &str) -> (String, bool) {
     let mut output = String::with_capacity(markdown.len());
     let mut has_magent = false;
     let mut in_fence = false;
-    let mut in_response = false;
+    let mut depth: usize = 0;
     let mut response_buf = String::new();
 
     for segment in markdown.split_inclusive('\n') {
         let (line, _) = super::split_line_ending(segment);
 
-        if !in_response {
+        if depth == 0 {
             if super::is_fence_line(line) {
                 in_fence = !in_fence;
             }
 
             if !in_fence && is_response_open(line) {
-                in_response = true;
+                depth = 1;
                 response_buf.clear();
                 continue;
             }
 
             output.push_str(segment);
         } else if is_response_close(line) {
-            output.push_str(&render_response(&response_buf));
-            output.push('\n');
-            has_magent = true;
-            in_response = false;
-            response_buf.clear();
+            depth -= 1;
+            if depth == 0 {
+                output.push_str(&render_response(&response_buf));
+                output.push('\n');
+                has_magent = true;
+                response_buf.clear();
+            } else {
+                response_buf.push_str(segment);
+            }
         } else {
+            if is_response_open(line) {
+                depth += 1;
+            }
             response_buf.push_str(segment);
         }
     }
 
     // Unclosed response block: output raw content so nothing is silently lost.
-    if in_response {
+    if depth > 0 {
         output.push_str("<magent-response>\n");
         output.push_str(&response_buf);
     }
@@ -434,6 +441,27 @@ Unclosed content.
         assert!(!has_magent);
         assert!(result.contains("<magent-response>"));
         assert!(result.contains("Unclosed content."));
+    }
+
+    #[test]
+    fn render_magent_blocks__nested_response_in_tool_result() {
+        let md = "\
+<magent-response>
+<magent-tool-result tool=\"search\">
+file.md:1: some text
+<magent-response>
+Nested response content.
+</magent-response>
+</magent-tool-result>
+The summary.
+</magent-response>
+";
+        let (result, has_magent) = render_magent_blocks(md);
+
+        assert!(has_magent);
+        assert!(result.contains("class=\"magent-tool-result\""));
+        assert!(result.contains("Nested response content."));
+        assert!(result.contains("<p>The summary.</p>"));
     }
 
     #[test]
