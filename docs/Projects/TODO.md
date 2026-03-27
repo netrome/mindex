@@ -3,7 +3,8 @@
 ## In progress
 
 ## To do
-- [ ] [Magent interaction rendering](019-MagentRendering.md)
+- [ ] [Agent view](020-AgentView.md) (magent interaction via dedicated view)
+- [x] [Magent interaction rendering](019-MagentRendering.md)
 - [ ] Public pages
 - [ ] Custom styling of pages
   - Allow embed ad-hoc styles on a page to "pimp it up".

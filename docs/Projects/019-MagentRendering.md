@@ -268,15 +268,14 @@ end of the document. Magent picks it up on the next file-watch cycle.
   (multiple edits in one response, already-accepted edits, malformed
   blocks).
 
-### [ ] Task 6: Insert-directive UI (stretch)
-- Implement `POST /api/d/append-magent-directive`.
-- Add a minimal input form in the document view for inserting directives.
-- **Acceptance criteria:** Users can type a magent directive in the UI and
-  it appears in the source file. Magent picks it up on its next watch
-  cycle.
+### [-] Task 6: Insert-directive UI (stretch)
+- Superseded by [020-AgentView](020-AgentView.md), which provides a
+  dedicated agent view with positional directive insertion and subsumes
+  the accept-edit functionality from this project.
 
-### [ ] Task 7: Documentation
-- Update README to describe magent rendering support.
+### [-] Task 7: Documentation
+- Deferred to [020-AgentView](020-AgentView.md) — documentation should
+  cover the agent view as the primary magent interaction surface.
 - Check off the TODO item.
 - **Acceptance criteria:** Users know what magent blocks look like and how
   the accept flow works.
