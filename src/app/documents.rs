@@ -1,8 +1,8 @@
 use crate::documents::{
-    BlockKind, DocError, FileKind, ReorderError, add_task_item_in_list, collect_mentions,
-    create_document, line_count, lines_for_display, list_directory, load_document,
-    normalize_newlines, render_document_html, reorder_range, resolve_doc_path, scan_block_ranges,
-    search_documents, toggle_task_item,
+    BlockKind, DocError, FileKind, ReorderError, accept_magent_edit, add_task_item_in_list,
+    collect_mentions, create_document, line_count, lines_for_display, list_directory,
+    load_document, normalize_newlines, render_document_html, reorder_range, resolve_doc_path,
+    scan_block_ranges, search_documents, toggle_task_item,
 };
 use crate::fs::atomic_write;
 use crate::push as push_service;
@@ -502,6 +502,52 @@ pub(crate) async fn document_toggle_task(
 
     if let Err(err) = refresh_push_state(&state) {
         eprintln!("failed to reload push registries after toggle: {err}");
+    }
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct AcceptMagentEditForm {
+    pub(crate) doc_id: String,
+    pub(crate) edit_index: usize,
+}
+
+pub(crate) async fn document_accept_magent_edit(
+    State(state): State<state::AppState>,
+    Form(form): Form<AcceptMagentEditForm>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let doc_id = form.doc_id.trim();
+    if doc_id.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "doc_id is required"));
+    }
+
+    let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
+        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to resolve document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let contents = std::fs::read_to_string(&path).map_err(|err| match err.kind() {
+        ErrorKind::NotFound | ErrorKind::IsADirectory => (StatusCode::NOT_FOUND, "not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let updated = accept_magent_edit(&contents, form.edit_index)
+        .ok_or((StatusCode::NOT_FOUND, "edit not found"))?;
+
+    atomic_write(&path, &updated).map_err(|err| {
+        eprintln!("failed to save document {doc_id}: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+
+    if let Err(err) = refresh_push_state(&state) {
+        eprintln!("failed to reload push registries after accept: {err}");
     }
 
     Ok(StatusCode::NO_CONTENT)

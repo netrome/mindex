@@ -251,7 +251,7 @@ end of the document. Magent picks it up on the next file-watch cycle.
   regular document content. Thinking and tool blocks are collapsed by
   default. Edit proposals are clearly readable.
 
-### [ ] Task 4: Accept-edit API endpoint and JS
+### [x] Task 4: Accept-edit API endpoint and JS
 - Implement `POST /api/d/accept-magent-edit`.
 - In `magent.js`, inject "Accept" buttons on proposed edits and wire them
   to the endpoint.

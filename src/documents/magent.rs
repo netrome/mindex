@@ -19,6 +19,7 @@ pub(super) fn render_magent_blocks(markdown: &str) -> (String, bool) {
     let mut in_fence = false;
     let mut depth: usize = 0;
     let mut response_buf = String::new();
+    let mut edit_index: usize = 0;
 
     for segment in markdown.split_inclusive('\n') {
         let (line, _) = super::split_line_ending(segment);
@@ -38,7 +39,7 @@ pub(super) fn render_magent_blocks(markdown: &str) -> (String, bool) {
         } else if is_response_close(line) {
             depth -= 1;
             if depth == 0 {
-                output.push_str(&render_response(&response_buf));
+                output.push_str(&render_response(&response_buf, &mut edit_index));
                 output.push('\n');
                 has_magent = true;
                 response_buf.clear();
@@ -79,17 +80,17 @@ fn is_response_close(line: &str) -> bool {
 ///
 /// The output is a single `<div class="magent-response">` with no internal
 /// blank lines, so pulldown-cmark treats it as one HTML block.
-fn render_response(inner: &str) -> String {
+fn render_response(inner: &str, edit_index: &mut usize) -> String {
     let mut html = String::new();
     html.push_str("<div class=\"magent-response\">\n");
-    render_elements(inner, &mut html);
+    render_elements(inner, &mut html, edit_index);
     html.push_str("</div>");
     strip_blank_lines(&html)
 }
 
 /// Walk through response content, emitting HTML for each magent element and
 /// rendering interstitial text as markdown.
-fn render_elements(content: &str, html: &mut String) {
+fn render_elements(content: &str, html: &mut String, edit_index: &mut usize) {
     let mut pos = 0;
 
     while pos < content.len() {
@@ -122,7 +123,7 @@ fn render_elements(content: &str, html: &mut String) {
                     Some(inner_len) => {
                         let element_inner =
                             &content[abs_content_start..abs_content_start + inner_len];
-                        render_element(tag.name, tag.attrs, element_inner, html);
+                        render_element(tag.name, tag.attrs, element_inner, html, edit_index);
                         pos = abs_content_start + inner_len + close_pattern.len();
                     }
                 }
@@ -187,7 +188,7 @@ fn find_next_element<'a>(haystack: &'a str) -> Option<TagMatch<'a>> {
 // Element rendering
 // ---------------------------------------------------------------------------
 
-fn render_element(name: &str, attrs: &str, inner: &str, html: &mut String) {
+fn render_element(name: &str, attrs: &str, inner: &str, html: &mut String, edit_index: &mut usize) {
     match name {
         "magent-thinking" => {
             html.push_str("<details class=\"magent-thinking\">\n");
@@ -221,6 +222,8 @@ fn render_element(name: &str, attrs: &str, inner: &str, html: &mut String) {
             let status = extract_attr_value(attrs, "status").unwrap_or("proposed");
             html.push_str("<div class=\"magent-edit\" data-status=\"");
             html.push_str(&html::escape(status));
+            html.push_str("\" data-edit-index=\"");
+            html.push_str(&edit_index.to_string());
             html.push_str("\">\n");
             if let Some(search) = extract_inner(inner, "magent-search") {
                 html.push_str("<div class=\"magent-edit-search\"><pre><code>");
@@ -233,6 +236,7 @@ fn render_element(name: &str, attrs: &str, inner: &str, html: &mut String) {
                 html.push_str("</code></pre></div>\n");
             }
             html.push_str("</div>\n");
+            *edit_index += 1;
         }
         _ => {
             let trimmed = inner.trim();
@@ -291,6 +295,154 @@ fn strip_blank_lines(html: &str) -> String {
         }
     }
     result
+}
+
+// ---------------------------------------------------------------------------
+// Accept edit
+// ---------------------------------------------------------------------------
+
+/// Accept a proposed magent edit by index.
+///
+/// Finds the Nth `<magent-edit status="proposed">` block in the document,
+/// applies its search/replace to the document body, and changes the block's
+/// status to `"accepted"`. Returns the updated document or `None` if the
+/// edit was not found or the search text doesn't match.
+pub(crate) fn accept_magent_edit(contents: &str, edit_index: usize) -> Option<String> {
+    let (search, replace, edit_start, edit_tag_end) = find_proposed_edit(contents, edit_index)?;
+
+    // Find the search text in document body (outside <magent-response> blocks).
+    let match_pos = find_in_body(contents, &search)?;
+
+    let mut output = String::with_capacity(contents.len());
+
+    // Everything before the match, the replacement, everything after.
+    output.push_str(&contents[..match_pos]);
+    output.push_str(&replace);
+    let after_match = match_pos + search.len();
+
+    // Now emit the rest, but swap the edit block's status to "accepted".
+    if after_match <= edit_start {
+        output.push_str(&contents[after_match..edit_start]);
+        let edit_block = &contents[edit_start..edit_tag_end];
+        output.push_str(&edit_block.replacen("status=\"proposed\"", "status=\"accepted\"", 1));
+        output.push_str(&contents[edit_tag_end..]);
+    } else {
+        // Match is after the edit block (shouldn't normally happen but handle it).
+        let edit_block = &contents[after_match.min(edit_start)..edit_tag_end.min(after_match)];
+        output.push_str(&contents[after_match..].replacen(
+            "status=\"proposed\"",
+            "status=\"accepted\"",
+            1,
+        ));
+        let _ = edit_block; // suppress unused warning
+    }
+
+    Some(output)
+}
+
+/// Find the byte position of `needle` in the document body (outside
+/// `<magent-response>...</magent-response>` blocks). Returns the position
+/// of the first match, or `None` if not found.
+fn find_in_body(contents: &str, needle: &str) -> Option<usize> {
+    let response_regions = collect_response_regions(contents);
+    let mut search_from = 0;
+
+    while let Some(rel) = contents[search_from..].find(needle) {
+        let abs = search_from + rel;
+        if !response_regions.iter().any(|(s, e)| abs >= *s && abs < *e) {
+            return Some(abs);
+        }
+        search_from = abs + 1;
+    }
+
+    None
+}
+
+/// Collect byte ranges of all `<magent-response>...</magent-response>` blocks.
+fn collect_response_regions(contents: &str) -> Vec<(usize, usize)> {
+    let mut regions = Vec::new();
+    let mut pos = 0;
+
+    while let Some(open_offset) = contents[pos..].find("<magent-response") {
+        let abs_open = pos + open_offset;
+        // Find the matching close, accounting for nesting.
+        let after_open = match contents[abs_open..].find('>') {
+            Some(gt) => abs_open + gt + 1,
+            None => break,
+        };
+        let mut depth = 1usize;
+        let mut scan = after_open;
+        while depth > 0 {
+            let next_open = contents[scan..].find("<magent-response");
+            let next_close = contents[scan..].find("</magent-response>");
+            match (next_open, next_close) {
+                (_, Some(c)) if next_open.is_none_or(|o| c < o) => {
+                    depth -= 1;
+                    scan += c + "</magent-response>".len();
+                }
+                (Some(o), _) => {
+                    depth += 1;
+                    scan += o + "<magent-response".len();
+                }
+                _ => break,
+            }
+        }
+        if depth == 0 {
+            regions.push((abs_open, scan));
+            pos = scan;
+        } else {
+            break;
+        }
+    }
+
+    regions
+}
+
+/// Locate the Nth proposed edit block and return (search, replace, block_start, block_end).
+fn find_proposed_edit(
+    contents: &str,
+    target_index: usize,
+) -> Option<(String, String, usize, usize)> {
+    let mut current = 0usize;
+    let mut search_from = 0;
+
+    while let Some(offset) = contents[search_from..].find("<magent-edit") {
+        let abs = search_from + offset;
+        let Some(gt) = contents[abs..].find('>') else {
+            break;
+        };
+        let tag_str = &contents[abs..abs + gt + 1];
+
+        // Only match proposed edits.
+        if !tag_str.contains("status=\"proposed\"") {
+            search_from = abs + gt + 1;
+            continue;
+        }
+
+        let content_start = abs + gt + 1;
+        let close_tag = "</magent-edit>";
+        let Some(close_offset) = contents[content_start..].find(close_tag) else {
+            break;
+        };
+        let block_end = content_start + close_offset + close_tag.len();
+        let inner = &contents[content_start..content_start + close_offset];
+
+        if current == target_index {
+            let search = extract_inner(inner, "magent-search")?;
+            let replace = extract_inner(inner, "magent-replace")?;
+            return Some((
+                search.trim().to_string(),
+                replace.trim().to_string(),
+                abs,
+                block_end,
+            ));
+        }
+
+        current += 1;
+        search_from = block_end;
+    }
+
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -587,5 +739,114 @@ More text after.
     #[test]
     fn extract_inner__missing_tag() {
         assert_eq!(extract_inner("no tags here", "magent-input"), None);
+    }
+
+    // -- accept_magent_edit ---------------------------------------------------
+
+    #[test]
+    fn accept_magent_edit__should_apply_replacement_and_update_status() {
+        let doc = "\
+# Notes
+
+- [Rust](htps://rust-lang.org)
+
+<magent-response>
+Fixed the URL:
+<magent-edit status=\"proposed\">
+<magent-search>htps://rust-lang.org</magent-search>
+<magent-replace>https://rust-lang.org</magent-replace>
+</magent-edit>
+</magent-response>
+";
+        let result = accept_magent_edit(doc, 0).expect("should succeed");
+
+        // The document body should have the replacement applied.
+        assert!(result.contains("- [Rust](https://rust-lang.org)"));
+        // The edit block status should be updated.
+        assert!(result.contains("status=\"accepted\""));
+        assert!(!result.contains("status=\"proposed\""));
+    }
+
+    #[test]
+    fn accept_magent_edit__should_select_by_index() {
+        let doc = "\
+AAA BBB
+
+<magent-response>
+<magent-edit status=\"proposed\">
+<magent-search>AAA</magent-search>
+<magent-replace>aaa</magent-replace>
+</magent-edit>
+<magent-edit status=\"proposed\">
+<magent-search>BBB</magent-search>
+<magent-replace>bbb</magent-replace>
+</magent-edit>
+</magent-response>
+";
+        let result = accept_magent_edit(doc, 1).expect("should succeed");
+
+        // Only the second edit should be applied in the document body.
+        assert!(result.contains("AAA bbb"));
+        // Only the second edit block should be accepted.
+        assert!(
+            result.contains("status=\"proposed\""),
+            "first edit stays proposed"
+        );
+        assert!(
+            result.contains("status=\"accepted\""),
+            "second edit is accepted"
+        );
+    }
+
+    #[test]
+    fn accept_magent_edit__should_skip_already_accepted() {
+        let doc = "\
+old-thing new-thing
+
+<magent-response>
+<magent-edit status=\"accepted\">
+<magent-search>old-thing</magent-search>
+<magent-replace>new-thing</magent-replace>
+</magent-edit>
+<magent-edit status=\"proposed\">
+<magent-search>new-thing</magent-search>
+<magent-replace>NEW-THING</magent-replace>
+</magent-edit>
+</magent-response>
+";
+        // Index 0 should target the first *proposed* edit (skipping accepted).
+        let result = accept_magent_edit(doc, 0).expect("should succeed");
+
+        assert!(result.contains("old-thing NEW-THING"));
+    }
+
+    #[test]
+    fn accept_magent_edit__should_return_none_for_missing_index() {
+        let doc = "\
+text
+
+<magent-response>
+<magent-edit status=\"proposed\">
+<magent-search>text</magent-search>
+<magent-replace>TEXT</magent-replace>
+</magent-edit>
+</magent-response>
+";
+        assert!(accept_magent_edit(doc, 5).is_none());
+    }
+
+    #[test]
+    fn accept_magent_edit__should_return_none_when_search_not_found() {
+        let doc = "\
+completely different content
+
+<magent-response>
+<magent-edit status=\"proposed\">
+<magent-search>does not exist</magent-search>
+<magent-replace>replacement</magent-replace>
+</magent-edit>
+</magent-response>
+";
+        assert!(accept_magent_edit(doc, 0).is_none());
     }
 }

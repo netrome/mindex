@@ -14,6 +14,7 @@ pub(crate) use editing::{
     BlockKind, BlockRange, ReorderError, line_count, lines_for_display, reorder_range,
     scan_block_ranges,
 };
+pub(crate) use magent::accept_magent_edit;
 #[allow(unused_imports)]
 pub(crate) use paths::{
     DirectoryFile, DirectoryListing, FileKind, collect_markdown_paths, doc_id_from_path,

@@ -75,6 +75,10 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/git/push", post(git::git_push))
         .route("/git/pull", post(git::git_pull))
         .route("/api/d/toggle-task", post(documents::document_toggle_task))
+        .route(
+            "/api/d/accept-magent-edit",
+            post(documents::document_accept_magent_edit),
+        )
         .route("/api/d/add-task", post(documents::document_add_task))
         .route(
             "/api/d/reorder-range",
