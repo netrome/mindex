@@ -7,6 +7,7 @@ pub mod auth;
 mod directives;
 mod documents;
 mod fs;
+mod html;
 mod math;
 mod ports;
 mod types;

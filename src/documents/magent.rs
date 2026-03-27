@@ -5,7 +5,7 @@
 //! structured HTML before pulldown-cmark processes the document, avoiding the
 //! CommonMark HTML-block parsing issues that would otherwise garble the output.
 
-use crate::math::html_escape;
+use crate::html;
 use pulldown_cmark::{Options, Parser};
 
 /// Pre-process magent response blocks in raw markdown.
@@ -191,11 +191,11 @@ fn render_element(name: &str, attrs: &str, inner: &str, html: &mut String) {
         "magent-tool-call" => {
             let tool = extract_attr_value(attrs, "tool").unwrap_or("tool");
             html.push_str("<details class=\"magent-tool-call\">\n<summary>");
-            html.push_str(&html_escape(tool));
+            html.push_str(&html::escape(tool));
             html.push_str("</summary>\n");
             if let Some(input) = extract_inner(inner, "magent-input") {
                 html.push_str("<pre class=\"magent-input\"><code>");
-                html.push_str(&html_escape(input.trim()));
+                html.push_str(&html::escape(input.trim()));
                 html.push_str("</code></pre>\n");
             }
             html.push_str("</details>\n");
@@ -203,26 +203,26 @@ fn render_element(name: &str, attrs: &str, inner: &str, html: &mut String) {
         "magent-tool-result" => {
             let tool = extract_attr_value(attrs, "tool").unwrap_or("tool");
             html.push_str("<details class=\"magent-tool-result\">\n<summary>");
-            html.push_str(&html_escape(tool));
+            html.push_str(&html::escape(tool));
             html.push_str(" result</summary>\n");
             html.push_str("<pre class=\"magent-result\"><code>");
-            html.push_str(&html_escape(inner.trim()));
+            html.push_str(&html::escape(inner.trim()));
             html.push_str("</code></pre>\n");
             html.push_str("</details>\n");
         }
         "magent-edit" => {
             let status = extract_attr_value(attrs, "status").unwrap_or("proposed");
             html.push_str("<div class=\"magent-edit\" data-status=\"");
-            html.push_str(&html_escape(status));
+            html.push_str(&html::escape(status));
             html.push_str("\">\n");
             if let Some(search) = extract_inner(inner, "magent-search") {
                 html.push_str("<div class=\"magent-edit-search\"><pre><code>");
-                html.push_str(&html_escape(search.trim()));
+                html.push_str(&html::escape(search.trim()));
                 html.push_str("</code></pre></div>\n");
             }
             if let Some(replace) = extract_inner(inner, "magent-replace") {
                 html.push_str("<div class=\"magent-edit-replace\"><pre><code>");
-                html.push_str(&html_escape(replace.trim()));
+                html.push_str(&html::escape(replace.trim()));
                 html.push_str("</code></pre></div>\n");
             }
             html.push_str("</div>\n");

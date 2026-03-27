@@ -1,7 +1,8 @@
 use super::paths::doc_id_to_path;
 use super::tasks::{is_task_list_marker, parse_task_line};
 use super::{is_fence_line, split_line_ending};
-use crate::math::{MathStyle, html_escape, render_math};
+use crate::html;
+use crate::math::{MathStyle, render_math};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use std::collections::HashMap;
 
@@ -42,7 +43,7 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
         if in_mermaid {
             match event {
                 Event::End(TagEnd::CodeBlock) => {
-                    let escaped = html_escape(&mermaid_buffer);
+                    let escaped = html::escape(&mermaid_buffer);
                     let html = format!(r#"<div class="mermaid">{escaped}</div>"#);
                     events.push(Event::Html(html.into()));
                     mermaid_buffer.clear();
@@ -59,7 +60,7 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
         if in_abc {
             match event {
                 Event::End(TagEnd::CodeBlock) => {
-                    let escaped = html_escape(&abc_buffer);
+                    let escaped = html::escape(&abc_buffer);
                     let html = format!(r#"<div class="abc-notation">{escaped}</div>"#);
                     events.push(Event::Html(html.into()));
                     abc_buffer.clear();
@@ -291,7 +292,7 @@ fn heading_slug(text: &str) -> String {
 }
 
 fn render_task_list_form(doc_id: &str, list_index: usize) -> String {
-    let escaped_doc_id = html_escape(doc_id);
+    let escaped_doc_id = html::escape(doc_id);
     format!(
         "<form class=\"todo-quick-add\" method=\"post\" action=\"/api/d/add-task\">\
 <input type=\"hidden\" name=\"doc_id\" value=\"{escaped_doc_id}\" />\

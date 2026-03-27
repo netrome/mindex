@@ -44,7 +44,7 @@ pub(crate) fn render_math(latex: &str, style: MathStyle) -> MathResult {
     match latex2mathml::latex_to_mathml(latex, display_style) {
         Ok(mathml) => MathResult::MathMl(mathml),
         Err(_) => {
-            let escaped = html_escape(latex);
+            let escaped = crate::html::escape(latex);
             let fallback = match style {
                 MathStyle::Inline => {
                     format!(
@@ -60,22 +60,6 @@ pub(crate) fn render_math(latex: &str, style: MathStyle) -> MathResult {
             MathResult::Fallback(fallback)
         }
     }
-}
-
-/// Escape HTML special characters in a string.
-pub(crate) fn html_escape(s: &str) -> String {
-    let mut escaped = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '&' => escaped.push_str("&amp;"),
-            '<' => escaped.push_str("&lt;"),
-            '>' => escaped.push_str("&gt;"),
-            '"' => escaped.push_str("&quot;"),
-            '\'' => escaped.push_str("&#x27;"),
-            _ => escaped.push(c),
-        }
-    }
-    escaped
 }
 
 #[cfg(test)]
@@ -192,16 +176,6 @@ mod tests {
             }
             MathResult::MathMl(_) => panic!("Expected Fallback, got MathMl"),
         }
-    }
-
-    #[test]
-    fn html_escape__should_escape_special_characters() {
-        assert_eq!(html_escape("&"), "&amp;");
-        assert_eq!(html_escape("<"), "&lt;");
-        assert_eq!(html_escape(">"), "&gt;");
-        assert_eq!(html_escape("\""), "&quot;");
-        assert_eq!(html_escape("'"), "&#x27;");
-        assert_eq!(html_escape("a < b & c > d"), "a &lt; b &amp; c &gt; d");
     }
 
     #[test]
