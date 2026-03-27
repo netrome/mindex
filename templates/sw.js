@@ -11,6 +11,10 @@ const STATIC_ASSETS = [
   '/static/features/push_subscribe.js',
   '/static/features/pwa_refresh.js',
   '/static/features/sw_register.js',
+  '/static/features/agent.js',
+  '/static/features/uploads.js',
+  '/static/features/editor_paste_upload.js',
+  '/static/features/abc_render.js',
   '/static/manifest.json',
   '/sw.js'
 ];
