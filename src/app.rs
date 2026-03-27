@@ -65,6 +65,7 @@ pub fn app(config: config::AppConfig) -> Router {
             get(documents::document_edit).post(documents::document_save),
         )
         .route("/reorder/{*path}", get(documents::document_reorder))
+        .route("/agent/{*path}", get(documents::document_agent_view))
         .route("/view/{*path}", get(text_files::text_view))
         .route(
             "/edit-text/{*path}",
@@ -865,6 +866,85 @@ Hi there!
         // The response block should be stripped entirely.
         assert!(!body.contains("magent-response"));
         assert!(!body.contains("Hi there!"));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn agent_view__should_render_blocks_with_insert_points() {
+        // Given
+        let root = create_temp_root("agent-view");
+        let markdown = "\
+# Title
+
+Some text.
+
+@magent hello
+
+<magent-response>
+Hi there!
+</magent-response>
+";
+        std::fs::write(root.join("chat.md"), markdown).expect("write chat.md");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/agent/chat.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        // Regular blocks are rendered.
+        assert!(body.contains("<h1>Title</h1>"));
+        assert!(body.contains("Some text."));
+        // Magent response is rendered (not stripped).
+        assert!(body.contains("class=\"magent-response\""));
+        assert!(body.contains("Hi there!"));
+        // Insert points are present.
+        assert!(body.contains("agent-insert-btn"));
+        assert!(body.contains("data-after-line"));
+        // Agent link in the page.
+        assert!(body.contains("Agent: chat.md"));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn agent_view__should_return_not_found_for_missing_doc() {
+        // Given
+        let root = create_temp_root("agent-missing");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/agent/nope.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

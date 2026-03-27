@@ -1,7 +1,8 @@
 use crate::documents::{
-    BlockKind, DocError, FileKind, ReorderError, accept_magent_edit, add_task_item_in_list,
-    collect_mentions, create_document, line_count, lines_for_display, list_directory,
-    load_document, normalize_newlines, render_document_html, reorder_range, resolve_doc_path,
+    BlockKind, DocError, FileKind, MagentRegion, ReorderError, accept_magent_edit,
+    add_task_item_in_list, collect_mentions, create_document, find_magent_regions, line_count,
+    lines_for_display, list_directory, load_document, normalize_newlines, render_document_html,
+    render_magent_blocks, render_markdown_snippet, reorder_range, resolve_doc_path,
     scan_block_ranges, search_documents, toggle_task_item,
 };
 use crate::fs::atomic_write;
@@ -386,6 +387,87 @@ fn block_kind_label(kind: BlockKind) -> String {
         BlockKind::Blank => "Blank",
     }
     .to_string()
+}
+
+// ---------------------------------------------------------------------------
+// Agent view
+// ---------------------------------------------------------------------------
+
+pub(crate) async fn document_agent_view(
+    State(state): State<state::AppState>,
+    AxumPath(doc_id): AxumPath<String>,
+) -> Result<templates::AgentViewTemplate, (StatusCode, &'static str)> {
+    let git_enabled = state.git_dir.is_some();
+    let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
+        DocError::NotFound => (StatusCode::NOT_FOUND, "document not found"),
+        _ => {
+            eprintln!("failed to load document {doc_id}: {err:?}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let display_lines = lines_for_display(&contents);
+    let total_lines = display_lines.len();
+    let scan_blocks = scan_block_ranges(&contents);
+    let magent_regions = find_magent_regions(&contents);
+    let blocks = build_agent_blocks(&display_lines, &scan_blocks, &magent_regions, &doc_id);
+
+    Ok(templates::AgentViewTemplate {
+        app_name: state.config.app_name,
+        doc_id,
+        blocks,
+        line_count: total_lines,
+        git_enabled,
+    })
+}
+
+fn build_agent_blocks(
+    lines: &[String],
+    scan_blocks: &[crate::documents::BlockRange],
+    magent_regions: &[MagentRegion],
+    doc_id: &str,
+) -> Vec<templates::AgentBlock> {
+    let mut result = Vec::new();
+    let mut block_idx = 0;
+
+    while block_idx < scan_blocks.len() {
+        let block = &scan_blocks[block_idx];
+
+        // Check if this block falls within a magent response region.
+        if let Some(region) = magent_regions
+            .iter()
+            .find(|r| block.start >= r.start_line && block.start <= r.end_line)
+        {
+            // Render the full magent response block.
+            let raw_text = lines[region.start_line..=region.end_line].join("\n") + "\n";
+            let (html, _) = render_magent_blocks(&raw_text);
+            result.push(templates::AgentBlock {
+                html,
+                end_line: region.end_line,
+                is_magent: true,
+            });
+
+            // Skip all scan blocks within this region.
+            while block_idx < scan_blocks.len() && scan_blocks[block_idx].start <= region.end_line {
+                block_idx += 1;
+            }
+        } else if block.kind == BlockKind::Blank {
+            // Skip blank blocks — the agent view uses insert points for spacing.
+            block_idx += 1;
+        } else {
+            // Regular content block.
+            let text = lines[block.start..=block.end].join("\n");
+            let html = render_markdown_snippet(&text, doc_id);
+            result.push(templates::AgentBlock {
+                html,
+                end_line: block.end,
+                is_magent: false,
+            });
+            block_idx += 1;
+        }
+    }
+
+    result
 }
 
 pub(crate) async fn document_edit(

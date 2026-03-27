@@ -14,7 +14,9 @@ pub(crate) use editing::{
     BlockKind, BlockRange, ReorderError, line_count, lines_for_display, reorder_range,
     scan_block_ranges,
 };
-pub(crate) use magent::accept_magent_edit;
+pub(crate) use magent::{
+    MagentRegion, accept_magent_edit, find_magent_regions, render_magent_blocks,
+};
 #[allow(unused_imports)]
 pub(crate) use paths::{
     DirectoryFile, DirectoryListing, FileKind, collect_markdown_paths, doc_id_from_path,
@@ -23,7 +25,7 @@ pub(crate) use paths::{
 };
 #[allow(unused_imports)]
 pub(crate) use rendering::{
-    RenderedDocument, render_document_html, render_task_list_markdown,
+    RenderedDocument, render_document_html, render_markdown_snippet, render_task_list_markdown,
     rewrite_relative_image_links, rewrite_relative_md_links,
 };
 pub(crate) use search::{SearchResult, search_documents};

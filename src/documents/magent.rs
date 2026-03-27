@@ -8,6 +8,57 @@
 use crate::html;
 use pulldown_cmark::{Options, Parser};
 
+// ---------------------------------------------------------------------------
+// Region detection (for agent view block merging)
+// ---------------------------------------------------------------------------
+
+/// A line range occupied by a `<magent-response>...</magent-response>` block.
+pub(crate) struct MagentRegion {
+    pub(crate) start_line: usize,
+    pub(crate) end_line: usize,
+}
+
+/// Scan for `<magent-response>` open/close pairs and return their line ranges.
+///
+/// Handles nesting and skips fenced code blocks, matching the logic in
+/// `strip_magent_blocks` and `render_magent_blocks`.
+pub(crate) fn find_magent_regions(contents: &str) -> Vec<MagentRegion> {
+    let mut regions = Vec::new();
+    let mut in_fence = false;
+    let mut depth: usize = 0;
+    let mut region_start: usize = 0;
+
+    for (line_idx, segment) in contents.split_inclusive('\n').enumerate() {
+        let (line, _) = super::split_line_ending(segment);
+
+        if depth == 0 {
+            if super::is_fence_line(line) {
+                in_fence = !in_fence;
+            }
+            if !in_fence && is_response_open(line) {
+                depth = 1;
+                region_start = line_idx;
+            }
+        } else if is_response_close(line) {
+            depth -= 1;
+            if depth == 0 {
+                regions.push(MagentRegion {
+                    start_line: region_start,
+                    end_line: line_idx,
+                });
+            }
+        } else if is_response_open(line) {
+            depth += 1;
+        }
+    }
+
+    regions
+}
+
+// ---------------------------------------------------------------------------
+// Stripping (for normal document view)
+// ---------------------------------------------------------------------------
+
 /// Strip `<magent-response>...</magent-response>` blocks from raw markdown.
 ///
 /// Removes response blocks entirely (outside fenced code blocks) while
@@ -504,6 +555,90 @@ fn find_proposed_edit(
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+
+    // -- find_magent_regions --------------------------------------------------
+
+    #[test]
+    fn find_magent_regions__no_magent_content() {
+        let md = "# Hello\n\nA paragraph.\n";
+        let regions = find_magent_regions(md);
+        assert!(regions.is_empty());
+    }
+
+    #[test]
+    fn find_magent_regions__single_response() {
+        let md = "\
+@magent hello
+
+<magent-response>
+Hello there!
+</magent-response>
+";
+        let regions = find_magent_regions(md);
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0].start_line, 2);
+        assert_eq!(regions[0].end_line, 4);
+    }
+
+    #[test]
+    fn find_magent_regions__multiple_responses() {
+        let md = "\
+Text.
+
+<magent-response>
+First.
+</magent-response>
+
+<magent-response>
+Second.
+</magent-response>
+";
+        let regions = find_magent_regions(md);
+        assert_eq!(regions.len(), 2);
+        assert_eq!(regions[0].start_line, 2);
+        assert_eq!(regions[0].end_line, 4);
+        assert_eq!(regions[1].start_line, 6);
+        assert_eq!(regions[1].end_line, 8);
+    }
+
+    #[test]
+    fn find_magent_regions__skips_fenced_code_blocks() {
+        let md = "\
+```
+<magent-response>
+Not a region.
+</magent-response>
+```
+";
+        let regions = find_magent_regions(md);
+        assert!(regions.is_empty());
+    }
+
+    #[test]
+    fn find_magent_regions__nested_response() {
+        let md = "\
+<magent-response>
+<magent-response>
+Nested.
+</magent-response>
+Outer.
+</magent-response>
+";
+        let regions = find_magent_regions(md);
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0].start_line, 0);
+        assert_eq!(regions[0].end_line, 5);
+    }
+
+    #[test]
+    fn find_magent_regions__unclosed_response() {
+        let md = "\
+<magent-response>
+Unclosed.
+";
+        let regions = find_magent_regions(md);
+        assert!(regions.is_empty());
+    }
 
     // -- strip_magent_blocks --------------------------------------------------
 

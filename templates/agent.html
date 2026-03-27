@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Agent: {{ doc_id }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="/">Back</a>
+    <a href="/new">New</a>
+    <a href="/upload">Upload</a>
+    <a href="/d/{{ doc_id }}">View</a>
+    <a href="/edit/{{ doc_id }}">Edit</a>
+    <a href="/reorder/{{ doc_id }}">Reorder</a>
+    <a href="/search">Search</a>
+    {% if git_enabled %}
+    <a href="/git">Git</a>
+    {% endif %}
+    <a href="/push/subscribe">Push</a>
+    <button type="button" class="pwa-refresh" data-pwa-refresh>
+        Refresh
+    </button>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+        Theme
+    </button>
+</div>
+
+<h1>Agent: {{ doc_id }}</h1>
+
+<div class="agent-page" data-doc-id="{{ doc_id }}" data-line-count="{{ line_count }}">
+    {% if blocks.is_empty() %}
+    <div class="agent-empty">Document is empty.</div>
+    {% else %}
+    {% for block in blocks %}
+    <div class="agent-block{% if block.is_magent %} agent-block-magent{% endif %}">
+        {{ block.html|safe }}
+    </div>
+    {% if !loop.last %}
+    <div class="agent-insert-point" data-after-line="{{ block.end_line }}">
+        <button type="button" class="agent-insert-btn">+</button>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    <div class="agent-insert-point" data-after-line="{{ line_count }}">
+        <button type="button" class="agent-insert-btn">+</button>
+    </div>
+</div>
+{% endblock %}

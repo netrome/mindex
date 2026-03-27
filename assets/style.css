@@ -1266,6 +1266,59 @@ hr {
     pointer-events: none;
 }
 
+/* Agent view */
+.agent-page {
+    max-width: var(--page-width);
+    margin: 0 auto;
+}
+
+.agent-block {
+    padding: 0.25rem 0;
+}
+
+.agent-block > :last-child {
+    margin-bottom: 0;
+}
+
+.agent-insert-point {
+    display: flex;
+    align-items: center;
+    padding: 0.15rem 0;
+}
+
+.agent-insert-btn {
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.85rem;
+    line-height: 1;
+    border: 1px dashed var(--color-border);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.agent-insert-btn:hover {
+    background: var(--color-bg-alt);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.agent-insert-point::after {
+    content: "";
+    flex: 1;
+    border-top: 1px dashed var(--color-border);
+    margin-left: 0.5rem;
+    opacity: 0.4;
+}
+
+.agent-empty {
+    color: var(--color-text-muted);
+    font-style: italic;
+    padding: 1rem 0;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 600px) {
     body {

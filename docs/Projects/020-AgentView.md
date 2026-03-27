@@ -237,7 +237,7 @@ Expanded state — one insert point expanded into an input form:
   magent JS loaded on normal pages. Existing non-magent documents are
   unaffected.
 
-### [ ] Task 2: Agent view route, handler, and template
+### [x] Task 2: Agent view route, handler, and template
 - Add `/agent/{*path}` route in `src/app.rs`.
 - Implement `document_agent_view` handler: load document, run
   `scan_block_ranges()`, detect magent response regions, merge blocks,

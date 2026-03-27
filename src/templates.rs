@@ -89,6 +89,22 @@ pub(crate) struct ReorderBlock {
 }
 
 #[derive(Template, WebTemplate)]
+#[template(path = "agent.html")]
+pub(crate) struct AgentViewTemplate {
+    pub(crate) app_name: String,
+    pub(crate) doc_id: String,
+    pub(crate) blocks: Vec<AgentBlock>,
+    pub(crate) line_count: usize,
+    pub(crate) git_enabled: bool,
+}
+
+pub(crate) struct AgentBlock {
+    pub(crate) html: String,
+    pub(crate) end_line: usize,
+    pub(crate) is_magent: bool,
+}
+
+#[derive(Template, WebTemplate)]
 #[template(path = "edit.html")]
 pub(crate) struct EditTemplate {
     pub(crate) app_name: String,

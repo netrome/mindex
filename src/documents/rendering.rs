@@ -146,6 +146,34 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
     }
 }
 
+/// Render a markdown snippet to HTML with link and math handling.
+///
+/// A lightweight version of `render_document_html` for rendering individual
+/// blocks independently (used by the agent view). Handles tables, math, and
+/// relative link/image rewriting, but skips mermaid/abc detection, heading IDs,
+/// and task list processing.
+pub(crate) fn render_markdown_snippet(text: &str, doc_id: &str) -> String {
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_MATH);
+    let parser = Parser::new_ext(text, options).map(|event| {
+        let event = rewrite_relative_md_links(event, doc_id);
+        let event = rewrite_relative_image_links(event, doc_id);
+        match event {
+            Event::InlineMath(latex) => {
+                Event::Html(render_math(&latex, MathStyle::Inline).into_html().into())
+            }
+            Event::DisplayMath(latex) => {
+                Event::Html(render_math(&latex, MathStyle::Display).into_html().into())
+            }
+            other => other,
+        }
+    });
+    let mut html = String::new();
+    pulldown_cmark::html::push_html(&mut html, parser);
+    html
+}
+
 pub(crate) fn render_task_list_markdown(contents: &str, doc_id: &str) -> String {
     let mut output = String::with_capacity(contents.len());
     let mut in_fence = false;
@@ -760,5 +788,25 @@ The answer is here.
         assert!(!result.html.contains("magent-tool-call"));
         assert!(!result.html.contains("magent-tool-result"));
         assert!(!result.html.contains("The answer is here."));
+    }
+
+    // -- render_markdown_snippet ---
+
+    #[test]
+    fn render_markdown_snippet__should_render_basic_markdown() {
+        let html = render_markdown_snippet("**bold** text", "test.md");
+        assert!(html.contains("<strong>bold</strong>"));
+    }
+
+    #[test]
+    fn render_markdown_snippet__should_rewrite_relative_links() {
+        let html = render_markdown_snippet("[Link](other.md)", "notes/test.md");
+        assert!(html.contains(r#"href="/d/notes/other.md""#));
+    }
+
+    #[test]
+    fn render_markdown_snippet__should_render_tables() {
+        let html = render_markdown_snippet("| A | B |\n|---|---|\n| 1 | 2 |", "test.md");
+        assert!(html.contains("<table>"));
     }
 }
