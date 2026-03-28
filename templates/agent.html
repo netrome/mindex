@@ -30,18 +30,17 @@
     <div class="agent-empty">Document is empty.</div>
     {% else %}
     {% for block in blocks %}
-    <div class="agent-block{% if block.is_magent %} agent-block-magent{% endif %}{% if block.is_directive %} agent-block-directive{% endif %}"{% if block.is_directive %} data-directive-line="{{ block.start_line }}"{% endif %}>
+    <div class="agent-block{% if block.is_magent %} agent-block-magent{% endif %}{% if block.is_directive %} agent-block-directive{% endif %}" data-after-line="{{ block.end_line }}"{% if block.is_directive %} data-directive-line="{{ block.start_line }}"{% endif %}>
+        <button type="button" class="agent-insert-btn" title="Insert query after this block">+</button>
         {{ block.html|safe }}
     </div>
-    {% if !loop.last %}
-    <div class="agent-insert-point" data-after-line="{{ block.end_line }}">
-        <button type="button" class="agent-insert-btn">+</button>
-    </div>
-    {% endif %}
     {% endfor %}
     {% endif %}
-    <div class="agent-insert-point" data-after-line="{{ line_count }}">
-        <button type="button" class="agent-insert-btn">+</button>
+    <div class="agent-bottom-input" data-after-line="{{ line_count }}">
+        <textarea class="agent-insert-input" placeholder="What would you like to ask?" rows="2"></textarea>
+        <div class="agent-insert-actions">
+            <button type="button" class="agent-insert-submit">Send</button>
+        </div>
     </div>
 </div>
 {% endblock %}

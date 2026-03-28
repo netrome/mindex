@@ -1,6 +1,7 @@
 # TODO
 
 ## In progress
+- [x] Agent insert point UX: move insert buttons to left gutter so blocks flow continuously
 
 ## To do
 - [ ] [Agent view](020-AgentView.md) (magent interaction via dedicated view)

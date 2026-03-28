@@ -10,17 +10,38 @@ const collapseAll = () => {
     for (const btn of document.querySelectorAll(".agent-insert-btn")) {
         btn.style.display = "";
     }
-    for (const point of document.querySelectorAll(".agent-insert-point")) {
-        point.classList.remove("agent-insert-expanded");
+};
+
+const submitDirective = async (docId, afterLine, directive, disableControls) => {
+    if (!directive) return;
+    disableControls(true);
+
+    try {
+        const body = new URLSearchParams({
+            doc_id: docId,
+            after_line: afterLine,
+            directive,
+        });
+        const response = await fetch("/api/d/insert-magent-directive", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body,
+        });
+        if (!response.ok) {
+            throw new Error("Failed to insert directive");
+        }
+        window.location.reload();
+    } catch (err) {
+        console.error(err);
+        disableControls(false);
     }
 };
 
-const createForm = (insertPoint, docId) => {
+const createForm = (block, docId) => {
     collapseAll();
 
-    const btn = insertPoint.querySelector(".agent-insert-btn");
+    const btn = block.querySelector(".agent-insert-btn");
     btn.style.display = "none";
-    insertPoint.classList.add("agent-insert-expanded");
 
     const form = document.createElement("div");
     form.className = "agent-insert-form";
@@ -41,38 +62,16 @@ const createForm = (insertPoint, docId) => {
     actions.appendChild(submit);
     form.appendChild(textarea);
     form.appendChild(actions);
-    insertPoint.appendChild(form);
+    block.after(form);
 
     textarea.focus();
 
-    const doSubmit = async () => {
-        const directive = textarea.value.trim();
-        if (!directive) return;
-
-        const afterLine = insertPoint.dataset.afterLine;
-        submit.disabled = true;
-        textarea.disabled = true;
-
-        try {
-            const body = new URLSearchParams({
-                doc_id: docId,
-                after_line: afterLine,
-                directive,
-            });
-            const response = await fetch("/api/d/insert-magent-directive", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body,
-            });
-            if (!response.ok) {
-                throw new Error("Failed to insert directive");
-            }
-            window.location.reload();
-        } catch (err) {
-            console.error(err);
-            submit.disabled = false;
-            textarea.disabled = false;
-        }
+    const afterLine = block.dataset.afterLine;
+    const doSubmit = () => {
+        submitDirective(docId, afterLine, textarea.value.trim(), (disabled) => {
+            submit.disabled = disabled;
+            textarea.disabled = disabled;
+        });
     };
 
     submit.addEventListener("click", doSubmit);
@@ -86,10 +85,34 @@ const createForm = (insertPoint, docId) => {
 };
 
 const initInsertPoints = (docId) => {
-    document.querySelectorAll(".agent-insert-btn").forEach((btn) => {
+    document.querySelectorAll(".agent-block .agent-insert-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
-            createForm(btn.closest(".agent-insert-point"), docId);
+            createForm(btn.closest(".agent-block"), docId);
         });
+    });
+};
+
+const initBottomInput = (docId) => {
+    const bottom = document.querySelector(".agent-bottom-input");
+    if (!bottom) return;
+
+    const textarea = bottom.querySelector(".agent-insert-input");
+    const submit = bottom.querySelector(".agent-insert-submit");
+    if (!textarea || !submit) return;
+
+    const afterLine = bottom.dataset.afterLine;
+    const doSubmit = () => {
+        submitDirective(docId, afterLine, textarea.value.trim(), (disabled) => {
+            submit.disabled = disabled;
+            textarea.disabled = disabled;
+        });
+    };
+
+    submit.addEventListener("click", doSubmit);
+    textarea.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            doSubmit();
+        }
     });
 };
 
@@ -172,6 +195,7 @@ export const initAgent = () => {
     if (!docId) return;
 
     initInsertPoints(docId);
+    initBottomInput(docId);
     initAcceptButtons(docId);
     initRemoveButtons(docId);
 };
