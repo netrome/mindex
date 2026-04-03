@@ -93,7 +93,7 @@ it adds one bounded file operation within existing invariants.
 
 ## Task Breakdown
 
-### Task 1: Domain move function
+### Task 1: Domain move function ✓
 - Add a domain function to validate and move a file within root.
 - Add unit tests for success, conflict, not-found, traversal rejection, and
   symlink escape rejection.

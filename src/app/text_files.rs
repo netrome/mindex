@@ -20,7 +20,7 @@ pub(crate) async fn text_view(
     let git_enabled = state.git_dir.is_some();
     let contents = load_text_file(&state.config.root, &file_id).map_err(|err| match err {
         DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
-        DocError::BadPath => (StatusCode::BAD_REQUEST, "invalid path"),
+        DocError::BadPath | DocError::Conflict => (StatusCode::BAD_REQUEST, "invalid path"),
         DocError::Io(err) => {
             eprintln!("failed to load text file {file_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -58,7 +58,9 @@ pub(crate) async fn text_edit(
 ) -> Result<templates::TextEditTemplate, (StatusCode, &'static str)> {
     let git_enabled = state.git_dir.is_some();
     let contents = load_text_file(&state.config.root, &file_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to load text file {file_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -86,7 +88,9 @@ pub(crate) async fn text_save(
 ) -> Result<templates::TextEditTemplate, (StatusCode, &'static str)> {
     let git_enabled = state.git_dir.is_some();
     let path = resolve_text_file_path(&state.config.root, &file_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to resolve text file {file_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")

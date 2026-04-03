@@ -51,7 +51,7 @@ fn directory_browse(
 ) -> Result<templates::DirectoryBrowseTemplate, (StatusCode, &'static str)> {
     let git_enabled = state.git_dir.is_some();
     let listing = list_directory(&state.config.root, &current_dir).map_err(|err| match err {
-        DocError::BadPath => (StatusCode::BAD_REQUEST, "invalid path"),
+        DocError::BadPath | DocError::Conflict => (StatusCode::BAD_REQUEST, "invalid path"),
         DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
         DocError::Io(err) => {
             eprintln!("failed to list directory: {err}");
@@ -210,7 +210,7 @@ pub(crate) async fn document_create(
     let empty = String::new();
     match create_document(&state.config.root, &doc_id, &empty) {
         Ok(()) => Ok(Redirect::to(&format!("/edit/{doc_id}"))),
-        Err(DocError::BadPath) => Err((
+        Err(DocError::BadPath) | Err(DocError::Conflict) => Err((
             StatusCode::BAD_REQUEST,
             templates::NewDocumentTemplate {
                 app_name: app_name.clone(),
@@ -483,7 +483,9 @@ pub(crate) async fn document_edit(
 ) -> Result<templates::EditTemplate, (StatusCode, &'static str)> {
     let git_enabled = state.git_dir.is_some();
     let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to load document {doc_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -506,7 +508,9 @@ pub(crate) async fn document_save(
 ) -> Result<templates::EditTemplate, (StatusCode, &'static str)> {
     let git_enabled = state.git_dir.is_some();
     let path = resolve_doc_path(&state.config.root, &doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to resolve document {doc_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -565,7 +569,9 @@ pub(crate) async fn document_toggle_task(
     }
 
     let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to resolve document {doc_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -611,7 +617,9 @@ pub(crate) async fn document_accept_magent_edit(
     }
 
     let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to resolve document {doc_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -658,7 +666,9 @@ pub(crate) async fn document_insert_magent_directive(
     }
 
     let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to resolve document {doc_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -704,7 +714,9 @@ pub(crate) async fn document_remove_magent_interaction(
     }
 
     let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to resolve document {doc_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -755,7 +767,9 @@ pub(crate) async fn document_add_task(
     }
 
     let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to resolve document {doc_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -802,7 +816,9 @@ pub(crate) async fn document_reorder_range(
     }
 
     let path = resolve_doc_path(&state.config.root, doc_id).map_err(|err| match err {
-        DocError::NotFound | DocError::BadPath => (StatusCode::NOT_FOUND, "not found"),
+        DocError::NotFound | DocError::BadPath | DocError::Conflict => {
+            (StatusCode::NOT_FOUND, "not found")
+        }
         DocError::Io(err) => {
             eprintln!("failed to resolve document {doc_id}: {err}");
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")

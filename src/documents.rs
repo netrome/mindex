@@ -32,12 +32,13 @@ pub(crate) use rendering::{
 pub(crate) use search::{SearchResult, search_documents};
 pub(crate) use tasks::{add_task_item_in_list, collect_mentions, toggle_task_item};
 
-use paths::doc_id_to_path;
+use paths::{dir_to_path, doc_id_to_path, supported_file_id_to_path};
 
 #[derive(Debug)]
 pub(crate) enum DocError {
     BadPath,
     NotFound,
+    Conflict,
     Io(std::io::Error),
 }
 
@@ -77,6 +78,51 @@ pub(crate) fn create_document(root: &Path, doc_id: &str, contents: &str) -> Resu
     }
 
     atomic_write(&target, contents).map_err(DocError::Io)
+}
+
+pub(crate) fn move_file(root: &Path, source_path: &str, target_dir: &str) -> Result<(), DocError> {
+    let source_rel = supported_file_id_to_path(source_path).ok_or(DocError::BadPath)?;
+    let target_dir_rel = dir_to_path(target_dir).ok_or(DocError::BadPath)?;
+
+    // Resolve source: must exist, be a file, and be within root.
+    let source_abs = root.join(&source_rel);
+    let source_resolved = source_abs.canonicalize().map_err(|err| match err.kind() {
+        ErrorKind::NotFound => DocError::NotFound,
+        _ => DocError::Io(err),
+    })?;
+    if !source_resolved.starts_with(root) {
+        return Err(DocError::BadPath);
+    }
+    if !source_resolved.is_file() {
+        return Err(DocError::NotFound);
+    }
+
+    // Resolve target directory: must exist, be a directory, and be within root.
+    let target_resolved = if target_dir.is_empty() {
+        root.to_path_buf()
+    } else {
+        let target_abs = root.join(&target_dir_rel);
+        let resolved = target_abs.canonicalize().map_err(|err| match err.kind() {
+            ErrorKind::NotFound => DocError::NotFound,
+            _ => DocError::Io(err),
+        })?;
+        if !resolved.starts_with(root) {
+            return Err(DocError::BadPath);
+        }
+        resolved
+    };
+    if !target_resolved.is_dir() {
+        return Err(DocError::NotFound);
+    }
+
+    // Build destination and check for conflicts.
+    let file_name = source_rel.file_name().ok_or(DocError::BadPath)?;
+    let dest = target_resolved.join(file_name);
+    if dest.exists() {
+        return Err(DocError::Conflict);
+    }
+
+    std::fs::rename(&source_resolved, &dest).map_err(DocError::Io)
 }
 
 pub(crate) fn normalize_newlines(contents: &str) -> String {
@@ -196,6 +242,188 @@ mod tests {
 
         // When
         let err = create_document(&root, "link/escape.md", "oops").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+    }
+
+    // -- move_file --
+
+    #[test]
+    fn move_file__should_move_file_to_another_directory() {
+        // Given
+        let root = create_temp_root("move-basic");
+        std::fs::create_dir_all(root.join("a")).expect("mkdir a");
+        std::fs::create_dir_all(root.join("x")).expect("mkdir x");
+        std::fs::write(root.join("a/b.md"), "# B").expect("write");
+
+        // When
+        move_file(&root, "a/b.md", "x").expect("move file");
+
+        // Then
+        assert!(!root.join("a/b.md").exists());
+        assert_eq!(
+            std::fs::read_to_string(root.join("x/b.md")).expect("read"),
+            "# B"
+        );
+    }
+
+    #[test]
+    fn move_file__should_move_file_to_root() {
+        // Given
+        let root = create_temp_root("move-to-root");
+        std::fs::create_dir_all(root.join("sub")).expect("mkdir");
+        std::fs::write(root.join("sub/doc.md"), "# Doc").expect("write");
+
+        // When
+        move_file(&root, "sub/doc.md", "").expect("move file");
+
+        // Then
+        assert!(!root.join("sub/doc.md").exists());
+        assert_eq!(
+            std::fs::read_to_string(root.join("doc.md")).expect("read"),
+            "# Doc"
+        );
+    }
+
+    #[test]
+    fn move_file__should_move_non_markdown_supported_files() {
+        // Given
+        let root = create_temp_root("move-non-md");
+        std::fs::create_dir_all(root.join("a")).expect("mkdir a");
+        std::fs::create_dir_all(root.join("b")).expect("mkdir b");
+        std::fs::write(root.join("a/photo.png"), "png-data").expect("write");
+
+        // When
+        move_file(&root, "a/photo.png", "b").expect("move file");
+
+        // Then
+        assert!(!root.join("a/photo.png").exists());
+        assert_eq!(
+            std::fs::read_to_string(root.join("b/photo.png")).expect("read"),
+            "png-data"
+        );
+    }
+
+    #[test]
+    fn move_file__should_return_not_found_for_missing_source() {
+        // Given
+        let root = create_temp_root("move-not-found");
+        std::fs::create_dir_all(root.join("target")).expect("mkdir");
+
+        // When
+        let err = move_file(&root, "missing.md", "target").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::NotFound));
+    }
+
+    #[test]
+    fn move_file__should_return_conflict_when_destination_exists() {
+        // Given
+        let root = create_temp_root("move-conflict");
+        std::fs::create_dir_all(root.join("a")).expect("mkdir a");
+        std::fs::create_dir_all(root.join("b")).expect("mkdir b");
+        std::fs::write(root.join("a/doc.md"), "source").expect("write");
+        std::fs::write(root.join("b/doc.md"), "existing").expect("write");
+
+        // When
+        let err = move_file(&root, "a/doc.md", "b").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::Conflict));
+        // Source should be untouched.
+        assert_eq!(
+            std::fs::read_to_string(root.join("a/doc.md")).expect("read"),
+            "source"
+        );
+    }
+
+    #[test]
+    fn move_file__should_reject_source_path_traversal() {
+        // Given
+        let root = create_temp_root("move-traversal-src");
+        std::fs::create_dir_all(root.join("target")).expect("mkdir");
+
+        // When
+        let err = move_file(&root, "../escape.md", "target").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+    }
+
+    #[test]
+    fn move_file__should_reject_target_path_traversal() {
+        // Given
+        let root = create_temp_root("move-traversal-tgt");
+        std::fs::write(root.join("doc.md"), "# Doc").expect("write");
+
+        // When
+        let err = move_file(&root, "doc.md", "../").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+    }
+
+    #[test]
+    fn move_file__should_reject_unsupported_extension() {
+        // Given
+        let root = create_temp_root("move-bad-ext");
+        std::fs::create_dir_all(root.join("target")).expect("mkdir");
+        std::fs::write(root.join("script.sh"), "#!/bin/sh").expect("write");
+
+        // When
+        let err = move_file(&root, "script.sh", "target").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+    }
+
+    #[test]
+    fn move_file__should_return_not_found_for_missing_target_dir() {
+        // Given
+        let root = create_temp_root("move-no-target");
+        std::fs::write(root.join("doc.md"), "# Doc").expect("write");
+
+        // When
+        let err = move_file(&root, "doc.md", "nonexistent").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::NotFound));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn move_file__should_reject_symlink_escape_in_source() {
+        use std::os::unix::fs::symlink;
+
+        // Given
+        let root = create_temp_root("move-symlink-src");
+        let outside = create_temp_root("move-symlink-src-outside");
+        std::fs::write(outside.join("secret.md"), "secret").expect("write");
+        symlink(&outside, root.join("link")).expect("symlink");
+        std::fs::create_dir_all(root.join("target")).expect("mkdir");
+
+        // When
+        let err = move_file(&root, "link/secret.md", "target").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn move_file__should_reject_symlink_escape_in_target() {
+        use std::os::unix::fs::symlink;
+
+        // Given
+        let root = create_temp_root("move-symlink-tgt");
+        let outside = create_temp_root("move-symlink-tgt-outside");
+        symlink(&outside, root.join("link")).expect("symlink");
+        std::fs::write(root.join("doc.md"), "# Doc").expect("write");
+
+        // When
+        let err = move_file(&root, "doc.md", "link").expect_err("should fail");
 
         // Then
         assert!(matches!(err, DocError::BadPath));

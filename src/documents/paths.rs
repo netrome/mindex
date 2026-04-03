@@ -214,7 +214,7 @@ fn collect_markdown_paths_recursive(dir: &Path, paths: &mut Vec<PathBuf>) -> std
     Ok(())
 }
 
-fn dir_to_path(dir: &str) -> Option<PathBuf> {
+pub(super) fn dir_to_path(dir: &str) -> Option<PathBuf> {
     if dir.is_empty() {
         return Some(PathBuf::new());
     }
@@ -225,6 +225,22 @@ fn dir_to_path(dir: &str) -> Option<PathBuf> {
             _ => return None,
         }
     }
+    Some(path.to_path_buf())
+}
+
+pub(super) fn supported_file_id_to_path(file_id: &str) -> Option<PathBuf> {
+    if file_id.is_empty() {
+        return None;
+    }
+    let path = Path::new(file_id);
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => {}
+            _ => return None,
+        }
+    }
+    let ext = path.extension()?.to_str()?;
+    FileKind::from_extension(ext)?;
     Some(path.to_path_buf())
 }
 
