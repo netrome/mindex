@@ -178,13 +178,13 @@ pub(crate) async fn agent_script() -> axum::response::Response {
         .unwrap()
 }
 
-pub(crate) async fn file_move_script() -> axum::response::Response {
-    const FILE_MOVE_JS_CONTENT: &str = include_str!("../assets/features/file_move.js");
+pub(crate) async fn file_manage_script() -> axum::response::Response {
+    const FILE_MANAGE_JS_CONTENT: &str = include_str!("../assets/features/file_manage.js");
     axum::response::Response::builder()
         .status(200)
         .header("content-type", "application/javascript")
         .header("cache-control", "public, max-age=3600")
-        .body(FILE_MOVE_JS_CONTENT.into())
+        .body(FILE_MANAGE_JS_CONTENT.into())
         .unwrap()
 }
 

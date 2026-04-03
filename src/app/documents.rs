@@ -937,23 +937,23 @@ pub(crate) async fn document_delete_file(
     Ok(StatusCode::NO_CONTENT)
 }
 
-pub(crate) async fn file_move_view_root(
+pub(crate) async fn file_manage_view_root(
     State(state): State<state::AppState>,
-) -> Result<templates::FileMoveTemplate, (StatusCode, &'static str)> {
-    file_move_view(state, String::new())
+) -> Result<templates::FileManageTemplate, (StatusCode, &'static str)> {
+    file_manage_view(state, String::new())
 }
 
-pub(crate) async fn file_move_view_path(
+pub(crate) async fn file_manage_view_path(
     State(state): State<state::AppState>,
     AxumPath(path): AxumPath<String>,
-) -> Result<templates::FileMoveTemplate, (StatusCode, &'static str)> {
-    file_move_view(state, path)
+) -> Result<templates::FileManageTemplate, (StatusCode, &'static str)> {
+    file_manage_view(state, path)
 }
 
-fn file_move_view(
+fn file_manage_view(
     state: state::AppState,
     current_dir: String,
-) -> Result<templates::FileMoveTemplate, (StatusCode, &'static str)> {
+) -> Result<templates::FileManageTemplate, (StatusCode, &'static str)> {
     let listing = list_directory(&state.config.root, &current_dir).map_err(|err| match err {
         DocError::BadPath | DocError::Conflict => (StatusCode::BAD_REQUEST, "invalid path"),
         DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
@@ -1005,7 +1005,7 @@ fn file_move_view(
         })
         .collect();
 
-    Ok(templates::FileMoveTemplate {
+    Ok(templates::FileManageTemplate {
         app_name: state.config.app_name,
         current_dir,
         current_dir_name,

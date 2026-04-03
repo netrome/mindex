@@ -95,8 +95,8 @@ pub fn app(config: config::AppConfig) -> Router {
         )
         .route("/api/d/move-file", post(documents::document_move_file))
         .route("/api/d/delete-file", post(documents::document_delete_file))
-        .route("/move", get(documents::file_move_view_root))
-        .route("/move/{*path}", get(documents::file_move_view_path))
+        .route("/manage", get(documents::file_manage_view_root))
+        .route("/manage/{*path}", get(documents::file_manage_view_path))
         .route("/push/subscribe", get(push::push_subscribe))
         .route("/api/push/public-key", get(push::push_public_key))
         .route("/api/push/test", post(push::push_test))
@@ -127,8 +127,8 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/static/features/reorder.js", get(assets::reorder_script))
         .route("/static/features/agent.js", get(assets::agent_script))
         .route(
-            "/static/features/file_move.js",
-            get(assets::file_move_script),
+            "/static/features/file_manage.js",
+            get(assets::file_manage_script),
         )
         .route(
             "/static/features/push_subscribe.js",

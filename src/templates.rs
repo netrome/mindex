@@ -89,8 +89,8 @@ pub(crate) struct ReorderBlock {
 }
 
 #[derive(Template, WebTemplate)]
-#[template(path = "file_move.html")]
-pub(crate) struct FileMoveTemplate {
+#[template(path = "file_manage.html")]
+pub(crate) struct FileManageTemplate {
     pub(crate) app_name: String,
     pub(crate) current_dir: String,
     pub(crate) current_dir_name: String,

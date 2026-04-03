@@ -27,13 +27,13 @@ const postDelete = async (filePath) => {
     }
 };
 
-export const initFileMove = () => {
-    const page = document.querySelector(".move-page");
+export const initFileManage = () => {
+    const page = document.querySelector(".manage-page");
     if (!page) {
         return;
     }
 
-    const notice = document.querySelector("[data-move-notice]");
+    const notice = document.querySelector("[data-manage-notice]");
 
     const setNotice = (message) => {
         if (notice) {
@@ -48,7 +48,7 @@ export const initFileMove = () => {
 
     const clearHighlight = () => {
         if (highlightedTarget) {
-            highlightedTarget.classList.remove("move-drop-over");
+            highlightedTarget.classList.remove("manage-drop-over");
         }
         highlightedTarget = null;
     };
@@ -75,7 +75,7 @@ export const initFileMove = () => {
             clearHighlight();
             return null;
         }
-        const target = el.closest(".move-drop-target");
+        const target = el.closest(".manage-drop-target");
         if (!target) {
             clearHighlight();
             return null;
@@ -83,7 +83,7 @@ export const initFileMove = () => {
         if (highlightedTarget !== target) {
             clearHighlight();
             highlightedTarget = target;
-            highlightedTarget.classList.add("move-drop-over");
+            highlightedTarget.classList.add("manage-drop-over");
         }
         return target;
     };
@@ -145,13 +145,13 @@ export const initFileMove = () => {
     };
 
     // Native drag events (mouse)
-    document.querySelectorAll(".move-handle").forEach((handle) => {
+    document.querySelectorAll(".manage-handle").forEach((handle) => {
         handle.addEventListener("dragstart", (event) => {
             if (busy) {
                 event.preventDefault();
                 return;
             }
-            const source = handle.closest(".move-drag-source");
+            const source = handle.closest(".manage-drag-source");
             if (!source) {
                 return;
             }
@@ -176,7 +176,7 @@ export const initFileMove = () => {
             if (event.pointerType === "mouse" || dragState || busy) {
                 return;
             }
-            const source = handle.closest(".move-drag-source");
+            const source = handle.closest(".manage-drag-source");
             if (!source) {
                 return;
             }
@@ -252,7 +252,7 @@ export const initFileMove = () => {
     });
 
     // Drop target events (native drag)
-    document.querySelectorAll(".move-drop-target").forEach((target) => {
+    document.querySelectorAll(".manage-drop-target").forEach((target) => {
         target.addEventListener("dragover", (event) => {
             if (!dragState || dragState.type === "pointer") {
                 return;
@@ -261,7 +261,7 @@ export const initFileMove = () => {
             if (highlightedTarget !== target) {
                 clearHighlight();
                 highlightedTarget = target;
-                highlightedTarget.classList.add("move-drop-over");
+                highlightedTarget.classList.add("manage-drop-over");
             }
         });
 
@@ -287,7 +287,7 @@ export const initFileMove = () => {
     });
 
     // Delete buttons
-    document.querySelectorAll(".move-delete-btn").forEach((btn) => {
+    document.querySelectorAll(".manage-delete-btn").forEach((btn) => {
         btn.addEventListener("click", async () => {
             if (busy) {
                 return;
@@ -304,7 +304,7 @@ export const initFileMove = () => {
             setNotice("Deleting\u2026");
             try {
                 await postDelete(filePath);
-                const card = btn.closest(".move-drag-source");
+                const card = btn.closest(".manage-drag-source");
                 if (card) {
                     card.remove();
                 }

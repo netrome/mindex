@@ -7,7 +7,7 @@ import { initUploads } from "./features/uploads.js";
 import { initEditorPasteUploads } from "./features/editor_paste_upload.js";
 import { initAbcRender } from "./features/abc_render.js";
 import { initAgent } from "./features/agent.js";
-import { initFileMove } from "./features/file_move.js";
+import { initFileManage } from "./features/file_manage.js";
 
 const init = () => {
     initTodoToggle();
@@ -19,7 +19,7 @@ const init = () => {
     initEditorPasteUploads();
     initAbcRender();
     initAgent();
-    initFileMove();
+    initFileManage();
 };
 
 if (document.readyState === "loading") {
