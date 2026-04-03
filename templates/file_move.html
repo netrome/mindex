@@ -28,20 +28,20 @@
 <div class="move-page" data-current-dir="{{ current_dir }}" data-path-prefix="{{ path_prefix }}">
     <div class="dir-grid">
         {% if !current_dir.is_empty() %}
-        <div class="dir-card dir-card-parent move-drop-target" data-dir-path="{{ parent_dir }}">
+        <a href="/move{% if !parent_dir.is_empty() %}/{{ parent_dir }}{% endif %}" class="dir-card dir-card-parent move-drop-target" data-dir-path="{{ parent_dir }}">
             <svg class="dir-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
             <span class="dir-card-name">..</span>
-        </div>
+        </a>
         {% endif %}
         {% for dir in directories %}
-        <div class="dir-card dir-card-folder move-drop-target" data-dir-path="{{ path_prefix }}{{ dir }}">
+        <a href="/move/{{ path_prefix }}{{ dir }}" class="dir-card dir-card-folder move-drop-target" data-dir-path="{{ path_prefix }}{{ dir }}">
             <svg class="dir-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
             <span class="dir-card-name">{{ dir }}</span>
-        </div>
+        </a>
         {% endfor %}
         {% for file in files %}
         <div class="dir-card dir-card-file move-drag-source" data-file-path="{{ path_prefix }}{{ file.name }}">
