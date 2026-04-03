@@ -95,7 +95,7 @@ invariants, similar to the move feature.
 
 ## Task Breakdown
 
-### Task 1: Domain delete function
+### Task 1: Domain delete function ✓
 - Add a domain function to validate and delete a file within root.
 - Add unit tests for success, not-found, traversal rejection, unsupported
   extension, and symlink escape rejection.

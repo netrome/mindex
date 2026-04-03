@@ -125,6 +125,24 @@ pub(crate) fn move_file(root: &Path, source_path: &str, target_dir: &str) -> Res
     std::fs::rename(&source_resolved, &dest).map_err(DocError::Io)
 }
 
+pub(crate) fn delete_file(root: &Path, file_path: &str) -> Result<(), DocError> {
+    let file_rel = supported_file_id_to_path(file_path).ok_or(DocError::BadPath)?;
+
+    let file_abs = root.join(&file_rel);
+    let resolved = file_abs.canonicalize().map_err(|err| match err.kind() {
+        ErrorKind::NotFound => DocError::NotFound,
+        _ => DocError::Io(err),
+    })?;
+    if !resolved.starts_with(root) {
+        return Err(DocError::BadPath);
+    }
+    if !resolved.is_file() {
+        return Err(DocError::NotFound);
+    }
+
+    std::fs::remove_file(&resolved).map_err(DocError::Io)
+}
+
 pub(crate) fn normalize_newlines(contents: &str) -> String {
     if !contents.contains('\r') {
         return contents.to_string();
@@ -427,5 +445,104 @@ mod tests {
 
         // Then
         assert!(matches!(err, DocError::BadPath));
+    }
+
+    // -- delete_file --
+
+    #[test]
+    fn delete_file__should_remove_file() {
+        // Given
+        let root = create_temp_root("delete-basic");
+        std::fs::write(root.join("doc.md"), "# Doc").expect("write");
+
+        // When
+        delete_file(&root, "doc.md").expect("delete file");
+
+        // Then
+        assert!(!root.join("doc.md").exists());
+    }
+
+    #[test]
+    fn delete_file__should_remove_file_in_subdirectory() {
+        // Given
+        let root = create_temp_root("delete-sub");
+        std::fs::create_dir_all(root.join("notes")).expect("mkdir");
+        std::fs::write(root.join("notes/todo.md"), "# Todo").expect("write");
+
+        // When
+        delete_file(&root, "notes/todo.md").expect("delete file");
+
+        // Then
+        assert!(!root.join("notes/todo.md").exists());
+    }
+
+    #[test]
+    fn delete_file__should_remove_non_markdown_supported_files() {
+        // Given
+        let root = create_temp_root("delete-non-md");
+        std::fs::write(root.join("photo.png"), "png-data").expect("write");
+
+        // When
+        delete_file(&root, "photo.png").expect("delete file");
+
+        // Then
+        assert!(!root.join("photo.png").exists());
+    }
+
+    #[test]
+    fn delete_file__should_return_not_found_for_missing_file() {
+        // Given
+        let root = create_temp_root("delete-not-found");
+
+        // When
+        let err = delete_file(&root, "missing.md").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::NotFound));
+    }
+
+    #[test]
+    fn delete_file__should_reject_path_traversal() {
+        // Given
+        let root = create_temp_root("delete-traversal");
+
+        // When
+        let err = delete_file(&root, "../escape.md").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+    }
+
+    #[test]
+    fn delete_file__should_reject_unsupported_extension() {
+        // Given
+        let root = create_temp_root("delete-bad-ext");
+        std::fs::write(root.join("script.sh"), "#!/bin/sh").expect("write");
+
+        // When
+        let err = delete_file(&root, "script.sh").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn delete_file__should_reject_symlink_escape() {
+        use std::os::unix::fs::symlink;
+
+        // Given
+        let root = create_temp_root("delete-symlink");
+        let outside = create_temp_root("delete-symlink-outside");
+        std::fs::write(outside.join("secret.md"), "secret").expect("write");
+        symlink(&outside, root.join("link")).expect("symlink");
+
+        // When
+        let err = delete_file(&root, "link/secret.md").expect_err("should fail");
+
+        // Then
+        assert!(matches!(err, DocError::BadPath));
+        // File outside root should be untouched.
+        assert!(outside.join("secret.md").exists());
     }
 }
