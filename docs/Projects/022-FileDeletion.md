@@ -105,7 +105,7 @@ Acceptance criteria:
 - Invalid or escaping paths are rejected.
 - Missing file returns not-found.
 
-### Task 2: Delete API endpoint
+### Task 2: Delete API endpoint ✓
 - Add `POST /api/d/delete-file` route + handler.
 - Map domain errors to HTTP status codes.
 - Add integration tests.

@@ -1,6 +1,6 @@
 use crate::documents::{
     BlockKind, DocError, FileKind, MagentRegion, ReorderError, accept_magent_edit,
-    add_task_item_in_list, collect_mentions, create_document, find_magent_regions,
+    add_task_item_in_list, collect_mentions, create_document, delete_file, find_magent_regions,
     insert_directive, line_count, lines_for_display, list_directory, load_document, move_file,
     normalize_newlines, remove_magent_interaction, render_document_html, render_magent_blocks,
     render_markdown_snippet, reorder_range, resolve_doc_path, scan_block_ranges, search_documents,
@@ -911,6 +911,28 @@ pub(crate) async fn document_move_file(
             }
         },
     )?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct DeleteFileForm {
+    pub(crate) file_path: String,
+}
+
+pub(crate) async fn document_delete_file(
+    State(state): State<state::AppState>,
+    Form(form): Form<DeleteFileForm>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    delete_file(&state.config.root, &form.file_path).map_err(|err| match err {
+        DocError::BadPath => (StatusCode::BAD_REQUEST, "invalid path"),
+        DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Conflict => (StatusCode::BAD_REQUEST, "invalid path"),
+        DocError::Io(err) => {
+            eprintln!("failed to delete file {}: {err}", form.file_path);
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
 
     Ok(StatusCode::NO_CONTENT)
 }

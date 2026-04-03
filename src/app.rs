@@ -94,6 +94,7 @@ pub fn app(config: config::AppConfig) -> Router {
             post(documents::document_reorder_range),
         )
         .route("/api/d/move-file", post(documents::document_move_file))
+        .route("/api/d/delete-file", post(documents::document_delete_file))
         .route("/move", get(documents::file_move_view_root))
         .route("/move/{*path}", get(documents::file_move_view_path))
         .route("/push/subscribe", get(push::push_subscribe))
@@ -1670,6 +1671,97 @@ text line 2
             std::fs::read_to_string(root.join("a/doc.md")).expect("read"),
             "source"
         );
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    // -- delete_file --
+
+    #[tokio::test]
+    async fn delete_file__should_delete_file_and_return_no_content() {
+        // Given
+        let root = create_temp_root("api-delete-ok");
+        std::fs::write(root.join("doc.md"), "# Doc").expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "file_path=doc.md";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/delete-file")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        assert!(!root.join("doc.md").exists());
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn delete_file__should_return_bad_request_for_invalid_path() {
+        // Given
+        let root = create_temp_root("api-delete-bad");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "file_path=..%2Fescape.md";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/delete-file")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn delete_file__should_return_not_found_for_missing_file() {
+        // Given
+        let root = create_temp_root("api-delete-404");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "file_path=missing.md";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/delete-file")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
