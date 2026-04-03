@@ -103,7 +103,7 @@ Acceptance criteria:
 - Invalid or escaping paths are rejected.
 - Existing destination file returns conflict.
 
-### Task 2: Move API endpoint
+### Task 2: Move API endpoint ✓
 - Add `POST /api/d/move-file` route + handler in `app/documents.rs`.
 - Map domain errors to HTTP status codes.
 - Add integration tests for success and error cases.

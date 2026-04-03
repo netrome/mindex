@@ -93,6 +93,7 @@ pub fn app(config: config::AppConfig) -> Router {
             "/api/d/reorder-range",
             post(documents::document_reorder_range),
         )
+        .route("/api/d/move-file", post(documents::document_move_file))
         .route("/push/subscribe", get(push::push_subscribe))
         .route("/api/push/public-key", get(push::push_public_key))
         .route("/api/push/test", post(push::push_test))
@@ -1527,6 +1528,142 @@ text line 2
 
         // Then
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    // -- move_file --
+
+    #[tokio::test]
+    async fn move_file__should_move_file_and_return_no_content() {
+        // Given
+        let root = create_temp_root("api-move-ok");
+        std::fs::create_dir_all(root.join("src")).expect("mkdir src");
+        std::fs::create_dir_all(root.join("dest")).expect("mkdir dest");
+        std::fs::write(root.join("src/note.md"), "# Note").expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "source_path=src%2Fnote.md&target_dir=dest";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/move-file")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        assert!(!root.join("src/note.md").exists());
+        assert_eq!(
+            std::fs::read_to_string(root.join("dest/note.md")).expect("read"),
+            "# Note"
+        );
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn move_file__should_return_bad_request_for_invalid_path() {
+        // Given
+        let root = create_temp_root("api-move-bad");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "source_path=..%2Fescape.md&target_dir=";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/move-file")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn move_file__should_return_not_found_for_missing_source() {
+        // Given
+        let root = create_temp_root("api-move-404");
+        std::fs::create_dir_all(root.join("dest")).expect("mkdir");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "source_path=missing.md&target_dir=dest";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/move-file")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn move_file__should_return_conflict_when_destination_exists() {
+        // Given
+        let root = create_temp_root("api-move-409");
+        std::fs::create_dir_all(root.join("a")).expect("mkdir a");
+        std::fs::create_dir_all(root.join("b")).expect("mkdir b");
+        std::fs::write(root.join("a/doc.md"), "source").expect("write");
+        std::fs::write(root.join("b/doc.md"), "existing").expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let body = "source_path=a%2Fdoc.md&target_dir=b";
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/d/move-file")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        // Source untouched.
+        assert_eq!(
+            std::fs::read_to_string(root.join("a/doc.md")).expect("read"),
+            "source"
+        );
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
