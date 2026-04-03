@@ -5,7 +5,7 @@
 
 ## To do
 - [ ] [Agent view](020-AgentView.md) (magent interaction via dedicated view)
-- [ ] [File deletion](022-FileDeletion.md)
+- [x] [File deletion](022-FileDeletion.md)
 - [ ] Public pages
 - [ ] Custom styling of pages
   - Allow embed ad-hoc styles on a page to "pimp it up".

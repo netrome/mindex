@@ -85,6 +85,17 @@
             </svg>
             {% endmatch %}
             <span class="dir-card-name">{{ file.name }}</span>
+            <button
+                type="button"
+                class="move-delete-btn"
+                data-file-path="{{ path_prefix }}{{ file.name }}"
+                aria-label="Delete {{ file.name }}"
+            >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
         </div>
         {% endfor %}
     </div>

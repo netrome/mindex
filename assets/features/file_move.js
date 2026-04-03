@@ -14,6 +14,19 @@ const postMove = async (sourcePath, targetDir) => {
     }
 };
 
+const postDelete = async (filePath) => {
+    const body = new URLSearchParams({ file_path: filePath });
+    const response = await fetch("/api/d/delete-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Failed to delete file");
+    }
+};
+
 export const initFileMove = () => {
     const page = document.querySelector(".move-page");
     if (!page) {
@@ -270,6 +283,39 @@ export const initFileMove = () => {
                 return;
             }
             await applyMove(currentDrag.filePath, targetDir);
+        });
+    });
+
+    // Delete buttons
+    document.querySelectorAll(".move-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (busy) {
+                return;
+            }
+            const filePath = btn.dataset.filePath;
+            if (!filePath) {
+                return;
+            }
+            const fileName = filePath.split("/").pop() || filePath;
+            if (!confirm(`Delete "${fileName}"?`)) {
+                return;
+            }
+            busy = true;
+            setNotice("Deleting\u2026");
+            try {
+                await postDelete(filePath);
+                const card = btn.closest(".move-drag-source");
+                if (card) {
+                    card.remove();
+                }
+                setNotice("Drag a file onto a folder to move it.");
+            } catch (err) {
+                console.error(err);
+                setNotice(
+                    err.message || "Failed to delete file. Please try again."
+                );
+            }
+            busy = false;
         });
     });
 };

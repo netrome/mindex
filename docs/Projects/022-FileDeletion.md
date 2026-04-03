@@ -1,7 +1,7 @@
 # File Deletion
 
 ## Status
-Proposed
+Done
 
 ## Goal
 Allow deleting files from the directory browser UI, including on phone.
@@ -114,7 +114,7 @@ Acceptance criteria:
 - Valid request returns `204`.
 - Invalid path returns `400`, missing file returns `404`.
 
-### Task 3: Delete button UI on move page
+### Task 3: Delete button UI on move page ✓
 - Add a delete button (x) to each file card in `file_move.html`.
 - Add JS handler: `confirm()` then POST, remove card from DOM on success.
 - Style the delete button.
