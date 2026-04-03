@@ -89,6 +89,19 @@ pub(crate) struct ReorderBlock {
 }
 
 #[derive(Template, WebTemplate)]
+#[template(path = "file_move.html")]
+pub(crate) struct FileMoveTemplate {
+    pub(crate) app_name: String,
+    pub(crate) current_dir: String,
+    pub(crate) current_dir_name: String,
+    pub(crate) path_prefix: String,
+    pub(crate) parent_dir: String,
+    pub(crate) breadcrumbs: Vec<BreadcrumbSegment>,
+    pub(crate) directories: Vec<String>,
+    pub(crate) files: Vec<DirectoryFileEntry>,
+}
+
+#[derive(Template, WebTemplate)]
 #[template(path = "agent.html")]
 pub(crate) struct AgentViewTemplate {
     pub(crate) app_name: String,

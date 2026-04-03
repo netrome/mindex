@@ -915,6 +915,86 @@ pub(crate) async fn document_move_file(
     Ok(StatusCode::NO_CONTENT)
 }
 
+pub(crate) async fn file_move_view_root(
+    State(state): State<state::AppState>,
+) -> Result<templates::FileMoveTemplate, (StatusCode, &'static str)> {
+    file_move_view(state, String::new())
+}
+
+pub(crate) async fn file_move_view_path(
+    State(state): State<state::AppState>,
+    AxumPath(path): AxumPath<String>,
+) -> Result<templates::FileMoveTemplate, (StatusCode, &'static str)> {
+    file_move_view(state, path)
+}
+
+fn file_move_view(
+    state: state::AppState,
+    current_dir: String,
+) -> Result<templates::FileMoveTemplate, (StatusCode, &'static str)> {
+    let listing = list_directory(&state.config.root, &current_dir).map_err(|err| match err {
+        DocError::BadPath | DocError::Conflict => (StatusCode::BAD_REQUEST, "invalid path"),
+        DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
+        DocError::Io(err) => {
+            eprintln!("failed to list directory: {err}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    let path_prefix = if current_dir.is_empty() {
+        String::new()
+    } else {
+        format!("{current_dir}/")
+    };
+
+    let parent_dir = if current_dir.is_empty() {
+        String::new()
+    } else {
+        match current_dir.rfind('/') {
+            Some(pos) => current_dir[..pos].to_string(),
+            None => String::new(),
+        }
+    };
+
+    let breadcrumbs = build_breadcrumbs(&current_dir);
+
+    let current_dir_name = current_dir
+        .rsplit('/')
+        .next()
+        .unwrap_or(&current_dir)
+        .to_string();
+
+    let files = listing
+        .files
+        .into_iter()
+        .map(|f| {
+            let full_path = format!("{path_prefix}{}", f.name);
+            let url = match f.kind {
+                FileKind::Document => format!("/d/{full_path}"),
+                FileKind::Pdf => format!("/pdf/{full_path}"),
+                FileKind::Image => format!("/file/{full_path}"),
+                FileKind::Text => format!("/view/{full_path}"),
+            };
+            templates::DirectoryFileEntry {
+                name: f.name,
+                kind: f.kind,
+                url,
+            }
+        })
+        .collect();
+
+    Ok(templates::FileMoveTemplate {
+        app_name: state.config.app_name,
+        current_dir,
+        current_dir_name,
+        path_prefix,
+        parent_dir,
+        breadcrumbs,
+        directories: listing.directories,
+        files,
+    })
+}
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct EditForm {
     pub(crate) contents: String,

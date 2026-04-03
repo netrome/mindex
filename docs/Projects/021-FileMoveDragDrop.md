@@ -112,15 +112,16 @@ Acceptance criteria:
 - Valid request returns `204`.
 - Invalid path returns `400`, missing source returns `404`, conflict returns `409`.
 
-### Task 3: Directory browser move mode UI
-- Add move-mode toggle to `templates/document_list.html`.
+### Task 3: Directory browser move mode UI ✓
+- Add separate `/move/` page (like `/reorder/`) with drag handles on file cards.
 - Implement drag/drop JS module for file cards and folder drop targets.
 - Reuse reorder-style pointer handling for touch drag.
+- Add "Move" link in directory browser nav bar.
 
 Acceptance criteria:
 - Desktop: drag file card onto folder card moves file.
 - Mobile: touch drag via handle moves file.
-- Standard navigation remains unchanged when move mode is off.
+- Standard navigation remains unchanged (move is a separate page).
 
 ### Task 4: UX polish and docs
 - Add drop-target highlight and busy/error states.

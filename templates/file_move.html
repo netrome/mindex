@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Move files{% if !current_dir.is_empty() %} in {{ current_dir }}{% endif %} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="{% if current_dir.is_empty() %}/{% else %}/d/{{ current_dir }}{% endif %}">Back</a>
+    <button type="button" class="pwa-refresh" data-pwa-refresh>
+        Refresh
+    </button>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+        Theme
+    </button>
+</div>
+
+{% if !current_dir.is_empty() %}
+<nav class="breadcrumbs" aria-label="Directory path">
+    {% for crumb in breadcrumbs %}
+    <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+    {% endfor %}
+    <span class="breadcrumb-current">{{ current_dir_name }}</span>
+</nav>
+{% endif %}
+
+<div class="notice" data-move-notice>Drag a file onto a folder to move it.</div>
+
+<div class="move-page" data-current-dir="{{ current_dir }}" data-path-prefix="{{ path_prefix }}">
+    <div class="dir-grid">
+        {% if !current_dir.is_empty() %}
+        <div class="dir-card dir-card-parent move-drop-target" data-dir-path="{{ parent_dir }}">
+            <svg class="dir-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span class="dir-card-name">..</span>
+        </div>
+        {% endif %}
+        {% for dir in directories %}
+        <div class="dir-card dir-card-folder move-drop-target" data-dir-path="{{ path_prefix }}{{ dir }}">
+            <svg class="dir-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span class="dir-card-name">{{ dir }}</span>
+        </div>
+        {% endfor %}
+        {% for file in files %}
+        <div class="dir-card dir-card-file move-drag-source" data-file-path="{{ path_prefix }}{{ file.name }}">
+            <button
+                type="button"
+                class="move-handle"
+                draggable="true"
+                aria-label="Drag to move file"
+            >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <line x1="8" y1="6" x2="16" y2="6"></line>
+                    <line x1="8" y1="10" x2="16" y2="10"></line>
+                    <line x1="8" y1="14" x2="16" y2="14"></line>
+                    <line x1="8" y1="18" x2="16" y2="18"></line>
+                </svg>
+            </button>
+            {% match file.kind %}
+            {% when FileKind::Document %}
+            <svg class="dir-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            {% when FileKind::Pdf %}
+            <svg class="dir-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <path d="M9 15v-2h1.5a1.5 1.5 0 0 0 0-3H9v5"></path>
+            </svg>
+            {% when FileKind::Image %}
+            <svg class="dir-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            {% when FileKind::Text %}
+            <svg class="dir-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            {% endmatch %}
+            <span class="dir-card-name">{{ file.name }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if directories.is_empty() && files.is_empty() %}
+        <p>No files to move.</p>
+    {% endif %}
+</div>
+{% endblock %}
