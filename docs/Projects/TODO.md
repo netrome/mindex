@@ -5,8 +5,7 @@
 
 ## To do
 - [ ] [Agent view](020-AgentView.md) (magent interaction via dedicated view)
-- [x] [File move drag and drop](021-FileMoveDragDrop.md)
-- [x] [Magent interaction rendering](019-MagentRendering.md)
+- [ ] [File deletion](022-FileDeletion.md)
 - [ ] Public pages
 - [ ] Custom styling of pages
   - Allow embed ad-hoc styles on a page to "pimp it up".
@@ -16,6 +15,8 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] [File move drag and drop](021-FileMoveDragDrop.md)
+- [x] [Magent interaction rendering](019-MagentRendering.md)
 - [x] [Split documents.rs](017-SplitDocuments.md)
 - [x] [File uploads](018-FileUploads.md)
 - [x] [File type support in directory browser](016-FileTypeSupport.md)
