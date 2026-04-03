@@ -5,7 +5,7 @@
 
 ## To do
 - [ ] [Agent view](020-AgentView.md) (magent interaction via dedicated view)
-- [ ] [File move drag and drop](021-FileMoveDragDrop.md)
+- [x] [File move drag and drop](021-FileMoveDragDrop.md)
 - [x] [Magent interaction rendering](019-MagentRendering.md)
 - [ ] Public pages
 - [ ] Custom styling of pages

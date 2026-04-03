@@ -31,6 +31,7 @@ export const initFileMove = () => {
     let dragState = null;
     let highlightedTarget = null;
     let autoScroll = null;
+    let busy = false;
 
     const clearHighlight = () => {
         if (highlightedTarget) {
@@ -75,12 +76,18 @@ export const initFileMove = () => {
     };
 
     const applyMove = async (sourcePath, targetDir) => {
+        if (busy) {
+            return;
+        }
+        busy = true;
+        setNotice("Moving\u2026");
         try {
             await postMove(sourcePath, targetDir);
             window.location.reload();
         } catch (err) {
             console.error(err);
             setNotice(err.message || "Failed to move file. Please try again.");
+            busy = false;
         }
     };
 
@@ -127,6 +134,10 @@ export const initFileMove = () => {
     // Native drag events (mouse)
     document.querySelectorAll(".move-handle").forEach((handle) => {
         handle.addEventListener("dragstart", (event) => {
+            if (busy) {
+                event.preventDefault();
+                return;
+            }
             const source = handle.closest(".move-drag-source");
             if (!source) {
                 return;
@@ -149,7 +160,7 @@ export const initFileMove = () => {
 
         // Pointer events (touch)
         handle.addEventListener("pointerdown", (event) => {
-            if (event.pointerType === "mouse" || dragState) {
+            if (event.pointerType === "mouse" || dragState || busy) {
                 return;
             }
             const source = handle.closest(".move-drag-source");

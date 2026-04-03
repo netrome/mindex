@@ -1,7 +1,7 @@
 # File Move Drag and Drop
 
 ## Status
-Proposed
+Done
 
 ## Goal
 Allow moving a file from one directory to another directly in the directory
@@ -123,7 +123,7 @@ Acceptance criteria:
 - Mobile: touch drag via handle moves file.
 - Standard navigation remains unchanged (move is a separate page).
 
-### Task 4: UX polish and docs
+### Task 4: UX polish and docs ✓
 - Add drop-target highlight and busy/error states.
 - Update README (directory browser section) after implementation.
 

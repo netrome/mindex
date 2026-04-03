@@ -18,6 +18,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 - Paste images directly into the editor (uploads and inserts markdown)
 - View PDFs stored under root, with in-app viewer and explicit open/download actions
 - Reorder mode (`/reorder/<doc>.md`) with block/line drag + drop
+- Move files between directories (`/move/`) with drag + drop (desktop and mobile)
 - Mobile-friendly UI
 - Optional in-app authentication with a signed cookie
 - Optional git diff + commit UI (when the root is a git repo)
