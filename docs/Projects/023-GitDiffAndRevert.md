@@ -65,25 +65,35 @@ Character-level diffs within rendered markdown are complex (a line-level change
 in source may affect multiple rendered elements) and fragile. Line-level gutter
 markers are simple, non-intrusive, and match what editors like helix do.
 
-### 2. HEAD version toggle
+### 2. Historical version view (arbitrary ref)
 
-A button to preview the last committed version of the document, allowing the
-user to flip between the current (possibly modified) content and the committed
-content.
+A way to view any committed version of a document, with a convenient toggle
+button to flip between the current working-tree content and the last committed
+version.
 
 **How it works:**
-- Add a query parameter: `/d/<doc_id>?ref=HEAD`.
-- When `ref=HEAD` is present and git is enabled, read the file content from
-  `git show HEAD:<file>` instead of disk.
+- Add a query parameter: `/d/<doc_id>?ref=<ref>`.
+- `<ref>` can be any valid git ref: `HEAD`, `HEAD~3`, a branch name, a tag, or
+  a commit SHA.
+- When `ref` is present and git is enabled, read the file content from
+  `git show <ref>:<file>` instead of disk.
+- Validate the ref with `git rev-parse --verify <ref>` before use. Return 404
+  if the ref is invalid or the file does not exist at that ref.
 - Render through the same `render_document_html` pipeline (no diff markers
-  when viewing HEAD since there is nothing to diff against).
-- The document template shows a toggle button ("Show changes" / "Show
-  committed") that switches between the two URLs. Only visible when git is
-  enabled and the file has uncommitted changes.
+  when viewing a historical version since there is nothing to diff against).
+- The document template shows a toggle button ("Show committed" / "Show
+  current") that switches between `?ref=HEAD` and the bare URL. Only visible
+  when git is enabled and the file has uncommitted changes. The toggle always
+  uses HEAD as the default ref since that is the primary use case.
 
 **Why a query param instead of a separate route?**
 Keeps the URL structure clean and avoids duplicating the document handler. The
 template and handler already receive the `git_enabled` flag.
+
+**Why support arbitrary refs?**
+The underlying `git show <ref>:<file>` command works for any ref. Supporting
+this is essentially free and enables useful workflows like reviewing what a
+document looked like at a specific tag or commit.
 
 ### 3. Per-file revert
 
@@ -134,7 +144,7 @@ tree to HEAD.
 - Per-hunk staging or partial revert (complexity explosion).
 - Tracking git state in memory across requests.
 - Character-level inline diffs in rendered markdown.
-- Diffing against arbitrary commits (only HEAD).
+- Diffing against arbitrary commits (gutter markers always diff against HEAD).
 
 ## ADR
 No ADR needed. This extends the existing git integration within the current
@@ -172,17 +182,23 @@ Acceptance criteria:
 - No annotation when diff info is None (git disabled or clean file).
 - Gutter markers are visible in both light and dark themes.
 
-### Task 3: HEAD version toggle
-- Add `git show HEAD:<file>` domain function.
-- Handle `ref=HEAD` query parameter in the document handler.
-- Add toggle button to document template (only shown for dirty files).
-- Diff markers are omitted when viewing the HEAD version.
+### Task 3: Historical version view
+- Add `git_show_file(root, ref, file_path)` domain function using
+  `git show <ref>:<file>`.
+- Validate the ref with `git rev-parse --verify <ref>`.
+- Handle `ref` query parameter in the document handler.
+- Add toggle button to document template (only shown for dirty files,
+  defaults to `?ref=HEAD`).
+- Diff markers are omitted when viewing a historical version.
+- Add tests for HEAD, tags, SHAs, and invalid refs.
 
 Acceptance criteria:
-- `/d/notes.md?ref=HEAD` renders the committed version.
+- `/d/notes.md?ref=HEAD` renders the last committed version.
+- `/d/notes.md?ref=v1.0` renders the version at tag v1.0.
+- `/d/notes.md?ref=abc123` renders the version at that commit.
 - Toggle button switches between current and HEAD.
 - Button is hidden when the file has no uncommitted changes.
-- Returns 404 if the file does not exist in HEAD.
+- Returns 404 if the ref is invalid or file does not exist at that ref.
 
 ### Task 4: Per-file revert
 - Add `git_restore_file(root, file_path)` domain function.
