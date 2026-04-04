@@ -4,8 +4,9 @@
 - [x] Agent insert point UX: move insert buttons to left gutter so blocks flow continuously
 
 ## To do
-- [ ] [Agent view](020-AgentView.md) (magent interaction via dedicated view)
-- [x] [File deletion](022-FileDeletion.md)
+- [ ] [Git diff and revert](023-GitDiffAndRevert.md) (gutter markers, HEAD toggle, per-file revert, workspace reset)
+
+## Ideas
 - [ ] Public pages
 - [ ] Custom styling of pages
   - Allow embed ad-hoc styles on a page to "pimp it up".
@@ -15,7 +16,9 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] [File deletion](022-FileDeletion.md)
 - [x] [File move drag and drop](021-FileMoveDragDrop.md)
+- [x] [Agent view](020-AgentView.md) (magent interaction via dedicated view)
 - [x] [Magent interaction rendering](019-MagentRendering.md)
 - [x] [Split documents.rs](017-SplitDocuments.md)
 - [x] [File uploads](018-FileUploads.md)
