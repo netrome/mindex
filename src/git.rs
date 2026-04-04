@@ -102,6 +102,25 @@ impl std::fmt::Display for GitError {
 
 impl std::error::Error for GitError {}
 
+#[derive(Debug, PartialEq)]
+pub(crate) struct FileDiffInfo {
+    pub(crate) added: Vec<LineRange>,
+    pub(crate) modified: Vec<LineRange>,
+    pub(crate) deleted_at: Vec<usize>,
+}
+
+impl FileDiffInfo {
+    fn is_empty(&self) -> bool {
+        self.added.is_empty() && self.modified.is_empty() && self.deleted_at.is_empty()
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct LineRange {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+}
+
 pub(crate) fn git_status_and_diff(root: &Path) -> Result<GitSnapshot, GitError> {
     let new_files = git_untracked_files(root)?;
     if !git_has_head(root)? {
@@ -190,6 +209,34 @@ pub(crate) fn git_pull(
         "Pulled from {}/{}.",
         upstream.remote, upstream.branch
     ))
+}
+
+pub(crate) fn git_file_has_changes(root: &Path, file: &str) -> Result<bool, GitError> {
+    let status = git_file_porcelain_status(root, file)?;
+    Ok(!status.is_empty())
+}
+
+pub(crate) fn git_file_diff(root: &Path, file: &str) -> Result<Option<FileDiffInfo>, GitError> {
+    let status = git_file_porcelain_status(root, file)?;
+    if status.is_empty() {
+        return Ok(None);
+    }
+
+    if status.starts_with("??") || !git_has_head(root)? {
+        return all_lines_added(root, file);
+    }
+
+    let diff = git_diff_file_against_head(root, file)?;
+    if diff.is_empty() {
+        return Ok(None);
+    }
+
+    let info = parse_unified_diff(&diff);
+    if info.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(info))
 }
 
 struct GitUpstream {
@@ -490,6 +537,149 @@ fn git_untracked_files(root: &Path) -> Result<Vec<String>, GitError> {
     Ok(files)
 }
 
+fn git_file_porcelain_status(root: &Path, file: &str) -> Result<String, GitError> {
+    let mut cmd = git_command(root)?;
+    cmd.args(["status", "--porcelain", "--", file]);
+    let output = run_command_checked("git status --porcelain", cmd, None)?;
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn git_diff_file_against_head(root: &Path, file: &str) -> Result<String, GitError> {
+    let mut cmd = git_command(root)?;
+    cmd.args([
+        "diff",
+        "HEAD",
+        "--ignore-submodules=all",
+        "--no-ext-diff",
+        "--no-color",
+        "--",
+        file,
+    ]);
+    let output = run_command_checked("git diff HEAD", cmd, None)?;
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+fn all_lines_added(root: &Path, file: &str) -> Result<Option<FileDiffInfo>, GitError> {
+    let path = root.join(file);
+    let content = std::fs::read_to_string(&path)
+        .map_err(|err| GitError::new(format!("read {file}: {err}")))?;
+    let line_count = content.lines().count();
+    if line_count == 0 {
+        return Ok(None);
+    }
+    Ok(Some(FileDiffInfo {
+        added: vec![LineRange {
+            start: 1,
+            end: line_count,
+        }],
+        modified: vec![],
+        deleted_at: vec![],
+    }))
+}
+
+fn parse_unified_diff(diff: &str) -> FileDiffInfo {
+    let mut added = Vec::new();
+    let mut modified = Vec::new();
+    let mut deleted_at = Vec::new();
+
+    let lines: Vec<&str> = diff.lines().collect();
+    let mut i = 0;
+    let mut new_line: usize = 0;
+    let mut in_hunk = false;
+
+    while i < lines.len() {
+        let line = lines[i];
+
+        if let Some(new_start) = parse_hunk_header(line) {
+            new_line = new_start;
+            in_hunk = true;
+            i += 1;
+            continue;
+        }
+
+        if !in_hunk {
+            i += 1;
+            continue;
+        }
+
+        if line.starts_with("diff ") {
+            in_hunk = false;
+            i += 1;
+            continue;
+        }
+
+        if line.starts_with('\\') {
+            i += 1;
+            continue;
+        }
+
+        if line.starts_with('-') {
+            while i < lines.len() && lines[i].starts_with('-') {
+                i += 1;
+            }
+            while i < lines.len() && lines[i].starts_with('\\') {
+                i += 1;
+            }
+            let plus_start = new_line;
+            let mut plus_count: usize = 0;
+            while i < lines.len() && lines[i].starts_with('+') {
+                plus_count += 1;
+                i += 1;
+            }
+            while i < lines.len() && lines[i].starts_with('\\') {
+                i += 1;
+            }
+
+            if plus_count > 0 {
+                modified.push(LineRange {
+                    start: plus_start,
+                    end: plus_start + plus_count - 1,
+                });
+            } else {
+                deleted_at.push(new_line.saturating_sub(1));
+            }
+            new_line += plus_count;
+            continue;
+        }
+
+        if line.starts_with('+') {
+            let plus_start = new_line;
+            let mut plus_count: usize = 0;
+            while i < lines.len() && lines[i].starts_with('+') {
+                plus_count += 1;
+                i += 1;
+            }
+            while i < lines.len() && lines[i].starts_with('\\') {
+                i += 1;
+            }
+            added.push(LineRange {
+                start: plus_start,
+                end: plus_start + plus_count - 1,
+            });
+            new_line += plus_count;
+            continue;
+        }
+
+        // Context line
+        new_line += 1;
+        i += 1;
+    }
+
+    FileDiffInfo {
+        added,
+        modified,
+        deleted_at,
+    }
+}
+
+fn parse_hunk_header(line: &str) -> Option<usize> {
+    let line = line.strip_prefix("@@ ")?;
+    let plus_part = line.split_whitespace().find(|s| s.starts_with('+'))?;
+    let num_part = plus_part.strip_prefix('+')?;
+    let start_str = num_part.split(',').next()?;
+    start_str.parse().ok()
+}
+
 fn git_command(root: &Path) -> Result<Command, GitError> {
     let root = std::fs::canonicalize(root)
         .map_err(|err| GitError::new(format!("canonicalize root: {err}")))?;
@@ -613,7 +803,10 @@ fn parse_gitdir_path(dot_git: &Path) -> std::io::Result<Option<PathBuf>> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
-    use super::{GitAuthor, git_commit_all, git_dir_within_root, git_status_and_diff};
+    use super::{
+        GitAuthor, LineRange, git_commit_all, git_dir_within_root, git_file_diff,
+        git_file_has_changes, git_status_and_diff, parse_unified_diff,
+    };
     use crate::test_support::create_temp_root;
     use std::path::Path;
     use std::process::Command;
@@ -764,6 +957,371 @@ mod tests {
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
 
+    // -- parse_unified_diff unit tests --
+
+    #[test]
+    fn parse_unified_diff__should_return_empty_for_empty_input() {
+        // Given
+        let diff = "";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert!(info.added.is_empty());
+        assert!(info.modified.is_empty());
+        assert!(info.deleted_at.is_empty());
+    }
+
+    #[test]
+    fn parse_unified_diff__should_detect_pure_additions() {
+        // Given
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,2 +1,4 @@
+ line1
+ line2
++line3
++line4
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert_eq!(info.added, vec![LineRange { start: 3, end: 4 }]);
+        assert!(info.modified.is_empty());
+        assert!(info.deleted_at.is_empty());
+    }
+
+    #[test]
+    fn parse_unified_diff__should_detect_pure_deletions() {
+        // Given
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,5 +1,3 @@
+ line1
+ line2
+-line3
+-line4
+ line5
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert!(info.added.is_empty());
+        assert!(info.modified.is_empty());
+        assert_eq!(info.deleted_at, vec![2]);
+    }
+
+    #[test]
+    fn parse_unified_diff__should_detect_modifications() {
+        // Given
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,3 +1,3 @@
+ line1
+-old_line2
++new_line2
+ line3
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert!(info.added.is_empty());
+        assert_eq!(info.modified, vec![LineRange { start: 2, end: 2 }]);
+        assert!(info.deleted_at.is_empty());
+    }
+
+    #[test]
+    fn parse_unified_diff__should_detect_modification_expanding_lines() {
+        // Given – one old line replaced by two new lines
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,3 +1,4 @@
+ line1
+-old
++new_a
++new_b
+ line3
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert!(info.added.is_empty());
+        assert_eq!(info.modified, vec![LineRange { start: 2, end: 3 }]);
+        assert!(info.deleted_at.is_empty());
+    }
+
+    #[test]
+    fn parse_unified_diff__should_handle_multiple_hunks() {
+        // Given
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,3 +1,4 @@
+ line1
++inserted
+ line2
+ line3
+@@ -8,3 +9,2 @@
+ line8
+-line9
+ line10
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert_eq!(info.added, vec![LineRange { start: 2, end: 2 }]);
+        assert!(info.modified.is_empty());
+        assert_eq!(info.deleted_at, vec![9]);
+    }
+
+    #[test]
+    fn parse_unified_diff__should_handle_mixed_changes_in_one_hunk() {
+        // Given – modification followed by pure addition
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,4 +1,5 @@
+ line1
+-old2
++new2a
++new2b
+ line3
++added
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert_eq!(info.modified, vec![LineRange { start: 2, end: 3 }]);
+        assert_eq!(info.added, vec![LineRange { start: 5, end: 5 }]);
+        assert!(info.deleted_at.is_empty());
+    }
+
+    #[test]
+    fn parse_unified_diff__should_skip_no_newline_marker() {
+        // Given
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,2 +1,2 @@
+ line1
+-old_last
+\\ No newline at end of file
++new_last
+\\ No newline at end of file
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert!(info.added.is_empty());
+        assert_eq!(info.modified, vec![LineRange { start: 2, end: 2 }]);
+        assert!(info.deleted_at.is_empty());
+    }
+
+    #[test]
+    fn parse_unified_diff__should_handle_deletion_at_start() {
+        // Given
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,3 +1,1 @@
+-line1
+-line2
+ line3
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert!(info.added.is_empty());
+        assert!(info.modified.is_empty());
+        assert_eq!(info.deleted_at, vec![0]);
+    }
+
+    #[test]
+    fn parse_unified_diff__should_handle_deletion_at_end() {
+        // Given
+        let diff = "\
+diff --git a/file.md b/file.md
+--- a/file.md
++++ b/file.md
+@@ -1,3 +1,1 @@
+ line1
+-line2
+-line3
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert!(info.added.is_empty());
+        assert!(info.modified.is_empty());
+        assert_eq!(info.deleted_at, vec![1]);
+    }
+
+    #[test]
+    fn parse_unified_diff__should_handle_new_file_diff() {
+        // Given – diff for a file that didn't exist before
+        let diff = "\
+diff --git a/file.md b/file.md
+new file mode 100644
+--- /dev/null
++++ b/file.md
+@@ -0,0 +1,3 @@
++line1
++line2
++line3
+";
+
+        // When
+        let info = parse_unified_diff(diff);
+
+        // Then
+        assert_eq!(info.added, vec![LineRange { start: 1, end: 3 }]);
+        assert!(info.modified.is_empty());
+        assert!(info.deleted_at.is_empty());
+    }
+
+    // -- git_file_has_changes integration tests --
+
+    #[test]
+    fn git_file_has_changes__should_return_false_for_clean_file() {
+        // Given
+        let root = create_temp_root("git-has-changes-clean");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "hello\n").unwrap();
+        commit_all(&root, "initial");
+
+        // When
+        let has_changes = git_file_has_changes(&root, "note.md").unwrap();
+
+        // Then
+        assert!(!has_changes);
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_file_has_changes__should_return_true_for_modified_file() {
+        // Given
+        let root = create_temp_root("git-has-changes-modified");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "hello\n").unwrap();
+        commit_all(&root, "initial");
+        std::fs::write(root.join("note.md"), "changed\n").unwrap();
+
+        // When
+        let has_changes = git_file_has_changes(&root, "note.md").unwrap();
+
+        // Then
+        assert!(has_changes);
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_file_has_changes__should_return_true_for_untracked_file() {
+        // Given
+        let root = create_temp_root("git-has-changes-untracked");
+        init_repo(&root);
+        std::fs::write(root.join("new.md"), "hello\n").unwrap();
+
+        // When
+        let has_changes = git_file_has_changes(&root, "new.md").unwrap();
+
+        // Then
+        assert!(has_changes);
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    // -- git_file_diff integration tests --
+
+    #[test]
+    fn git_file_diff__should_return_none_for_clean_file() {
+        // Given
+        let root = create_temp_root("git-diff-clean");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "hello\n").unwrap();
+        commit_all(&root, "initial");
+
+        // When
+        let diff = git_file_diff(&root, "note.md").unwrap();
+
+        // Then
+        assert!(diff.is_none());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_file_diff__should_parse_modification() {
+        // Given
+        let root = create_temp_root("git-diff-modified");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "line1\nline2\nline3\n").unwrap();
+        commit_all(&root, "initial");
+        std::fs::write(root.join("note.md"), "line1\nchanged\nline3\n").unwrap();
+
+        // When
+        let info = git_file_diff(&root, "note.md").unwrap().unwrap();
+
+        // Then
+        assert_eq!(info.modified, vec![LineRange { start: 2, end: 2 }]);
+        assert!(info.added.is_empty());
+        assert!(info.deleted_at.is_empty());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_file_diff__should_return_all_added_for_untracked_file() {
+        // Given
+        let root = create_temp_root("git-diff-untracked");
+        init_repo(&root);
+        std::fs::write(root.join("new.md"), "line1\nline2\nline3\n").unwrap();
+
+        // When
+        let info = git_file_diff(&root, "new.md").unwrap().unwrap();
+
+        // Then
+        assert_eq!(info.added, vec![LineRange { start: 1, end: 3 }]);
+        assert!(info.modified.is_empty());
+        assert!(info.deleted_at.is_empty());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    // -- helpers --
+
     fn init_repo(root: &Path) {
         let status = Command::new("git")
             .arg("-C")
@@ -772,5 +1330,13 @@ mod tests {
             .status()
             .expect("init repo");
         assert!(status.success());
+    }
+
+    fn commit_all(root: &Path, message: &str) {
+        let author = GitAuthor {
+            name: "Test".to_string(),
+            email: "test@example.com".to_string(),
+        };
+        git_commit_all(root, message, Some(author)).expect("commit");
     }
 }

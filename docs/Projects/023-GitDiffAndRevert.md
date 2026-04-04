@@ -154,7 +154,7 @@ locked-down `git_command()` helper that disables hooks and restricts protocols.
 
 ## Task Breakdown
 
-### Task 1: Domain diff parsing
+### Task 1: Domain diff parsing ✅
 - Add a function to run `git diff -- <file>` for a single file and parse the
   unified diff output into a struct with added/modified/deleted line ranges.
 - Add a function to check whether a file has uncommitted changes
