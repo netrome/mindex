@@ -200,7 +200,7 @@ Acceptance criteria:
 - Button is hidden when the file has no uncommitted changes.
 - Returns 404 if the ref is invalid or file does not exist at that ref.
 
-### Task 4: Per-file revert
+### Task 4: Per-file revert ✅
 - Add `git_restore_file(root, file_path)` domain function.
 - Add `POST /api/d/restore-file` endpoint with path validation.
 - Add revert button to document template (only for dirty tracked files).

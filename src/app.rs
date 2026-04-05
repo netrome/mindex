@@ -95,6 +95,10 @@ pub fn app(config: config::AppConfig) -> Router {
         )
         .route("/api/d/move-file", post(documents::document_move_file))
         .route("/api/d/delete-file", post(documents::document_delete_file))
+        .route(
+            "/api/d/restore-file",
+            post(documents::document_restore_file),
+        )
         .route("/manage", get(documents::file_manage_view_root))
         .route("/manage/{*path}", get(documents::file_manage_view_path))
         .route("/push/subscribe", get(push::push_subscribe))
@@ -666,6 +670,7 @@ password_hash = "hash"
             git_enabled: false,
             viewing_ref: None,
             has_changes: false,
+            can_revert: false,
         };
         let html = template.render().unwrap();
 

@@ -63,6 +63,7 @@ pub(crate) struct DocumentTemplate {
     pub(crate) git_enabled: bool,
     pub(crate) viewing_ref: Option<String>,
     pub(crate) has_changes: bool,
+    pub(crate) can_revert: bool,
 }
 
 #[derive(Template, WebTemplate)]

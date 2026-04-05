@@ -333,6 +333,10 @@ fn document_view(
         false
     };
 
+    let can_revert = has_changes
+        && viewing_ref.is_none()
+        && git::git_file_in_head(&state.config.root, &doc_id).unwrap_or(false);
+
     let rendered = render_document_html(&contents, &doc_id, diff_info.as_ref());
 
     let doc_name = doc_id.rsplit('/').next().unwrap_or(&doc_id).to_string();
@@ -355,6 +359,7 @@ fn document_view(
         git_enabled,
         viewing_ref,
         has_changes,
+        can_revert,
     })
 }
 
@@ -972,6 +977,39 @@ pub(crate) async fn document_delete_file(
         DocError::Io(err) => {
             eprintln!("failed to delete file {}: {err}", form.file_path);
             (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+        }
+    })?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct RestoreFileForm {
+    pub(crate) doc_id: String,
+}
+
+pub(crate) async fn document_restore_file(
+    State(state): State<state::AppState>,
+    Form(form): Form<RestoreFileForm>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    if state.git_dir.is_none() {
+        return Err((StatusCode::NOT_FOUND, "not found"));
+    }
+
+    // Validate the path using the same safety checks as other file operations
+    resolve_doc_path(&state.config.root, &form.doc_id).map_err(|err| match err {
+        DocError::BadPath => (StatusCode::BAD_REQUEST, "invalid path"),
+        DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, "internal error"),
+    })?;
+
+    git::git_restore_file(&state.config.root, &form.doc_id).map_err(|err| {
+        let msg = err.to_string();
+        if msg.contains("not found in HEAD") {
+            (StatusCode::NOT_FOUND, "file not in HEAD")
+        } else {
+            eprintln!("git restore {}: {err}", form.doc_id);
+            (StatusCode::INTERNAL_SERVER_ERROR, "git error")
         }
     })?;
 

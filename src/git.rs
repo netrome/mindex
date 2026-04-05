@@ -260,6 +260,33 @@ pub(crate) fn git_show_file(root: &Path, git_ref: &str, file: &str) -> Result<St
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+pub(crate) fn git_file_in_head(root: &Path, file: &str) -> Result<bool, GitError> {
+    if !git_has_head(root)? {
+        return Ok(false);
+    }
+    let spec = format!("HEAD:{file}");
+    let mut cmd = git_command(root)?;
+    cmd.args(["cat-file", "-t", &spec]);
+    let output = run_command("git cat-file -t", cmd, None)?;
+    Ok(output.status.success())
+}
+
+pub(crate) fn git_restore_file(root: &Path, file: &str) -> Result<(), GitError> {
+    // Verify the file exists in HEAD before restoring
+    let spec = format!("HEAD:{file}");
+    let mut cmd = git_command(root)?;
+    cmd.args(["cat-file", "-t", &spec]);
+    let output = run_command("git cat-file -t", cmd, None)?;
+    if !output.status.success() {
+        return Err(GitError::new(format!("file '{file}' not found in HEAD")));
+    }
+
+    let mut cmd = git_command(root)?;
+    cmd.args(["checkout", "HEAD", "--", file]);
+    run_command_checked("git checkout HEAD", cmd, None)?;
+    Ok(())
+}
+
 struct GitUpstream {
     remote: String,
     branch: String,
@@ -826,7 +853,8 @@ fn parse_gitdir_path(dot_git: &Path) -> std::io::Result<Option<PathBuf>> {
 mod tests {
     use super::{
         GitAuthor, LineRange, git_commit_all, git_dir_within_root, git_file_diff,
-        git_file_has_changes, git_show_file, git_status_and_diff, parse_unified_diff,
+        git_file_has_changes, git_file_in_head, git_restore_file, git_show_file,
+        git_status_and_diff, parse_unified_diff,
     };
     use crate::test_support::create_temp_root;
     use std::path::Path;
@@ -1391,6 +1419,72 @@ new file mode 100644
 
         // Then
         assert!(result.is_err());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    // -- git_restore_file integration tests --
+
+    #[test]
+    fn git_restore_file__should_restore_committed_content() {
+        // Given
+        let root = create_temp_root("git-restore");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "original\n").unwrap();
+        commit_all(&root, "initial");
+        std::fs::write(root.join("note.md"), "modified\n").unwrap();
+
+        // When
+        git_restore_file(&root, "note.md").unwrap();
+
+        // Then
+        let content = std::fs::read_to_string(root.join("note.md")).unwrap();
+        assert_eq!(content, "original\n");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_restore_file__should_fail_for_untracked_file() {
+        // Given
+        let root = create_temp_root("git-restore-untracked");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "hello\n").unwrap();
+
+        // When
+        let result = git_restore_file(&root, "note.md");
+
+        // Then
+        assert!(result.is_err());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    // -- git_file_in_head tests --
+
+    #[test]
+    fn git_file_in_head__should_return_true_for_committed_file() {
+        // Given
+        let root = create_temp_root("git-in-head-yes");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "hello\n").unwrap();
+        commit_all(&root, "initial");
+
+        // When / Then
+        assert!(git_file_in_head(&root, "note.md").unwrap());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_file_in_head__should_return_false_for_untracked_file() {
+        // Given
+        let root = create_temp_root("git-in-head-no");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "hello\n").unwrap();
+
+        // When / Then
+        assert!(!git_file_in_head(&root, "note.md").unwrap());
 
         std::fs::remove_dir_all(&root).unwrap();
     }

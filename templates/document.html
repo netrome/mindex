@@ -21,6 +21,9 @@
     <a href="/d/{{ doc_id }}?ref=HEAD">Show committed</a>
     {% endif %}
     {% endif %}
+    {% if can_revert %}
+    <button type="button" data-revert-file="{{ doc_id }}">Revert</button>
+    {% endif %}
     <a href="/push/subscribe">Push</a>
     <button type="button" class="pwa-refresh" data-pwa-refresh>
         Refresh
@@ -57,4 +60,19 @@
 </script>
 {% endif %}
 {% if has_abc %}{% endif %}
+{% if can_revert %}
+<script>
+    document.querySelector("[data-revert-file]").addEventListener("click", async function () {
+        if (!confirm("Discard all uncommitted changes to this file?")) return;
+        const docId = this.getAttribute("data-revert-file");
+        const body = new URLSearchParams({ doc_id: docId });
+        const res = await fetch("/api/d/restore-file", { method: "POST", body });
+        if (res.ok) {
+            location.reload();
+        } else {
+            alert("Revert failed: " + (await res.text()));
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}
