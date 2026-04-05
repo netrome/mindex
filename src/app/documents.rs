@@ -7,6 +7,7 @@ use crate::documents::{
     toggle_task_item,
 };
 use crate::fs::atomic_write;
+use crate::git;
 use crate::push as push_service;
 use crate::state;
 use crate::templates;
@@ -294,7 +295,14 @@ fn document_view(
         }
     })?;
 
-    let rendered = render_document_html(&contents, &doc_id);
+    let diff_info = if git_enabled {
+        git::git_file_diff(&state.config.root, &doc_id)
+            .ok()
+            .flatten()
+    } else {
+        None
+    };
+    let rendered = render_document_html(&contents, &doc_id, diff_info.as_ref());
 
     let doc_name = doc_id.rsplit('/').next().unwrap_or(&doc_id).to_string();
 

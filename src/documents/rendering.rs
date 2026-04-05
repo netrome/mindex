@@ -1,6 +1,7 @@
 use super::paths::doc_id_to_path;
 use super::tasks::{is_task_list_marker, parse_task_line};
 use super::{is_fence_line, split_line_ending};
+use crate::git::FileDiffInfo;
 use crate::html;
 use crate::math::{MathStyle, render_math};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
@@ -13,16 +14,25 @@ pub(crate) struct RenderedDocument {
     pub(crate) has_code: bool,
 }
 
-pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocument {
+pub(crate) fn render_document_html(
+    markdown: &str,
+    doc_id: &str,
+    diff_info: Option<&FileDiffInfo>,
+) -> RenderedDocument {
     let stripped = super::magent::strip_magent_blocks(markdown);
     let rendered = render_task_list_markdown(&stripped, doc_id);
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_MATH);
-    let parser = Parser::new_ext(&rendered, options).map(|event| {
-        let event = rewrite_relative_md_links(event, doc_id);
-        rewrite_relative_image_links(event, doc_id)
-    });
+    let parser = Parser::new_ext(&rendered, options)
+        .into_offset_iter()
+        .map(|(event, range)| {
+            let event = rewrite_relative_md_links(event, doc_id);
+            let event = rewrite_relative_image_links(event, doc_id);
+            (event, range)
+        });
+
+    let mut tracker = diff_info.map(|info| DiffTracker::new(info, &rendered));
 
     let mut has_mermaid = false;
     let mut has_abc = false;
@@ -38,13 +48,22 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
     let mut abc_buffer = String::new();
     let mut events = Vec::new();
 
-    for event in parser {
+    let mut heading_source_line: usize = 0;
+    let mut mermaid_source_line: usize = 0;
+    let mut abc_source_line: usize = 0;
+
+    for (event, range) in parser {
         if in_mermaid {
             match event {
                 Event::End(TagEnd::CodeBlock) => {
                     let escaped = html::escape(&mermaid_buffer);
+                    let start_idx = events.len();
                     let html = format!(r#"<div class="mermaid">{escaped}</div>"#);
                     events.push(Event::Html(html.into()));
+                    if let Some(t) = &mut tracker {
+                        let end_line = t.source_line(range.end.saturating_sub(1));
+                        t.record_block(start_idx, events.len() - 1, mermaid_source_line, end_line);
+                    }
                     mermaid_buffer.clear();
                     in_mermaid = false;
                     has_mermaid = true;
@@ -60,8 +79,13 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
             match event {
                 Event::End(TagEnd::CodeBlock) => {
                     let escaped = html::escape(&abc_buffer);
+                    let start_idx = events.len();
                     let html = format!(r#"<div class="abc-notation">{escaped}</div>"#);
                     events.push(Event::Html(html.into()));
+                    if let Some(t) = &mut tracker {
+                        let end_line = t.source_line(range.end.saturating_sub(1));
+                        t.record_block(start_idx, events.len() - 1, abc_source_line, end_line);
+                    }
                     abc_buffer.clear();
                     in_abc = false;
                     has_abc = true;
@@ -78,9 +102,18 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
                 Event::End(TagEnd::Heading(..)) => {
                     let slug = unique_slug(&heading_text, &mut seen_slugs);
                     let tag = heading_level;
+                    let start_idx = events.len();
                     events.push(Event::Html(format!("<{tag} id=\"{slug}\">").into()));
                     events.append(&mut heading_events);
                     events.push(Event::Html(format!("</{tag}>\n").into()));
+                    if let Some(t) = &mut tracker {
+                        t.record_block(
+                            start_idx,
+                            events.len() - 1,
+                            heading_source_line,
+                            heading_source_line,
+                        );
+                    }
                     heading_text.clear();
                     in_heading = false;
                 }
@@ -104,6 +137,9 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
             heading_level = level;
             heading_text.clear();
             heading_events.clear();
+            if let Some(t) = &tracker {
+                heading_source_line = t.source_line(range.start);
+            }
             continue;
         }
 
@@ -111,14 +147,27 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
             if is_mermaid_info(info) {
                 in_mermaid = true;
                 mermaid_buffer.clear();
+                if let Some(t) = &tracker {
+                    mermaid_source_line = t.source_line(range.start);
+                }
                 continue;
             }
             if is_abc_info(info) {
                 in_abc = true;
                 abc_buffer.clear();
+                if let Some(t) = &tracker {
+                    abc_source_line = t.source_line(range.start);
+                }
                 continue;
             }
             has_code = true;
+        }
+
+        // Track block starts
+        if let Some(t) = &mut tracker
+            && matches!(&event, Event::Start(_))
+        {
+            t.on_block_start(events.len(), range.start);
         }
 
         let event = match event {
@@ -133,7 +182,23 @@ pub(crate) fn render_document_html(markdown: &str, doc_id: &str) -> RenderedDocu
             other => other,
         };
         events.push(event);
+
+        // Track block ends
+        if let Some(t) = &mut tracker {
+            if matches!(events.last(), Some(Event::End(_))) {
+                t.on_block_end(events.len() - 1, range.end.saturating_sub(1));
+            } else if matches!(events.last(), Some(Event::Rule)) {
+                let line = t.source_line(range.start);
+                t.record_block(events.len() - 1, events.len() - 1, line, line);
+            }
+        }
     }
+
+    let events = if let Some(tracker) = tracker {
+        annotate_events_with_diff(events, &tracker.top_blocks, tracker.info)
+    } else {
+        events
+    };
 
     let mut html = String::new();
     pulldown_cmark::html::push_html(&mut html, events.into_iter());
@@ -420,6 +485,167 @@ fn resolve_relative_path(doc_id: &str, dest_path: &str) -> Option<String> {
     Some(parts.join("/"))
 }
 
+struct BlockBounds {
+    start_idx: usize,
+    end_idx: usize,
+    start_line: usize,
+    end_line: usize,
+}
+
+struct DiffTracker<'a> {
+    info: &'a FileDiffInfo,
+    line_starts: Vec<usize>,
+    block_depth: usize,
+    block_stack: Vec<(usize, usize)>,
+    top_blocks: Vec<BlockBounds>,
+}
+
+impl<'a> DiffTracker<'a> {
+    fn new(info: &'a FileDiffInfo, text: &str) -> Self {
+        Self {
+            info,
+            line_starts: build_line_starts(text),
+            block_depth: 0,
+            block_stack: Vec::new(),
+            top_blocks: Vec::new(),
+        }
+    }
+
+    fn source_line(&self, byte_offset: usize) -> usize {
+        offset_to_line(&self.line_starts, byte_offset)
+    }
+
+    fn on_block_start(&mut self, event_idx: usize, byte_offset: usize) {
+        self.block_stack
+            .push((event_idx, self.source_line(byte_offset)));
+        self.block_depth += 1;
+    }
+
+    fn on_block_end(&mut self, event_idx: usize, byte_offset: usize) {
+        self.block_depth -= 1;
+        if let Some((start_idx, start_line)) = self.block_stack.pop()
+            && self.block_depth == 0
+        {
+            self.top_blocks.push(BlockBounds {
+                start_idx,
+                end_idx: event_idx,
+                start_line,
+                end_line: self.source_line(byte_offset),
+            });
+        }
+    }
+
+    fn record_block(
+        &mut self,
+        start_idx: usize,
+        end_idx: usize,
+        start_line: usize,
+        end_line: usize,
+    ) {
+        self.top_blocks.push(BlockBounds {
+            start_idx,
+            end_idx,
+            start_line,
+            end_line,
+        });
+    }
+}
+
+fn build_line_starts(text: &str) -> Vec<usize> {
+    let mut starts = vec![0];
+    for (i, byte) in text.bytes().enumerate() {
+        if byte == b'\n' {
+            starts.push(i + 1);
+        }
+    }
+    starts
+}
+
+fn offset_to_line(line_starts: &[usize], byte_offset: usize) -> usize {
+    match line_starts.binary_search(&byte_offset) {
+        Ok(idx) => idx + 1,
+        Err(idx) => idx,
+    }
+}
+
+fn diff_class_for_block(
+    start_line: usize,
+    end_line: usize,
+    info: &FileDiffInfo,
+) -> Option<&'static str> {
+    for range in &info.modified {
+        if start_line <= range.end && end_line >= range.start {
+            return Some("diff-modified");
+        }
+    }
+    for range in &info.added {
+        if start_line <= range.end && end_line >= range.start {
+            return Some("diff-added");
+        }
+    }
+    None
+}
+
+fn annotate_events_with_diff<'a>(
+    events: Vec<Event<'a>>,
+    blocks: &[BlockBounds],
+    info: &FileDiffInfo,
+) -> Vec<Event<'a>> {
+    let mut result = Vec::with_capacity(events.len() + blocks.len() * 3);
+    let mut events = events.into_iter();
+    let mut consumed: usize = 0;
+    let mut last_end_line: usize = 0;
+
+    for block in blocks {
+        // Events before this block
+        for event in events.by_ref().take(block.start_idx - consumed) {
+            result.push(event);
+        }
+
+        // Deletion markers between previous block and this one
+        for &del_at in &info.deleted_at {
+            if del_at >= last_end_line && del_at < block.start_line {
+                result.push(Event::Html(
+                    "<div class=\"diff-deleted-marker\"></div>\n".into(),
+                ));
+            }
+        }
+
+        // Diff wrapper
+        let class = diff_class_for_block(block.start_line, block.end_line, info);
+        if let Some(class) = class {
+            result.push(Event::Html(format!("<div class=\"{class}\">").into()));
+        }
+
+        // Block events
+        let block_len = block.end_idx - block.start_idx + 1;
+        for event in events.by_ref().take(block_len) {
+            result.push(event);
+        }
+        consumed = block.end_idx + 1;
+
+        if class.is_some() {
+            result.push(Event::Html("</div>\n".into()));
+        }
+
+        last_end_line = block.end_line;
+    }
+
+    // Remaining events
+    result.extend(events);
+
+    // Trailing deletion markers
+    for &del_at in &info.deleted_at {
+        if del_at >= last_end_line {
+            result.push(Event::Html(
+                "<div class=\"diff-deleted-marker\"></div>\n".into(),
+            ));
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -554,7 +780,7 @@ mod tests {
         let markdown = "# Hello\n\nA paragraph.\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(result.html.contains("<h1 id=\"hello\">Hello</h1>"));
@@ -570,7 +796,7 @@ mod tests {
         let markdown = "```mermaid\ngraph TD;\nA-->B;\n```\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(result.has_mermaid);
@@ -584,7 +810,7 @@ mod tests {
         let markdown = "```abc\nX:1\nT:Test\nK:C\n```\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(result.has_abc);
@@ -597,7 +823,7 @@ mod tests {
         let markdown = "```rust\nfn main() {}\n```\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(result.has_code);
@@ -611,7 +837,7 @@ mod tests {
         let markdown = "```mermaid\ngraph TD;\nA-->B;\n```\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(!result.has_code);
@@ -624,7 +850,7 @@ mod tests {
         let markdown = "```abc\nX:1\nT:Test\nK:C\n```\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(!result.has_code);
@@ -637,7 +863,7 @@ mod tests {
         let markdown = "Equation: $x^2$\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(result.html.contains("<math"));
@@ -649,7 +875,7 @@ mod tests {
         let markdown = "| A | B |\n|---|---|\n| 1 | 2 |\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(result.html.contains("<table>"));
@@ -685,7 +911,7 @@ mod tests {
         let markdown = "## 2. Proposed Design\n\nSome text.\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(
@@ -701,7 +927,7 @@ mod tests {
         let markdown = "## Hello **world**\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(
@@ -717,7 +943,7 @@ mod tests {
         let markdown = "## Section\n\n## Section\n\n## Section\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(result.html.contains("id=\"section\""));
@@ -731,7 +957,7 @@ mod tests {
         let markdown = "## Target\n\n[Go](#target)\n";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then
         assert!(result.html.contains("<h2 id=\"target\">Target</h2>"));
@@ -754,7 +980,7 @@ Hi there!
 ";
 
         // When
-        let result = render_document_html(markdown, "notes.md");
+        let result = render_document_html(markdown, "notes.md", None);
 
         // Then — directive line is kept, response block is stripped
         assert!(result.html.contains("@magent hello"));
@@ -781,7 +1007,7 @@ The answer is here.
 ";
 
         // When
-        let result = render_document_html(markdown, "test.md");
+        let result = render_document_html(markdown, "test.md", None);
 
         // Then — entire response block is stripped
         assert!(!result.html.contains("magent-thinking"));
@@ -808,5 +1034,127 @@ The answer is here.
     fn render_markdown_snippet__should_render_tables() {
         let html = render_markdown_snippet("| A | B |\n|---|---|\n| 1 | 2 |", "test.md");
         assert!(html.contains("<table>"));
+    }
+
+    // -- diff annotation --
+
+    #[test]
+    fn render_document_html__should_annotate_added_block() {
+        // Given — second paragraph is on line 3, marked as added
+        let markdown = "line1\n\nline2\n\nline3\n";
+        let diff = crate::git::FileDiffInfo {
+            added: vec![crate::git::LineRange { start: 3, end: 3 }],
+            modified: vec![],
+            deleted_at: vec![],
+        };
+
+        // When
+        let result = render_document_html(markdown, "test.md", Some(&diff));
+
+        // Then — only the second paragraph is wrapped
+        assert!(result.html.contains("diff-added"), "html: {}", result.html);
+        assert!(result.html.contains("\"diff-added\">\n<p>line2</p>"));
+        assert!(!result.html.contains("\"diff-added\">\n<p>line1</p>"));
+        assert!(!result.html.contains("\"diff-added\">\n<p>line3</p>"));
+    }
+
+    #[test]
+    fn render_document_html__should_annotate_modified_block() {
+        // Given — first paragraph on line 1, marked as modified
+        let markdown = "line1\n\nline2\n";
+        let diff = crate::git::FileDiffInfo {
+            added: vec![],
+            modified: vec![crate::git::LineRange { start: 1, end: 1 }],
+            deleted_at: vec![],
+        };
+
+        // When
+        let result = render_document_html(markdown, "test.md", Some(&diff));
+
+        // Then
+        assert!(
+            result.html.contains("\"diff-modified\">\n<p>line1</p>"),
+            "html: {}",
+            result.html
+        );
+        assert!(!result.html.contains("\"diff-modified\">\n<p>line2</p>"));
+    }
+
+    #[test]
+    fn render_document_html__should_insert_deleted_marker() {
+        // Given — deletion after line 1
+        let markdown = "line1\n\nline2\n";
+        let diff = crate::git::FileDiffInfo {
+            added: vec![],
+            modified: vec![],
+            deleted_at: vec![1],
+        };
+
+        // When
+        let result = render_document_html(markdown, "test.md", Some(&diff));
+
+        // Then
+        assert!(
+            result.html.contains("diff-deleted-marker"),
+            "html: {}",
+            result.html
+        );
+    }
+
+    #[test]
+    fn render_document_html__should_not_annotate_when_diff_is_none() {
+        // Given
+        let markdown = "line1\n\nline2\n";
+
+        // When
+        let result = render_document_html(markdown, "test.md", None);
+
+        // Then
+        assert!(!result.html.contains("diff-added"));
+        assert!(!result.html.contains("diff-modified"));
+        assert!(!result.html.contains("diff-deleted-marker"));
+    }
+
+    #[test]
+    fn render_document_html__should_annotate_heading() {
+        // Given — heading on line 1, marked as modified
+        let markdown = "# Title\n\nParagraph\n";
+        let diff = crate::git::FileDiffInfo {
+            added: vec![],
+            modified: vec![crate::git::LineRange { start: 1, end: 1 }],
+            deleted_at: vec![],
+        };
+
+        // When
+        let result = render_document_html(markdown, "test.md", Some(&diff));
+
+        // Then — heading is wrapped, paragraph is not
+        assert!(
+            result.html.contains("\"diff-modified\"><h1"),
+            "html: {}",
+            result.html
+        );
+        assert!(!result.html.contains("diff-modified\">\n<p>"));
+    }
+
+    #[test]
+    fn render_document_html__should_annotate_list_when_any_item_changed() {
+        // Given — list spans lines 1-3, modification on line 2
+        let markdown = "- item1\n- item2\n- item3\n";
+        let diff = crate::git::FileDiffInfo {
+            added: vec![],
+            modified: vec![crate::git::LineRange { start: 2, end: 2 }],
+            deleted_at: vec![],
+        };
+
+        // When
+        let result = render_document_html(markdown, "test.md", Some(&diff));
+
+        // Then — entire list is annotated
+        assert!(
+            result.html.contains("\"diff-modified\">\n<ul>"),
+            "html: {}",
+            result.html
+        );
     }
 }

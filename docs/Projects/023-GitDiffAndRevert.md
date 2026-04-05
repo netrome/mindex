@@ -168,7 +168,7 @@ Acceptance criteria:
 - Clean files return an empty diff info.
 - Untracked files are identified as fully new (all lines added).
 
-### Task 2: Gutter markers in rendered HTML
+### Task 2: Gutter markers in rendered HTML ✅
 - Extend `render_document_html` to accept optional diff info.
 - Map source line ranges to rendered HTML blocks and annotate with CSS classes.
 - Insert deleted-line markers at appropriate positions.
