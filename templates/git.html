@@ -47,6 +47,9 @@
     <form method="post" action="/git/push">
         <button type="submit">Push</button>
     </form>
+    {% if total_changes > 0 %}
+    <button type="button" data-reset-workspace="{{ total_changes }}">Discard all changes</button>
+    {% endif %}
 </div>
 
 <form method="post" action="/git/commit">
@@ -56,4 +59,19 @@
 </form>
 
 <pre class="git-diff">{{ diff }}</pre>
+{% if total_changes > 0 %}
+<script>
+    document.querySelector("[data-reset-workspace]").addEventListener("click", async function () {
+        const count = this.getAttribute("data-reset-workspace");
+        if (!confirm("Discard ALL uncommitted changes (" + count + " file(s))? This includes untracked files and cannot be undone.")) return;
+        const body = new URLSearchParams();
+        const res = await fetch("/git/reset", { method: "POST", body });
+        if (res.ok) {
+            location.reload();
+        } else {
+            alert("Reset failed: " + (await res.text()));
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}

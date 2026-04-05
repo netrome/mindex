@@ -234,4 +234,5 @@ pub(crate) struct GitTemplate {
     pub(crate) notice: String,
     pub(crate) new_files: Vec<String>,
     pub(crate) git_enabled: bool,
+    pub(crate) total_changes: usize,
 }

@@ -1,7 +1,7 @@
 # Git Diff Visualization and Revert
 
 ## Status
-Design
+Done
 
 ## Goal
 Help users navigate and manage uncommitted changes, especially those made by
@@ -213,7 +213,7 @@ Acceptance criteria:
 - Files not in HEAD return 404.
 - Confirm dialog is shown before reverting.
 
-### Task 5: Workspace reset
+### Task 5: Workspace reset ✅
 - Add `git_reset_workspace(root)` domain function (checkout + clean).
 - Add `POST /git/reset` endpoint.
 - Add "Discard all changes" button to git template (only when dirty).

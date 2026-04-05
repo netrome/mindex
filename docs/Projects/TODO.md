@@ -4,7 +4,6 @@
 - [x] Agent insert point UX: move insert buttons to left gutter so blocks flow continuously
 
 ## To do
-- [ ] [Git diff and revert](023-GitDiffAndRevert.md) (gutter markers, HEAD toggle, per-file revert, workspace reset)
 
 ## Ideas
 - [ ] Public pages
@@ -16,6 +15,7 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] [Git diff and revert](023-GitDiffAndRevert.md) (gutter markers, HEAD toggle, per-file revert, workspace reset)
 - [x] [File deletion](022-FileDeletion.md)
 - [x] [File move drag and drop](021-FileMoveDragDrop.md)
 - [x] [Agent view](020-AgentView.md) (magent interaction via dedicated view)

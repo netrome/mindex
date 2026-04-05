@@ -105,6 +105,23 @@ pub(crate) async fn git_pull(
     git_template(&state, String::new(), String::new(), notice)
 }
 
+pub(crate) async fn git_reset(
+    State(state): State<state::AppState>,
+) -> Result<templates::GitTemplate, (StatusCode, &'static str)> {
+    if state.git_dir.is_none() {
+        return Err((StatusCode::NOT_FOUND, "not found"));
+    }
+
+    let notice = match git::git_reset_workspace(&state.config.root) {
+        Ok(()) => "All changes discarded.".to_string(),
+        Err(err) => {
+            return git_template(&state, String::new(), err.to_string(), String::new());
+        }
+    };
+
+    git_template(&state, String::new(), String::new(), notice)
+}
+
 fn git_template(
     state: &state::AppState,
     message: String,
@@ -150,6 +167,8 @@ fn git_template(
         snapshot.diff
     };
 
+    let total_changes = snapshot.changed_files + snapshot.new_files.len();
+
     Ok(templates::GitTemplate {
         app_name: state.config.app_name.clone(),
         status,
@@ -159,6 +178,7 @@ fn git_template(
         notice,
         new_files: snapshot.new_files,
         git_enabled: state.git_dir.is_some(),
+        total_changes,
     })
 }
 

@@ -287,6 +287,19 @@ pub(crate) fn git_restore_file(root: &Path, file: &str) -> Result<(), GitError> 
     Ok(())
 }
 
+pub(crate) fn git_reset_workspace(root: &Path) -> Result<(), GitError> {
+    if git_has_head(root)? {
+        let mut cmd = git_command(root)?;
+        cmd.args(["checkout", "HEAD", "--", "."]);
+        run_command_checked("git checkout HEAD -- .", cmd, None)?;
+    }
+
+    let mut cmd = git_command(root)?;
+    cmd.args(["clean", "-fd"]);
+    run_command_checked("git clean -fd", cmd, None)?;
+    Ok(())
+}
+
 struct GitUpstream {
     remote: String,
     branch: String,
@@ -853,8 +866,8 @@ fn parse_gitdir_path(dot_git: &Path) -> std::io::Result<Option<PathBuf>> {
 mod tests {
     use super::{
         GitAuthor, LineRange, git_commit_all, git_dir_within_root, git_file_diff,
-        git_file_has_changes, git_file_in_head, git_restore_file, git_show_file,
-        git_status_and_diff, parse_unified_diff,
+        git_file_has_changes, git_file_in_head, git_reset_workspace, git_restore_file,
+        git_show_file, git_status_and_diff, parse_unified_diff,
     };
     use crate::test_support::create_temp_root;
     use std::path::Path;
@@ -1485,6 +1498,46 @@ new file mode 100644
 
         // When / Then
         assert!(!git_file_in_head(&root, "note.md").unwrap());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    // -- git_reset_workspace integration tests --
+
+    #[test]
+    fn git_reset_workspace__should_restore_tracked_and_remove_untracked() {
+        // Given
+        let root = create_temp_root("git-reset-workspace");
+        init_repo(&root);
+        std::fs::write(root.join("tracked.md"), "original\n").unwrap();
+        commit_all(&root, "initial");
+        std::fs::write(root.join("tracked.md"), "modified\n").unwrap();
+        std::fs::write(root.join("untracked.md"), "new file\n").unwrap();
+
+        // When
+        git_reset_workspace(&root).unwrap();
+
+        // Then
+        let content = std::fs::read_to_string(root.join("tracked.md")).unwrap();
+        assert_eq!(content, "original\n");
+        assert!(!root.join("untracked.md").exists());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_reset_workspace__should_succeed_on_clean_repo() {
+        // Given
+        let root = create_temp_root("git-reset-clean");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "hello\n").unwrap();
+        commit_all(&root, "initial");
+
+        // When / Then — should not error
+        git_reset_workspace(&root).unwrap();
+
+        let content = std::fs::read_to_string(root.join("note.md")).unwrap();
+        assert_eq!(content, "hello\n");
 
         std::fs::remove_dir_all(&root).unwrap();
     }
