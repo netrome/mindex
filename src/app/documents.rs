@@ -30,15 +30,24 @@ pub(crate) async fn directory_browse_root(
     directory_browse(state, String::new())
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct DocumentQuery {
+    #[serde(rename = "ref")]
+    pub(crate) git_ref: Option<String>,
+}
+
 pub(crate) async fn resolve_path(
     State(state): State<state::AppState>,
     AxumPath(path): AxumPath<String>,
+    Query(query): Query<DocumentQuery>,
 ) -> Result<Response, (StatusCode, &'static str)> {
     let ext = std::path::Path::new(&path)
         .extension()
         .and_then(|e| e.to_str());
     match ext.and_then(FileKind::from_extension) {
-        Some(FileKind::Document) => document_view(state, path).map(IntoResponse::into_response),
+        Some(FileKind::Document) => {
+            document_view(state, path, query.git_ref).map(IntoResponse::into_response)
+        }
         Some(FileKind::Pdf) => Ok(Redirect::to(&format!("/pdf/{path}")).into_response()),
         Some(FileKind::Image) => Ok(Redirect::to(&format!("/file/{path}")).into_response()),
         Some(FileKind::Text) => Ok(Redirect::to(&format!("/view/{path}")).into_response()),
@@ -285,23 +294,45 @@ pub(crate) struct SearchQuery {
 fn document_view(
     state: state::AppState,
     doc_id: String,
+    git_ref: Option<String>,
 ) -> Result<templates::DocumentTemplate, (StatusCode, &'static str)> {
     let git_enabled = state.git_dir.is_some();
-    let contents = load_document(&state.config.root, &doc_id).map_err(|err| match err {
-        DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
-        _ => {
-            eprintln!("failed to load document {doc_id}: {err:?}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
-        }
-    })?;
 
-    let diff_info = if git_enabled {
+    let (contents, viewing_ref) = if let Some(ref r) = git_ref {
+        if !git_enabled {
+            return Err((StatusCode::NOT_FOUND, "not found"));
+        }
+        let content = git::git_show_file(&state.config.root, r, &doc_id).map_err(|err| {
+            eprintln!("git show {doc_id} at {r}: {err}");
+            (StatusCode::NOT_FOUND, "not found")
+        })?;
+        (content, Some(r.clone()))
+    } else {
+        let content = load_document(&state.config.root, &doc_id).map_err(|err| match err {
+            DocError::NotFound => (StatusCode::NOT_FOUND, "not found"),
+            _ => {
+                eprintln!("failed to load document {doc_id}: {err:?}");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+            }
+        })?;
+        (content, None)
+    };
+
+    // Diff markers only for the current working-tree version
+    let diff_info = if viewing_ref.is_none() && git_enabled {
         git::git_file_diff(&state.config.root, &doc_id)
             .ok()
             .flatten()
     } else {
         None
     };
+
+    let has_changes = if git_enabled {
+        git::git_file_has_changes(&state.config.root, &doc_id).unwrap_or(false)
+    } else {
+        false
+    };
+
     let rendered = render_document_html(&contents, &doc_id, diff_info.as_ref());
 
     let doc_name = doc_id.rsplit('/').next().unwrap_or(&doc_id).to_string();
@@ -322,6 +353,8 @@ fn document_view(
         has_abc: rendered.has_abc,
         has_code: rendered.has_code,
         git_enabled,
+        viewing_ref,
+        has_changes,
     })
 }
 

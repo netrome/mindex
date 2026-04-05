@@ -182,7 +182,7 @@ Acceptance criteria:
 - No annotation when diff info is None (git disabled or clean file).
 - Gutter markers are visible in both light and dark themes.
 
-### Task 3: Historical version view
+### Task 3: Historical version view ✅
 - Add `git_show_file(root, ref, file_path)` domain function using
   `git show <ref>:<file>`.
 - Validate the ref with `git rev-parse --verify <ref>`.

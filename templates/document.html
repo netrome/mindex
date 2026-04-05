@@ -14,6 +14,13 @@
     {% if git_enabled %}
     <a href="/git">Git</a>
     {% endif %}
+    {% if git_enabled && has_changes %}
+    {% if viewing_ref.is_some() %}
+    <a href="/d/{{ doc_id }}">Show current</a>
+    {% else %}
+    <a href="/d/{{ doc_id }}?ref=HEAD">Show committed</a>
+    {% endif %}
+    {% endif %}
     <a href="/push/subscribe">Push</a>
     <button type="button" class="pwa-refresh" data-pwa-refresh>
         Refresh

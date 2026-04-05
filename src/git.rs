@@ -239,6 +239,27 @@ pub(crate) fn git_file_diff(root: &Path, file: &str) -> Result<Option<FileDiffIn
     Ok(Some(info))
 }
 
+pub(crate) fn git_show_file(root: &Path, git_ref: &str, file: &str) -> Result<String, GitError> {
+    let mut cmd = git_command(root)?;
+    cmd.args(["rev-parse", "--verify", git_ref]);
+    let output = run_command("git rev-parse --verify", cmd, None)?;
+    if !output.status.success() {
+        return Err(GitError::new(format!("invalid ref '{git_ref}'")));
+    }
+
+    let spec = format!("{git_ref}:{file}");
+    let mut cmd = git_command(root)?;
+    cmd.args(["show", &spec]);
+    let output = run_command("git show", cmd, None)?;
+    if !output.status.success() {
+        return Err(GitError::new(format!(
+            "file '{file}' not found at ref '{git_ref}'"
+        )));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
 struct GitUpstream {
     remote: String,
     branch: String,
@@ -805,7 +826,7 @@ fn parse_gitdir_path(dot_git: &Path) -> std::io::Result<Option<PathBuf>> {
 mod tests {
     use super::{
         GitAuthor, LineRange, git_commit_all, git_dir_within_root, git_file_diff,
-        git_file_has_changes, git_status_and_diff, parse_unified_diff,
+        git_file_has_changes, git_show_file, git_status_and_diff, parse_unified_diff,
     };
     use crate::test_support::create_temp_root;
     use std::path::Path;
@@ -1316,6 +1337,60 @@ new file mode 100644
         assert_eq!(info.added, vec![LineRange { start: 1, end: 3 }]);
         assert!(info.modified.is_empty());
         assert!(info.deleted_at.is_empty());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    // -- git_show_file integration tests --
+
+    #[test]
+    fn git_show_file__should_return_committed_content() {
+        // Given
+        let root = create_temp_root("git-show-head");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "original\n").unwrap();
+        commit_all(&root, "initial");
+        std::fs::write(root.join("note.md"), "modified\n").unwrap();
+
+        // When
+        let content = git_show_file(&root, "HEAD", "note.md").unwrap();
+
+        // Then
+        assert_eq!(content, "original\n");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_show_file__should_fail_for_invalid_ref() {
+        // Given
+        let root = create_temp_root("git-show-invalid-ref");
+        init_repo(&root);
+        std::fs::write(root.join("note.md"), "hello\n").unwrap();
+        commit_all(&root, "initial");
+
+        // When
+        let result = git_show_file(&root, "nonexistent-ref", "note.md");
+
+        // Then
+        assert!(result.is_err());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn git_show_file__should_fail_for_missing_file_at_ref() {
+        // Given
+        let root = create_temp_root("git-show-missing");
+        init_repo(&root);
+        std::fs::write(root.join("other.md"), "hello\n").unwrap();
+        commit_all(&root, "initial");
+
+        // When
+        let result = git_show_file(&root, "HEAD", "note.md");
+
+        // Then
+        assert!(result.is_err());
 
         std::fs::remove_dir_all(&root).unwrap();
     }

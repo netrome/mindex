@@ -664,6 +664,8 @@ password_hash = "hash"
             has_abc: false,
             has_code: false,
             git_enabled: false,
+            viewing_ref: None,
+            has_changes: false,
         };
         let html = template.render().unwrap();
 
