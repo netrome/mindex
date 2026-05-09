@@ -55,7 +55,6 @@
     --syntax-addition-bg: rgb(31 138 85 / 0.12);
     --syntax-deletion: #a3325e;
     --syntax-deletion-bg: rgb(201 58 141 / 0.12);
-    --diff-modified: #956d00;
     --theme-color: #f5f1eb;
 }
 
@@ -117,7 +116,6 @@
         --syntax-addition-bg: rgb(80 250 123 / 0.16);
         --syntax-deletion: #ffd0e6;
         --syntax-deletion-bg: rgb(255 121 198 / 0.18);
-        --diff-modified: #ffd866;
         --theme-color: #19161f;
     }
 }
@@ -179,7 +177,6 @@
     --syntax-addition-bg: rgb(31 138 85 / 0.12);
     --syntax-deletion: #a3325e;
     --syntax-deletion-bg: rgb(201 58 141 / 0.12);
-    --diff-modified: #956d00;
     --theme-color: #f5f1eb;
 }
 
@@ -240,7 +237,6 @@
     --syntax-addition-bg: rgb(80 250 123 / 0.16);
     --syntax-deletion: #ffd0e6;
     --syntax-deletion-bg: rgb(255 121 198 / 0.18);
-    --diff-modified: #ffd866;
     --theme-color: #19161f;
 }
 
@@ -1458,23 +1454,6 @@ hr {
     color: var(--color-text-muted);
     font-style: italic;
     padding: 1rem 0;
-}
-
-/* Diff gutter markers */
-.diff-added {
-    border-left: 3px solid var(--syntax-addition);
-    padding-left: 0.75rem;
-}
-
-.diff-modified {
-    border-left: 3px solid var(--diff-modified);
-    padding-left: 0.75rem;
-}
-
-.diff-deleted-marker {
-    height: 0;
-    border-top: 2px solid var(--syntax-deletion);
-    margin: 0.25rem 0;
 }
 
 /* Mobile responsiveness */

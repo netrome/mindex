@@ -318,15 +318,6 @@ fn document_view(
         (content, None)
     };
 
-    // Diff markers only for the current working-tree version
-    let diff_info = if viewing_ref.is_none() && git_enabled {
-        git::git_file_diff(&state.config.root, &doc_id)
-            .ok()
-            .flatten()
-    } else {
-        None
-    };
-
     let has_changes = if git_enabled {
         git::git_file_has_changes(&state.config.root, &doc_id).unwrap_or(false)
     } else {
@@ -337,7 +328,7 @@ fn document_view(
         && viewing_ref.is_none()
         && git::git_file_in_head(&state.config.root, &doc_id).unwrap_or(false);
 
-    let rendered = render_document_html(&contents, &doc_id, diff_info.as_ref());
+    let rendered = render_document_html(&contents, &doc_id);
 
     let doc_name = doc_id.rsplit('/').next().unwrap_or(&doc_id).to_string();
 

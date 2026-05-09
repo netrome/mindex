@@ -1,7 +1,7 @@
 # Git Diff Marker Simplification
 
 ## Status
-Accepted
+Done
 
 ## Goal
 Remove ambient gutter diff markers from normal document reading while keeping
@@ -57,33 +57,22 @@ architecture, security model, data model, or dependency set.
 
 ## Task Breakdown
 
-### Task 1: Remove document-view gutter annotations
+### Task 1: Remove rendered gutter diff markers ✓
 - Update the document view handler so `render_document_html` is called without
   diff marker data.
-- If possible, simplify the renderer signature back to not accepting diff
-  information.
+- Simplify the renderer signature back to not accepting diff information.
+- Remove unused rendered-diff annotation helpers, marker-only tests, and marker
+  CSS.
+- Keep the dirty-file detection and existing `Show committed` / `Revert`
+  actions.
+- Add coverage for the simplified dirty-document workflow.
 
 Acceptance criteria:
 - `/d/<doc>` does not render `diff-added`, `diff-modified`, or
   `diff-deleted-marker` markup for dirty files.
 - Dirty files still show `Show committed` and `Revert` when applicable.
 - Historical views such as `/d/<doc>?ref=HEAD` continue to work.
-
-### Task 2: Remove dead marker UI code
-- Remove unused diff marker CSS.
-- Remove unused rendered-diff annotation helpers and tests if the renderer no
-  longer exposes that behavior.
-
-Acceptance criteria:
 - No unused gutter marker styling remains.
 - Tests cover the remaining git review behavior without retaining marker-only
   expectations.
-
-### Task 3: Verify the simplified workflow
-- Run `cargo fmt`.
-- Run `cargo clippy --all-targets --all-features`.
-- Run `cargo nextest run`.
-
-Acceptance criteria:
-- Formatting, clippy, and tests pass.
 - `docs/Projects/TODO.md` is updated when the implementation is complete.

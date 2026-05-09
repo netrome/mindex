@@ -194,6 +194,7 @@ pub(crate) mod tests {
 
     use askama::Template as _;
     use std::path::{Path, PathBuf};
+    use std::process::Command;
 
     #[tokio::test]
     async fn app__should_return_ok_on_health_endpoint() {
@@ -1050,6 +1051,61 @@ fn main() {
         assert!(body.contains(r#"href="/pdf/notes/tickets/show.pdf""#));
         assert!(body.contains(r#"href="https://example.com/ticket.pdf""#));
         assert!(body.contains(r#"href="/tickets/root.pdf""#));
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn view_document__should_show_git_actions_without_diff_markers_for_dirty_doc() {
+        // Given
+        let root = create_temp_root("dirty-doc-no-markers");
+        let status = Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .arg("init")
+            .status()
+            .expect("git init");
+        assert!(status.success());
+        std::fs::write(root.join("note.md"), "original\n").expect("write original");
+        git_service::git_commit_all(
+            &root,
+            "initial",
+            Some(git_service::GitAuthor {
+                name: "Marten".to_string(),
+                email: "marten@example.com".to_string(),
+            }),
+        )
+        .expect("commit");
+        std::fs::write(root.join("note.md"), "changed\n").expect("write changed");
+
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/d/note.md")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let body = std::str::from_utf8(&body).expect("utf8");
+        assert!(body.contains(r#"href="/d/note.md?ref=HEAD""#));
+        assert!(body.contains("Show committed"));
+        assert!(body.contains(r#"data-revert-file="note.md""#));
+        assert!(!body.contains("diff-added"));
+        assert!(!body.contains("diff-modified"));
+        assert!(!body.contains("diff-deleted-marker"));
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
