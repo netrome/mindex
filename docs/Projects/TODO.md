@@ -4,6 +4,7 @@
 - [x] Agent insert point UX: move insert buttons to left gutter so blocks flow continuously
 
 ## To do
+- [ ] [Git diff marker simplification](024-GitDiffMarkerSimplification.md)
 
 ## Ideas
 - [ ] Public pages
