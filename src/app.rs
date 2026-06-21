@@ -56,6 +56,7 @@ pub fn app(config: config::AppConfig) -> Router {
         .route("/login", get(auth::login_form).post(auth::login_submit))
         .route("/logout", post(auth::logout))
         .route("/search", get(documents::document_search))
+        .route("/api/files", get(documents::document_file_list))
         .route(
             "/new",
             get(documents::document_new).post(documents::document_create),
@@ -301,6 +302,77 @@ pub(crate) mod tests {
 
         // Then
         assert_eq!(response.status(), StatusCode::OK);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn file_list__should_return_browsable_files_as_json() {
+        // Given
+        let root = create_temp_root("file-list-json");
+        std::fs::write(root.join("alpha.md"), "# Alpha").expect("write");
+        std::fs::write(root.join("scan.pdf"), "pdf").expect("write");
+        std::fs::create_dir_all(root.join("notes")).expect("mkdir");
+        std::fs::write(root.join("notes/todo.md"), "# Todo").expect("write");
+        let app_config = config::AppConfig {
+            root: root.clone(),
+            ..Default::default()
+        };
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/files")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let payload: JsonValue = json_from_slice(&body).expect("parse json");
+        assert_eq!(
+            payload,
+            serde_json::json!([
+                { "path": "alpha.md", "kind": "document" },
+                { "path": "notes/todo.md", "kind": "document" },
+                { "path": "scan.pdf", "kind": "pdf" },
+            ])
+        );
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[tokio::test]
+    async fn file_list__should_be_auth_gated() {
+        // Given
+        let root = create_temp_root("file-list-auth");
+        let key_bytes = b"file-list-secret";
+        let app_config = auth_app_config(root.clone(), key_bytes);
+
+        // When
+        let response = app(app_config)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/files")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("request failed");
+
+        // Then
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let payload: JsonValue = json_from_slice(&body).expect("parse json");
+        assert_eq!(payload["error"], "unauthorized");
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }

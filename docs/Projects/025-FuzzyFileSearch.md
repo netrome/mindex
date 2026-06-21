@@ -111,7 +111,7 @@ trigger choices are recorded above for traceability.
 
 ## Task Breakdown
 
-### Task 1: File listing endpoint
+### Task 1: File listing endpoint ✓
 - Add a domain helper that returns `(relative_path, file_kind)` for all
   browsable files under root (reuse `paths.rs` collection + classification).
 - Add `GET /api/files` route + thin handler returning JSON.
@@ -123,6 +123,17 @@ Acceptance criteria:
 - Returns every file the directory browser shows, as `{path, kind}`.
 - Paths are normalized relative paths (the document-ID convention).
 - Requires auth when auth is enabled.
+
+Implementation notes:
+- `documents::paths::collect_browsable_files` walks root recursively, mirroring
+  the directory browser's rules (skips symlinks, hidden entries, unrecognized
+  extensions) and returns sorted normalized relative paths with their
+  `FileKind`.
+- `kind` serializes via `FileKind::as_str` as `document` / `pdf` / `image` /
+  `text`. The client can navigate to `/d/<path>` for any kind (it already
+  resolves to the correct view), so `kind` is for display/icons.
+- Handler: `document_file_list` in `app/documents.rs` → `Json<Vec<FileListEntry>>`.
+  Auth-gating is inherited from the existing `/api/*` middleware.
 
 ### Task 2: Fuzzy scorer module
 - Add `assets/features/fuzzy.js` with `score`/`filter`.

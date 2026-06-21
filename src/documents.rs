@@ -20,9 +20,9 @@ pub(crate) use magent::{
 };
 #[allow(unused_imports)]
 pub(crate) use paths::{
-    DirectoryFile, DirectoryListing, FileKind, collect_markdown_paths, doc_id_from_path,
-    highlight_lang_for_extension, is_text_extension, list_directory, resolve_doc_path,
-    resolve_text_file_path,
+    BrowsableFile, DirectoryFile, DirectoryListing, FileKind, collect_browsable_files,
+    collect_markdown_paths, doc_id_from_path, highlight_lang_for_extension, is_text_extension,
+    list_directory, resolve_doc_path, resolve_text_file_path,
 };
 #[allow(unused_imports)]
 pub(crate) use rendering::{

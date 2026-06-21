@@ -1,10 +1,10 @@
 use crate::documents::{
     BlockKind, DocError, FileKind, MagentRegion, ReorderError, accept_magent_edit,
-    add_task_item_in_list, collect_mentions, create_document, delete_file, find_magent_regions,
-    insert_directive, line_count, lines_for_display, list_directory, load_document, move_file,
-    normalize_newlines, remove_magent_interaction, render_document_html, render_magent_blocks,
-    render_markdown_snippet, reorder_range, resolve_doc_path, scan_block_ranges, search_documents,
-    toggle_task_item,
+    add_task_item_in_list, collect_browsable_files, collect_mentions, create_document, delete_file,
+    find_magent_regions, insert_directive, line_count, lines_for_display, list_directory,
+    load_document, move_file, normalize_newlines, remove_magent_interaction, render_document_html,
+    render_magent_blocks, render_markdown_snippet, reorder_range, resolve_doc_path,
+    scan_block_ranges, search_documents, toggle_task_item,
 };
 use crate::fs::atomic_write;
 use crate::git;
@@ -12,6 +12,7 @@ use crate::push as push_service;
 use crate::state;
 use crate::templates;
 
+use axum::Json;
 use axum::extract::Form;
 use axum::extract::Path as AxumPath;
 use axum::extract::Query;
@@ -19,6 +20,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use serde::Deserialize;
+use serde::Serialize;
 
 use std::io::ErrorKind;
 
@@ -53,6 +55,29 @@ pub(crate) async fn resolve_path(
         Some(FileKind::Text) => Ok(Redirect::to(&format!("/view/{path}")).into_response()),
         None => directory_browse(state, path).map(IntoResponse::into_response),
     }
+}
+
+#[derive(Serialize)]
+pub(crate) struct FileListEntry {
+    pub(crate) path: String,
+    pub(crate) kind: &'static str,
+}
+
+pub(crate) async fn document_file_list(
+    State(state): State<state::AppState>,
+) -> Result<Json<Vec<FileListEntry>>, (StatusCode, &'static str)> {
+    let files = collect_browsable_files(&state.config.root).map_err(|err| {
+        eprintln!("failed to list browsable files: {err}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+    })?;
+    let entries = files
+        .into_iter()
+        .map(|file| FileListEntry {
+            path: file.path,
+            kind: file.kind.as_str(),
+        })
+        .collect();
+    Ok(Json(entries))
 }
 
 fn directory_browse(

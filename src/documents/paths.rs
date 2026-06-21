@@ -8,6 +8,23 @@ pub(crate) fn collect_markdown_paths(root: &Path) -> std::io::Result<Vec<PathBuf
     Ok(paths)
 }
 
+/// A browsable file under root: its normalized relative path and its kind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BrowsableFile {
+    pub(crate) path: String,
+    pub(crate) kind: FileKind,
+}
+
+/// Recursively lists every file the directory browser would show, mirroring its
+/// rules: skip symlinks and hidden entries, include only recognized file kinds.
+/// Paths are normalized relative paths (the document-ID convention), sorted.
+pub(crate) fn collect_browsable_files(root: &Path) -> std::io::Result<Vec<BrowsableFile>> {
+    let mut files = Vec::new();
+    collect_browsable_files_recursive(root, root, &mut files)?;
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(files)
+}
+
 pub(crate) fn doc_id_from_path(root: &Path, path: &Path) -> Option<String> {
     let rel = path.strip_prefix(root).ok()?;
     let mut parts = Vec::new();
@@ -56,6 +73,16 @@ pub(crate) enum FileKind {
 }
 
 impl FileKind {
+    /// Stable lowercase tag used in API responses (e.g. for result icons).
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Document => "document",
+            Self::Pdf => "pdf",
+            Self::Image => "image",
+            Self::Text => "text",
+        }
+    }
+
     pub(crate) fn from_extension(ext: &str) -> Option<Self> {
         match ext.to_ascii_lowercase().as_str() {
             "md" => Some(Self::Document),
@@ -183,6 +210,45 @@ pub(super) fn doc_id_to_path(doc_id: &str) -> Option<PathBuf> {
         return None;
     }
     Some(path.to_path_buf())
+}
+
+fn collect_browsable_files_recursive(
+    root: &Path,
+    dir: &Path,
+    files: &mut Vec<BrowsableFile>,
+) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        let is_hidden = entry
+            .file_name()
+            .to_str()
+            .is_some_and(|name| name.starts_with('.'));
+        if is_hidden {
+            continue;
+        }
+
+        let path = entry.path();
+        if file_type.is_dir() {
+            collect_browsable_files_recursive(root, &path, files)?;
+            continue;
+        }
+
+        if file_type.is_file() {
+            let kind = path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .and_then(FileKind::from_extension);
+            if let (Some(kind), Some(rel)) = (kind, doc_id_from_path(root, &path)) {
+                files.push(BrowsableFile { path: rel, kind });
+            }
+        }
+    }
+    Ok(())
 }
 
 fn collect_markdown_paths_recursive(dir: &Path, paths: &mut Vec<PathBuf>) -> std::io::Result<()> {
@@ -322,6 +388,92 @@ mod tests {
             doc_ids,
             vec!["a.md".to_string(), "visible/b.md".to_string()]
         );
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    // -- collect_browsable_files --
+
+    #[test]
+    fn collect_browsable_files__should_include_all_recognized_kinds_with_relative_paths() {
+        // Given
+        let root = create_temp_root("browsable-kinds");
+        std::fs::write(root.join("doc.md"), "# Doc").expect("write");
+        std::fs::write(root.join("scan.pdf"), "pdf").expect("write");
+        std::fs::write(root.join("photo.png"), "png").expect("write");
+        std::fs::write(root.join("config.json"), "{}").expect("write");
+        std::fs::create_dir_all(root.join("notes")).expect("mkdir");
+        std::fs::write(root.join("notes/todo.md"), "# Todo").expect("write");
+
+        // When
+        let files = collect_browsable_files(&root).expect("collect");
+
+        // Then
+        assert_eq!(
+            files,
+            vec![
+                BrowsableFile {
+                    path: "config.json".to_string(),
+                    kind: FileKind::Text,
+                },
+                BrowsableFile {
+                    path: "doc.md".to_string(),
+                    kind: FileKind::Document,
+                },
+                BrowsableFile {
+                    path: "notes/todo.md".to_string(),
+                    kind: FileKind::Document,
+                },
+                BrowsableFile {
+                    path: "photo.png".to_string(),
+                    kind: FileKind::Image,
+                },
+                BrowsableFile {
+                    path: "scan.pdf".to_string(),
+                    kind: FileKind::Pdf,
+                },
+            ]
+        );
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn collect_browsable_files__should_exclude_unrecognized_and_hidden_entries() {
+        // Given
+        let root = create_temp_root("browsable-excludes");
+        std::fs::write(root.join("a.md"), "# A").expect("write");
+        std::fs::write(root.join("b.rs"), "fn main() {}").expect("write");
+        std::fs::write(root.join(".secret.md"), "# Secret").expect("write");
+        std::fs::create_dir_all(root.join(".git")).expect("mkdir .git");
+        std::fs::write(root.join(".git/HEAD.md"), "ref").expect("write");
+
+        // When
+        let files = collect_browsable_files(&root).expect("collect");
+
+        // Then
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["a.md"]);
+
+        std::fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_browsable_files__should_exclude_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        // Given
+        let root = create_temp_root("browsable-symlink");
+        std::fs::write(root.join("a.md"), "# A").expect("write");
+        symlink(root.join("a.md"), root.join("link.md")).expect("symlink");
+
+        // When
+        let files = collect_browsable_files(&root).expect("collect");
+
+        // Then
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["a.md"]);
 
         std::fs::remove_dir_all(&root).expect("cleanup");
     }
