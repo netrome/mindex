@@ -200,7 +200,7 @@ Implementation notes:
   DOM-driven (untested, matching the other feature modules); the pure ranking
   logic it relies on is covered by `fuzzy.test.mjs`.
 
-### Task 4: Content-search mode + mobile launcher
+### Task 4: Content-search mode + mobile launcher ✓
 - Add `/` mode → navigate to `/search?q=<query>`.
 - Add the floating launcher button (visible/comfortable on mobile) that opens
   the same palette; ensure results are tappable.
@@ -209,6 +209,18 @@ Acceptance criteria:
 - `/` mode reaches the existing content search results.
 - On a phone viewport, the launcher button opens the palette and results can be
   tapped to navigate.
+
+Implementation notes:
+- `/` mode (`enterSearchMode`) shows a live hint and, on Enter, navigates to
+  `/search?q=<encoded>` (the existing content search; param is `q`). No new
+  endpoint — inline AJAX search remains a future option.
+- The launcher is a small fixed circular button (bottom-right, respects
+  `safe-area-inset-bottom`) added in `palette.js` and shown on all viewports —
+  it doubles as the discoverable entry point for the otherwise-invisible
+  Ctrl/⌘-K. Hidden while the palette is open. Could be restricted to
+  touch/small screens if desktop clutter is a concern.
+- Result rows navigate on `mousedown` (fires on tap; suppressed during scroll),
+  so taps work on touch without extra handling.
 
 ### Task 5: Docs
 - Update README (a "Command palette / fuzzy search" subsection) and check off

@@ -40,7 +40,22 @@ export const initPalette = () => {
     overlay.append(panel);
     document.body.append(overlay);
 
-    let mode = null; // null = mode menu, "file" = fuzzy file open
+    // Persistent launcher — the discoverable entry point, and the primary way
+    // to open the palette on touch devices where Ctrl/Cmd-K is unavailable.
+    const launcher = document.createElement("button");
+    launcher.type = "button";
+    launcher.className = "palette-launcher";
+    launcher.setAttribute("aria-label", "Open command palette");
+    launcher.innerHTML =
+        '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" ' +
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+        'stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="11" cy="11" r="7"></circle>' +
+        '<line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+    launcher.addEventListener("click", () => open());
+    document.body.append(launcher);
+
+    let mode = null; // null = mode menu, "file" = fuzzy file open, "search" = content search
     let entries = []; // currently rendered file entries
     let activeIndex = -1;
     let fileCache = null; // [{ path, kind }], fetched once per page load
@@ -155,9 +170,38 @@ export const initPalette = () => {
         }
     };
 
-    // Modes keyed by their trigger character. (Content search arrives in a
-    // later task; adding it here is a single entry.)
-    const MODES = [{ key: "f", label: "Open file", enter: enterFileMode }];
+    const submitSearch = () => {
+        const query = input.value.trim();
+        if (query !== "") {
+            window.location.href = `/search?q=${encodeURIComponent(query)}`;
+        }
+    };
+
+    const renderSearchHint = () => {
+        const query = input.value.trim();
+        showMessage(
+            query === ""
+                ? "Type a query, then press Enter to search file contents."
+                : `Press Enter to search contents for “${query}”.`,
+        );
+    };
+
+    const enterSearchMode = () => {
+        mode = "search";
+        input.value = "";
+        input.placeholder = "Search contents…";
+        menu.hidden = true;
+        results.hidden = false;
+        renderSearchHint();
+        input.focus();
+    };
+
+    // Modes keyed by their trigger character; the first keystroke (or a click)
+    // selects one.
+    const MODES = [
+        { key: "f", label: "Open file", enter: enterFileMode },
+        { key: "/", label: "Search contents", enter: enterSearchMode },
+    ];
 
     const renderMenu = () => {
         const items = MODES.map((def) => {
@@ -193,12 +237,14 @@ export const initPalette = () => {
 
     const open = () => {
         overlay.hidden = false;
+        launcher.hidden = true;
         resetToMenu();
         input.focus();
     };
 
     const close = () => {
         overlay.hidden = true;
+        launcher.hidden = false;
         input.value = "";
     };
 
@@ -214,6 +260,13 @@ export const initPalette = () => {
                 if (selected) {
                     selected.enter();
                 }
+            }
+            return;
+        }
+        if (mode === "search") {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                submitSearch();
             }
             return;
         }
@@ -234,6 +287,8 @@ export const initPalette = () => {
     input.addEventListener("input", () => {
         if (mode === "file") {
             updateResults();
+        } else if (mode === "search") {
+            renderSearchHint();
         }
     });
 
