@@ -153,6 +153,8 @@ pub fn app(config: config::AppConfig) -> Router {
             "/static/features/sw_register.js",
             get(assets::sw_register_script),
         )
+        .route("/static/features/palette.js", get(assets::palette_script))
+        .route("/static/features/fuzzy.js", get(assets::fuzzy_script))
         .route("/static/manifest.json", get(assets::manifest))
         .route("/sw.js", get(assets::service_worker))
         .route("/static/icons/icon-192.png", get(assets::icon_192))

@@ -15,6 +15,8 @@ const STATIC_ASSETS = [
   '/static/features/uploads.js',
   '/static/features/editor_paste_upload.js',
   '/static/features/abc_render.js',
+  '/static/features/palette.js',
+  '/static/features/fuzzy.js',
   '/static/manifest.json',
   '/sw.js'
 ];

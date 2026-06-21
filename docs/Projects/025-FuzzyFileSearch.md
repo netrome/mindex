@@ -169,7 +169,7 @@ Implementation notes:
   - equal-score ties prefer the shorter path
 - Asset routes for `fuzzy.js` are added in Task 3, when `palette.js` imports it.
 
-### Task 3: Palette overlay + file mode
+### Task 3: Palette overlay + file mode ✓
 - Add `assets/features/palette.js` (`initPalette()`), register the asset route
   (`app.rs` + `assets.rs`), wire into `app.js`.
 - Implement open/close (Ctrl/⌘-K + Esc), input-focus guard, file mode with
@@ -182,6 +182,23 @@ Acceptance criteria:
 - Does not trigger while typing in an input/textarea/editor.
 - `f` enters file mode; typing filters; Enter opens the highlighted file in the
   correct view; Esc closes.
+
+Implementation notes:
+- `palette.js` builds one reusable overlay, opens on Ctrl/⌘-K (guarded so it
+  does not fire while focus is in an input/textarea/contenteditable, which also
+  avoids clobbering an editor's own Ctrl-K), and closes on Esc or backdrop
+  click. A mode menu lists the trigger keys; the first keystroke (or a click)
+  selects a mode. Mode `f` lazy-fetches `/api/files` once per page load,
+  fuzzy-filters via `fuzzy.js`, supports ↑/↓ + Enter and mouse, and navigates
+  to `/d/<path>` (which resolves any file kind to its view).
+- Result rows are built with `textContent` (no HTML interpolation of paths).
+- Served + precached like the other feature modules (`assets.rs`, `app.rs`,
+  `app.js`, `templates/sw.js`). Modal styles use the existing theme tokens, so
+  light/dark both work.
+- Content-search mode (`/`) and the mobile launcher are Task 4; the mode menu
+  is a small array so adding `/` is a one-line entry. `palette.js` is
+  DOM-driven (untested, matching the other feature modules); the pure ranking
+  logic it relies on is covered by `fuzzy.test.mjs`.
 
 ### Task 4: Content-search mode + mobile launcher
 - Add `/` mode → navigate to `/search?q=<query>`.

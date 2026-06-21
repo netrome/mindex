@@ -188,6 +188,26 @@ pub(crate) async fn file_manage_script() -> axum::response::Response {
         .unwrap()
 }
 
+pub(crate) async fn palette_script() -> axum::response::Response {
+    const PALETTE_JS_CONTENT: &str = include_str!("../assets/features/palette.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(PALETTE_JS_CONTENT.into())
+        .unwrap()
+}
+
+pub(crate) async fn fuzzy_script() -> axum::response::Response {
+    const FUZZY_JS_CONTENT: &str = include_str!("../assets/features/fuzzy.js");
+    axum::response::Response::builder()
+        .status(200)
+        .header("content-type", "application/javascript")
+        .header("cache-control", "public, max-age=3600")
+        .body(FUZZY_JS_CONTENT.into())
+        .unwrap()
+}
+
 pub(crate) async fn sw_register_script() -> axum::response::Response {
     const SW_REGISTER_JS_CONTENT: &str = include_str!("../assets/features/sw_register.js");
     axum::response::Response::builder()
