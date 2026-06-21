@@ -4,13 +4,13 @@
 - [x] Agent insert point UX: move insert buttons to left gutter so blocks flow continuously
 
 ## To do
+- [ ] [Fuzzy file search / command palette](025-FuzzyFileSearch.md) (Ctrl-K, fuzzy file open + content search)
 
 ## Ideas
 - [ ] Public pages
 - [ ] Custom styling of pages
   - Allow embed ad-hoc styles on a page to "pimp it up".
 - [ ] Chat boxes
-- [ ] fzf style file search
 - [ ] Emojis
 - [ ] Code execution/scripting
 
