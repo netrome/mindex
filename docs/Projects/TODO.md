@@ -4,7 +4,6 @@
 - [x] Agent insert point UX: move insert buttons to left gutter so blocks flow continuously
 
 ## To do
-- [ ] [Fuzzy file search / command palette](025-FuzzyFileSearch.md) (Ctrl-K, fuzzy file open + content search)
 
 ## Ideas
 - [ ] Public pages
@@ -15,6 +14,7 @@
 - [ ] Code execution/scripting
 
 ## Done
+- [x] [Fuzzy file search / command palette](025-FuzzyFileSearch.md) (Ctrl-K + launcher, fuzzy file open + content search)
 - [x] [Git diff marker simplification](024-GitDiffMarkerSimplification.md)
 - [x] [Git diff and revert](023-GitDiffAndRevert.md) (gutter markers, HEAD toggle, per-file revert, workspace reset)
 - [x] [File deletion](022-FileDeletion.md)

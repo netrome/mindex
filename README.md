@@ -13,6 +13,7 @@ It’s designed to stay **minimal, simple, and hackable**.
 - Mermaid diagrams via fenced `mermaid` code blocks
 - ABC notation rendering via fenced `abc`/`abcjs` code blocks (client-side)
 - Full-text search across documents
+- Command palette (`Ctrl`/`⌘`-`K`, or the on-screen button) for fuzzy file open and content search
 - Edit and save Markdown from the browser
 - File uploads via `/upload` — images, PDFs, and text files to any directory (returns markdown link)
 - Paste images directly into the editor (uploads and inserts markdown)
@@ -47,6 +48,21 @@ cargo run -- --root ./sample-root --port 8080
 ```
 
 The port can also be set via the `MINDEX_PORT` environment variable.
+
+## Command palette
+
+Press `Ctrl`-`K` (`⌘`-`K` on macOS), or tap the search button in the
+bottom-right corner, to open a command palette from any page. The first
+keystroke chooses a mode:
+
+- `f` — **fuzzy file open**: type to fuzzy-match any file by path (documents,
+  PDFs, images, text). Use `↑`/`↓` to move and `Enter`, click, or tap to open.
+- `/` — **search contents**: type a query and press `Enter` to run the
+  full-text search across documents.
+
+`Esc` or a click outside closes the palette. The button is the primary trigger
+on touch devices; the keyboard shortcut is ignored while you are typing in a
+text field or the editor.
 
 ## Development
 

@@ -1,7 +1,7 @@
 # Fuzzy File Search (Command Palette)
 
 ## Status
-Proposed
+Done
 
 ## Goal
 Add a Helix-style command palette to Mindex: a quick overlay, opened from any
@@ -222,7 +222,7 @@ Implementation notes:
 - Result rows navigate on `mousedown` (fires on tap; suppressed during scroll),
   so taps work on touch without extra handling.
 
-### Task 5: Docs
+### Task 5: Docs ✓
 - Update README (a "Command palette / fuzzy search" subsection) and check off
   the TODO item; note v1 non-goals (inline search, extra modes).
 
@@ -230,3 +230,11 @@ Acceptance criteria:
 - README documents the trigger keys, modes, and mobile launcher.
 - `docs/Projects/TODO.md` "fzf style file search" item links here and is checked
   off when implementation lands.
+
+Implementation notes:
+- README: added a Features bullet and a "Command palette" section documenting
+  the `Ctrl`/`⌘`-`K` shortcut, the on-screen launcher, the `f` and `/` modes,
+  and the typing/editor guard.
+- `TODO.md`: the item is checked off and moved to Done, linking this doc.
+- The launcher is shown on all viewports (decided in Task 4) so the desktop and
+  mobile experiences do not diverge beyond the trigger keys.
