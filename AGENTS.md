@@ -107,6 +107,7 @@ Use when the task is exploratory/architectural or too large for a single PR.
    - `cargo fmt`
    - `cargo clippy --all-targets --all-features`
    - `cargo nextest run`
+   - `node --test assets/` (only when changing browser JS modules)
 5. Update docs if behavior/usage changed (README/docs/*).
 6. Update docs/Projects/TODO.md: check off the item, add follow-ups if needed.
   - If working on a sub-task in a project, check off the sub-task in the project document.

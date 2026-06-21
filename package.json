@@ -1,0 +1,9 @@
+{
+  "name": "mindex",
+  "private": true,
+  "description": "Dev tooling for Mindex's browser assets: unit tests for pure JS logic via the Node.js built-in test runner. Not part of the Rust build or the shipped binary; no third-party dependencies.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test assets/"
+  }
+}

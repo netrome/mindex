@@ -135,7 +135,7 @@ Implementation notes:
 - Handler: `document_file_list` in `app/documents.rs` → `Json<Vec<FileListEntry>>`.
   Auth-gating is inherited from the existing `/api/*` middleware.
 
-### Task 2: Fuzzy scorer module
+### Task 2: Fuzzy scorer module ✓
 - Add `assets/features/fuzzy.js` with `score`/`filter`.
 - Subsequence match, case-insensitive, with bonuses for matches at path
   separators and word boundaries and for contiguous runs; returns `null` on no
@@ -146,6 +146,28 @@ Acceptance criteria:
 - `"todo"` ranks `notes/todo.md` above `t/o/d/other.md`.
 - Non-subsequence queries return no match.
 - Basename matches outrank deep-path incidental matches.
+
+Implementation notes:
+- `score(query, candidate)` runs a small alignment DP (favouring boundary,
+  basename, and contiguous matches; light leading-gap penalty) and returns
+  `null` when `query` is not a subsequence. `filter(query, items, limit)` ranks
+  matches, keeps input order for an empty query, and breaks ties toward the
+  shorter path. Pure functions, no DOM, no dependencies.
+- Tests: `assets/features/fuzzy.test.mjs`, run with `node --test assets/` (or
+  `npm test`). This added a minimal, dependency-free JS test harness — a
+  `package.json` that only sets `type: module` + the test script (no packages,
+  not embedded in the binary). Documented in README (Development), STYLE.md
+  (JavaScript tests), ARCHITECTURE.md (Test support), and the dev workflow in
+  AGENTS.md/CLAUDE.md. Cases covered:
+  - non-subsequence (`"xyz"` in a path, out-of-order `"dot"` in `"todo"`) → null
+  - case-insensitive subsequence (`"TODO"`, `"nt"` in `notes/todo.md`) → match
+  - empty query → score 0, input order preserved
+  - `"todo"`: `notes/todo.md` (contiguous basename) ranks above `t/o/d/other.md`
+  - `"todo"`: `projects/todo.md` (basename) ranks above `todo/archive.md` (dir)
+  - `"rep"`: `my-report.md` (word boundary) ranks above `readme.md` (mid-word)
+  - `filter` drops non-matches, honours `limit`, accepts `{path, kind}` objects
+  - equal-score ties prefer the shorter path
+- Asset routes for `fuzzy.js` are added in Task 3, when `palette.js` imports it.
 
 ### Task 3: Palette overlay + file mode
 - Add `assets/features/palette.js` (`initPalette()`), register the asset route

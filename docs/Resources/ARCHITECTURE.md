@@ -76,6 +76,7 @@ Mindex is a single-process web server that:
 ### Test support
 
 - `src/test_support.rs` — shared test utilities (`create_temp_root`); compiled only under `#[cfg(test)]`
+- `assets/**/*.test.mjs` — Node.js built-in test runner unit tests for pure browser-asset logic (run with `node --test assets/`); no third-party dependencies, not part of the Rust build or the shipped binary
 
 ## Key design choices
 

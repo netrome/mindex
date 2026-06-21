@@ -48,6 +48,30 @@ cargo run -- --root ./sample-root --port 8080
 
 The port can also be set via the `MINDEX_PORT` environment variable.
 
+## Development
+
+Mindex is a Rust binary with a small set of vanilla-JS browser assets and no
+asset build step. Rust checks and tests:
+
+```bash
+cargo fmt
+cargo clippy --all-targets --all-features
+cargo nextest run   # or: cargo test
+```
+
+The browser assets have no toolchain or third-party dependencies. Pure-logic
+modules (no DOM) are unit-tested with the Node.js built-in test runner — there
+is nothing to install:
+
+```bash
+node --test assets/   # or: npm test
+```
+
+Test files live next to the code they cover as `*.test.mjs` (for example
+`assets/features/fuzzy.test.mjs`). The `package.json` only sets `type: module`
+and the test script; it declares no dependencies and is not part of the build
+or the shipped binary.
+
 ## PDF viewing
 
 Mindex supports PDF files under the configured root directory.

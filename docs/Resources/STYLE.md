@@ -120,3 +120,20 @@ for anything with setup.
 Tests that touch the filesystem use `create_temp_root` (shared test helper) to
 get a unique temporary directory. Clean up with `std::fs::remove_dir_all` at
 the end.
+
+### JavaScript tests
+
+Pure browser-asset logic (no DOM, no I/O) is unit-tested with the Node.js
+built-in test runner — no third-party packages. Test files sit beside the
+module they cover as `<name>.test.mjs` and import it directly:
+
+```js
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { score } from "./fuzzy.js";
+```
+
+Run them with `node --test assets/` (or `npm test`). Use the same
+`// Given / // When / // Then` structure as the Rust tests. Keep
+DOM-dependent code in a separate module so the testable logic stays pure and
+importable under Node.
